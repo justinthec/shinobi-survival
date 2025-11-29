@@ -1,0 +1,1522 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shinobi Survivor: Forest of Death</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Permanent+Marker&family=Roboto:wght@400;700&display=swap');
+
+        :root {
+            --chakra-blue: #00d2ff;
+            --fire-red: #ff4500;
+            --ui-bg: rgba(10, 10, 12, 0.9);
+            --ui-border: #d4af37;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #050505;
+            font-family: 'Roboto', sans-serif;
+            color: white;
+            user-select: none;
+            cursor: crosshair;
+        }
+
+        #gameCanvas {
+            display: block;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .hud-top {
+            display: flex;
+            justify-content: space-between;
+            padding: 20px;
+            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8), transparent);
+        }
+
+        .stat-block {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .bar-container {
+            width: 250px;
+            height: 24px;
+            background: #222;
+            border: 2px solid #444;
+            transform: skewX(-15deg);
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+        }
+
+        .bar-fill {
+            height: 100%;
+            transition: width 0.1s linear;
+        }
+
+        #hp-bar-fill {
+            background: linear-gradient(90deg, #c0392b, #e74c3c);
+        }
+
+        #xp-bar-fill {
+            background: linear-gradient(90deg, #2980b9, #3498db);
+        }
+
+        #shield-bar-fill {
+            background: #f1c40f;
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            opacity: 0.7;
+        }
+
+        .label {
+            font-family: 'Permanent Marker', cursive;
+            font-size: 1.2rem;
+            color: #ddd;
+            text-transform: uppercase;
+            text-shadow: 2px 2px 0 #000;
+        }
+
+        .timer {
+            font-family: 'Bangers', cursive;
+            font-size: 3rem;
+            color: #f1c40f;
+            text-shadow: 0 0 10px #e67e22;
+        }
+
+        .hud-bottom {
+            padding: 20px;
+            display: flex;
+            gap: 20px;
+            align-items: flex-end;
+        }
+
+        .skill-slot {
+            position: relative;
+            width: 70px;
+            height: 70px;
+            background: #111;
+            border: 2px solid #555;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+        }
+
+        .skill-slot.ready {
+            border-color: var(--chakra-blue);
+            box-shadow: 0 0 15px var(--chakra-blue);
+        }
+
+        .skill-key {
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            background: #333;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            border: 1px solid #777;
+            font-size: 0.8rem;
+        }
+
+        .skill-icon-img {
+            font-size: 1.5rem;
+        }
+
+        .cooldown-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            height: 0%;
+            transition: height 0.1s linear;
+        }
+
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+            z-index: 100;
+            backdrop-filter: blur(5px);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        h1 {
+            font-family: 'Bangers', cursive;
+            font-size: 5rem;
+            background: -webkit-linear-gradient(#f1c40f, #e67e22);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+            filter: drop-shadow(0 0 10px rgba(255, 165, 0, 0.5));
+        }
+
+        .char-select-container {
+            display: flex;
+            gap: 20px;
+            margin-top: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .char-card {
+            width: 220px;
+            background: linear-gradient(135deg, #222, #111);
+            border: 2px solid #444;
+            padding: 20px;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 240px;
+        }
+
+        .char-card:hover {
+            transform: translateY(-10px);
+            border-color: var(--chakra-blue);
+            box-shadow: 0 10px 20px rgba(0, 210, 255, 0.2);
+            height: 350px;
+        }
+
+        .char-card.selected {
+            border-color: #f1c40f;
+            box-shadow: 0 0 25px rgba(241, 196, 15, 0.4);
+            background: linear-gradient(135deg, #333, #222);
+        }
+
+        .char-name {
+            font-family: 'Permanent Marker', cursive;
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+            text-align: center;
+            width: 100%;
+        }
+
+        .char-icon {
+            font-size: 3rem;
+            margin: 10px 0;
+            transition: transform 0.3s;
+        }
+
+        .char-card:hover .char-icon {
+            transform: scale(1.1);
+        }
+
+        .char-details {
+            font-size: 0.85rem;
+            color: #bbb;
+            width: 100%;
+            margin-top: 10px;
+            line-height: 1.4;
+            border-top: 1px solid #444;
+            padding-top: 10px;
+            opacity: 0;
+            max-height: 0;
+            transition: all 0.4s ease-out;
+            overflow: hidden;
+        }
+
+        .char-card:hover .char-details {
+            opacity: 1;
+            max-height: 250px;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+
+        .detail-label {
+            color: #888;
+            font-weight: bold;
+        }
+
+        .detail-val {
+            color: #fff;
+            text-align: right;
+        }
+
+        .btn {
+            background: linear-gradient(to bottom, #c0392b, #a93226);
+            color: white;
+            border: none;
+            padding: 15px 50px;
+            font-size: 2rem;
+            font-family: 'Bangers', cursive;
+            cursor: pointer;
+            margin-top: 50px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            box-shadow: 0 5px 15px rgba(192, 57, 43, 0.4);
+            transition: transform 0.1s;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+            filter: brightness(1.2);
+        }
+
+        #level-up-options {
+            display: flex;
+            gap: 30px;
+        }
+
+        .upgrade-card {
+            width: 220px;
+            height: 320px;
+            background-color: #1a1a1a;
+            border: 3px solid #555;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+            position: relative;
+        }
+
+        .upgrade-card:hover {
+            transform: scale(1.05);
+            border-color: white;
+        }
+
+        .nature-icon {
+            font-size: 3rem;
+            margin: 20px 0;
+        }
+
+        .card-title {
+            font-family: 'Bangers', cursive;
+            font-size: 1.8rem;
+            margin: 0;
+            color: #fff;
+        }
+
+        /* Passive Indicators */
+        .passive-indicator {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            font-weight: bold;
+            font-size: 0.9rem;
+            text-shadow: 0 0 5px black;
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="ui-layer">
+        <div class="hud-top" id="hud">
+            <div class="stat-block">
+                <div class="label">Health</div>
+                <div class="bar-container">
+                    <div id="hp-bar-fill" class="bar-fill" style="width: 100%;"></div>
+                    <div id="shield-bar-fill" style="width: 0%;"></div>
+                </div>
+            </div>
+            <div class="timer" id="timer-display">00:00</div>
+            <div class="stat-block" style="align-items: flex-end;">
+                <div class="label">Chakra Level <span id="level-display" style="color:#3498db">1</span></div>
+                <div class="bar-container">
+                    <div id="xp-bar-fill" class="bar-fill" style="width: 0%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="passive-indicator" id="passive-text"></div>
+
+        <div class="hud-bottom" id="skill-hud">
+            <div class="skill-slot" id="skill-e">
+                <div class="skill-key">E</div>
+                <div class="skill-icon-img">🌀</div>
+                <div class="cooldown-overlay" id="cd-e"></div>
+            </div>
+            <div class="skill-slot" id="skill-r">
+                <div class="skill-key">R</div>
+                <div class="skill-icon-img">🔥</div>
+                <div class="cooldown-overlay" id="cd-r"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="screen">
+        <h1>SHINOBI WAR</h1>
+        <p style="color: #aaa; font-size: 1.2rem;">THE FOREST BATTLEFIELD</p>
+        <div class="char-select-container">
+            <!-- Naruto -->
+            <div class="char-card" onclick="selectChar('naruto', this)">
+                <div class="char-name" style="color:orange">Naruto</div>
+                <div class="char-icon">🦊</div>
+                <div class="char-details">
+                    <div class="detail-row"><span class="detail-label">Passive:</span> <span class="detail-val">Uzumaki
+                            Vitality</span></div>
+                    <div class="detail-row"><span class="detail-label">Weapon:</span> <span class="detail-val">Shuriken
+                            / Rasenshuriken</span></div>
+                    <div class="detail-row"><span class="detail-label">Skill:</span> <span class="detail-val">Charged
+                            Rasengan</span></div>
+                    <div class="detail-row"><span class="detail-label">Ult:</span> <span class="detail-val">Tailed Beast
+                            Beam</span></div>
+                </div>
+            </div>
+            <!-- Sasuke -->
+            <div class="char-card" onclick="selectChar('sasuke', this)">
+                <div class="char-name" style="color:#a48eff">Sasuke</div>
+                <div class="char-icon">👁️</div>
+                <div class="char-details">
+                    <div class="detail-row"><span class="detail-label">Passive:</span> <span
+                            class="detail-val">Sharingan (Dodge)</span></div>
+                    <div class="detail-row"><span class="detail-label">Weapon:</span> <span class="detail-val">Sword +
+                            Chidori</span></div>
+                    <div class="detail-row"><span class="detail-label">Evo:</span> <span class="detail-val">Kirin (Sky
+                            Strike)</span></div>
+                    <div class="detail-row"><span class="detail-label">Ult:</span> <span
+                            class="detail-val">Susanoo</span></div>
+                </div>
+            </div>
+            <!-- Gaara -->
+            <div class="char-card" onclick="selectChar('gaara', this)">
+                <div class="char-name" style="color:#e0c388">Gaara</div>
+                <div class="char-icon">🏜️</div>
+                <div class="char-details">
+                    <div class="detail-row"><span class="detail-label">Passive:</span> <span class="detail-val">Sand
+                            Shield</span></div>
+                    <div class="detail-row"><span class="detail-label">Weapon:</span> <span class="detail-val">Sand
+                            Tsunami</span></div>
+                    <div class="detail-row"><span class="detail-label">Evo:</span> <span class="detail-val">Mausoleum
+                            (Stun)</span></div>
+                    <div class="detail-row"><span class="detail-label">Ult:</span> <span class="detail-val">Pyramid
+                            Seal</span></div>
+                </div>
+            </div>
+            <!-- Sakura -->
+            <div class="char-card" onclick="selectChar('sakura', this)">
+                <div class="char-name" style="color:#ffb7b2">Sakura</div>
+                <div class="char-icon">🌸</div>
+                <div class="char-details">
+                    <div class="detail-row"><span class="detail-label">Passive:</span> <span class="detail-val">100
+                            Healings</span></div>
+                    <div class="detail-row"><span class="detail-label">Weapon:</span> <span class="detail-val">Ground
+                            Smash</span></div>
+                    <div class="detail-row"><span class="detail-label">Evo:</span> <span class="detail-val">Bedrock
+                            Breaker</span></div>
+                    <div class="detail-row"><span class="detail-label">Ult:</span> <span class="detail-val">Summon
+                            Katsuyu</span></div>
+                </div>
+            </div>
+        </div>
+        <button class="btn" onclick="startGame()">Enter Battlefield</button>
+    </div>
+
+    <div id="levelup-screen" class="screen hidden">
+        <h2 style="font-family: 'Bangers'; color: gold; font-size: 4rem; text-shadow: 0 0 20px #e67e22;">LEVEL UP</h2>
+        <div id="level-up-options"></div>
+    </div>
+
+    <div id="gameover-screen" class="screen hidden">
+        <h1 style="color: #e74c3c; font-size: 6rem;">DEFEAT</h1>
+        <p id="final-stats" style="font-size: 1.5rem; color: #ddd;"></p>
+        <button class="btn" onclick="location.reload()">Reincarnate</button>
+    </div>
+
+    <script>
+        /**
+         * SHINOBI SURVIVOR - v17.0
+         * Updates: Slower Rasengan Charge (Plow speed), Rotating Rasenshuriken Fixed
+         */
+
+        const CANVAS = document.getElementById('gameCanvas');
+        const CTX = CANVAS.getContext('2d');
+
+        const MAP_WIDTH = 1400;
+        const SPRITES = {};
+
+        // --- Config Constants (Units in Pixels per Second or Seconds) ---
+        const BASE_SPEED = 240;
+
+        function initSprites() {
+            const makeSprite = (width, height, drawFn) => {
+                const c = document.createElement('canvas');
+                c.width = width; c.height = height;
+                const ctx = c.getContext('2d');
+                drawFn(ctx, width / 2, height / 2);
+                return c;
+            };
+
+            SPRITES.tree = makeSprite(120, 160, (ctx, cx, cy) => {
+                ctx.fillStyle = '#3e2723'; ctx.fillRect(cx - 15, cy, 30, 80);
+                ctx.fillStyle = '#1b5e20';
+                ctx.beginPath(); ctx.moveTo(cx - 50, cy + 20); ctx.lineTo(cx, cy - 60); ctx.lineTo(cx + 50, cy + 20); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(cx - 45, cy - 20); ctx.lineTo(cx, cy - 90); ctx.lineTo(cx + 45, cy - 20); ctx.fill();
+                ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(cx, cy + 75, 40, 15, 0, 0, Math.PI * 2); ctx.fill();
+            });
+
+            SPRITES.naruto = makeSprite(64, 64, (ctx, cx, cy) => {
+                ctx.fillStyle = '#ff6b00'; ctx.beginPath(); ctx.arc(cx, cy + 10, 15, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#f1c40f'; drawSpikyHair(ctx, cx, cy - 5, 18, '#f1c40f');
+                ctx.fillStyle = '#ffccaa'; ctx.beginPath(); ctx.arc(cx, cy, 12, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#333'; ctx.fillRect(cx - 10, cy - 8, 20, 6); ctx.fillStyle = '#ccc'; ctx.fillRect(cx - 4, cy - 7, 8, 4);
+            });
+
+            SPRITES.sasuke = makeSprite(64, 64, (ctx, cx, cy) => {
+                ctx.fillStyle = '#ccc'; ctx.beginPath();
+                ctx.moveTo(cx - 12, cy + 5); ctx.lineTo(cx + 12, cy + 5); ctx.lineTo(cx + 15, cy - 8); ctx.lineTo(cx - 15, cy - 8); ctx.fill();
+                ctx.beginPath(); ctx.arc(cx, cy + 10, 14, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#ffe0bd'; ctx.beginPath(); ctx.moveTo(cx, cy + 5); ctx.lineTo(cx - 4, cy + 15); ctx.lineTo(cx + 4, cy + 15); ctx.fill();
+                ctx.strokeStyle = '#800080'; ctx.lineWidth = 4;
+                ctx.beginPath(); ctx.moveTo(cx - 14, cy + 15); ctx.lineTo(cx + 14, cy + 15); ctx.stroke();
+                ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(cx + 8, cy + 15); ctx.lineTo(cx + 10, cy + 22); ctx.stroke();
+                ctx.fillStyle = '#ffe0bd'; ctx.beginPath(); ctx.arc(cx, cy, 11, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#1a1a2e';
+                ctx.beginPath();
+                ctx.moveTo(cx - 12, cy - 5); ctx.lineTo(cx - 18, cy - 15); ctx.lineTo(cx - 8, cy - 12);
+                ctx.lineTo(cx, cy - 18); ctx.lineTo(cx + 8, cy - 12);
+                ctx.lineTo(cx + 18, cy - 15); ctx.lineTo(cx + 12, cy - 5);
+                ctx.fill();
+                ctx.beginPath(); ctx.arc(cx, cy - 2, 12, 0, Math.PI, true); ctx.fill();
+                ctx.fillStyle = 'red'; ctx.beginPath(); ctx.arc(cx + 3, cy + 2, 1.5, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = '#333'; ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.moveTo(cx + 8, cy - 5); ctx.lineTo(cx + 12, cy - 15); ctx.stroke();
+            });
+
+            SPRITES.gaara = makeSprite(80, 80, (ctx, cx, cy) => {
+                ctx.fillStyle = '#d35400'; ctx.beginPath(); ctx.ellipse(cx + 10, cy - 5, 12, 18, 0.2, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#8e44ad'; ctx.beginPath(); ctx.arc(cx, cy + 10, 15, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#c0392b'; ctx.beginPath(); ctx.arc(cx, cy, 13, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#ffe0bd'; ctx.beginPath(); ctx.arc(cx, cy + 2, 11, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx - 5, cy + 2); ctx.lineTo(cx - 2, cy + 2); ctx.stroke();
+            });
+            SPRITES.sakura = makeSprite(64, 64, (ctx, cx, cy) => {
+                ctx.fillStyle = '#e74c3c'; ctx.beginPath(); ctx.arc(cx, cy + 10, 14, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#fd79a8'; ctx.beginPath(); ctx.arc(cx, cy, 14, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#ffe0bd'; ctx.beginPath(); ctx.arc(cx, cy + 3, 11, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#e74c3c'; ctx.fillRect(cx - 10, cy - 8, 20, 5);
+            });
+
+            // Enemies
+            SPRITES.zetsu = makeSprite(64, 64, (ctx, cx, cy) => {
+                ctx.fillStyle = '#2ecc71'; ctx.beginPath(); ctx.ellipse(cx, cy, 16, 20, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#eee'; ctx.beginPath(); ctx.arc(cx - 5, cy, 10, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(cx + 5, cy, 10, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = 'yellow'; ctx.beginPath(); ctx.arc(cx - 2, cy - 2, 2, 0, Math.PI * 2); ctx.fill();
+            });
+            SPRITES.puppet = makeSprite(80, 80, (ctx, cx, cy) => {
+                ctx.fillStyle = '#5d4037'; ctx.beginPath(); ctx.arc(cx, cy, 22, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#d7ccc8'; ctx.beginPath(); ctx.arc(cx, cy + 2, 15, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = '#5d4037'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx - 10, cy + 8); ctx.lineTo(cx + 10, cy + 8); ctx.stroke();
+            });
+            SPRITES.sound_ninja = makeSprite(64, 64, (ctx, cx, cy) => {
+                ctx.fillStyle = '#999'; ctx.beginPath(); ctx.arc(cx, cy, 18, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#333'; ctx.beginPath(); ctx.arc(cx, cy - 5, 15, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = '#eee'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(cx - 15, cy + 10); ctx.lineTo(cx - 25, cy + 20); ctx.stroke(); ctx.beginPath(); ctx.moveTo(cx + 15, cy + 10); ctx.lineTo(cx + 25, cy + 20); ctx.stroke();
+            });
+            SPRITES.snake = makeSprite(128, 128, (ctx, cx, cy) => {
+                ctx.fillStyle = '#5e35b1'; ctx.beginPath(); ctx.ellipse(cx, cy, 30, 50, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#yellow'; ctx.beginPath(); ctx.arc(cx - 10, cy - 30, 5, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(cx + 10, cy - 30, 5, 0, Math.PI * 2); ctx.fill();
+            });
+
+            // VFX & Weapons
+            SPRITES.shuriken = makeSprite(32, 32, (ctx, cx, cy) => {
+                ctx.translate(cx, cy);
+                ctx.fillStyle = '#ccc';
+                for (let i = 0; i < 4; i++) {
+                    ctx.rotate(Math.PI / 2);
+                    ctx.beginPath();
+                    ctx.moveTo(0, -10); ctx.lineTo(3, -2); ctx.lineTo(10, 0); ctx.lineTo(3, 2);
+                    ctx.fill();
+                }
+                ctx.fillStyle = '#eee'; ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI * 2); ctx.fill();
+            });
+
+            SPRITES.rasengan = makeSprite(100, 100, (ctx, cx, cy) => {
+                const grd = ctx.createRadialGradient(cx, cy, 10, cx, cy, 40);
+                grd.addColorStop(0, "white"); grd.addColorStop(0.5, "#00d2ff"); grd.addColorStop(1, "rgba(0, 210, 255, 0)");
+                ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(cx, cy, 40, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = 'white'; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(cx, cy, 30, 0, Math.PI * 2); ctx.stroke();
+                ctx.strokeStyle = '#00d2ff';
+                for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(cx, cy, 20 + i * 5, i, i + Math.PI); ctx.stroke(); }
+            });
+
+            SPRITES.rasenshuriken = makeSprite(128, 128, (ctx, cx, cy) => {
+                ctx.translate(cx, cy);
+                ctx.fillStyle = 'rgba(200, 240, 255, 0.7)';
+                for (let i = 0; i < 3; i++) { ctx.rotate(Math.PI * 2 / 3); ctx.beginPath(); ctx.ellipse(40, 0, 50, 15, 0, 0, Math.PI * 2); ctx.fill(); }
+                ctx.fillStyle = '#00d2ff'; ctx.beginPath(); ctx.arc(0, 0, 20, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill();
+            });
+
+            SPRITES.sword_slash = makeSprite(100, 60, (ctx, cx, cy) => {
+                ctx.fillStyle = 'rgba(200, 220, 255, 0.8)'; ctx.beginPath();
+                ctx.arc(cx - 20, cy, 45, -Math.PI / 3, Math.PI / 3); ctx.lineTo(cx - 30, cy); ctx.fill();
+                ctx.strokeStyle = '#00d2ff'; ctx.lineWidth = 2; ctx.stroke();
+            });
+
+            SPRITES.sand_hand = makeSprite(120, 160, (ctx, cx, cy) => {
+                ctx.fillStyle = '#d35400'; ctx.strokeStyle = '#a04000'; ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.arc(cx, cy + 30, 40, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+                for (let i = -2; i <= 2; i++) {
+                    const ang = (i * 0.2) - Math.PI / 2;
+                    const fx = cx + Math.cos(ang) * 60; const fy = cy + Math.sin(ang) * 60;
+                    ctx.beginPath(); ctx.moveTo(cx + Math.cos(ang) * 30, cy + Math.sin(ang) * 30 + 30);
+                    ctx.lineTo(fx, fy); ctx.lineWidth = 15; ctx.lineCap = 'round'; ctx.stroke();
+                    ctx.beginPath(); ctx.arc(fx, fy, 8, 0, Math.PI * 2); ctx.fill();
+                }
+            });
+            SPRITES.tailed_beast_bomb = makeSprite(64, 64, (ctx, cx, cy) => {
+                const grd = ctx.createRadialGradient(cx, cy, 5, cx, cy, 30);
+                grd.addColorStop(0, "black"); grd.addColorStop(0.5, "#4b0082"); grd.addColorStop(1, "rgba(0,0,0,0)");
+                ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(cx, cy, 25, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(cx - 5, cy - 5, 2, 0, Math.PI * 2); ctx.fill();
+            });
+            SPRITES.rock_wave = makeSprite(80, 40, (ctx, cx, cy) => {
+                ctx.fillStyle = '#654321'; ctx.beginPath(); ctx.rect(cx - 40, cy - 15, 80, 30); ctx.fill();
+                ctx.fillStyle = '#8b4513'; ctx.beginPath();
+                ctx.moveTo(cx - 30, cy - 15); ctx.lineTo(cx - 20, cy - 35); ctx.lineTo(cx - 10, cy - 15);
+                ctx.moveTo(cx, cy - 15); ctx.lineTo(cx + 10, cy - 40); ctx.lineTo(cx + 20, cy - 15); ctx.fill();
+            });
+            SPRITES.cracks = makeSprite(100, 100, (ctx, cx, cy) => {
+                ctx.strokeStyle = '#3e2723'; ctx.lineWidth = 3; ctx.beginPath();
+                for (let i = 0; i < 5; i++) {
+                    const a = (i / 5) * Math.PI * 2; ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a) * 40, cy + Math.sin(a) * 40);
+                    ctx.lineTo(cx + Math.cos(a + 0.2) * 50, cy + Math.sin(a + 0.2) * 50);
+                }
+                ctx.stroke();
+            });
+
+            SPRITES.susanoo = makeSprite(300, 300, (ctx, cx, cy) => {
+                ctx.strokeStyle = '#8A2BE2'; ctx.lineWidth = 8; ctx.lineCap = 'round'; ctx.shadowBlur = 20; ctx.shadowColor = '#8A2BE2';
+                for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(cx, cy + 20, 40 + i * 30, Math.PI, 0); ctx.stroke(); }
+                ctx.beginPath(); ctx.arc(cx, cy - 80, 40, 0, Math.PI * 2); ctx.stroke();
+            });
+            SPRITES.kurama = makeSprite(300, 300, (ctx, cx, cy) => {
+                ctx.fillStyle = 'rgba(255, 140, 0, 0.4)'; ctx.shadowBlur = 30; ctx.shadowColor = 'orange';
+                ctx.beginPath();
+                ctx.moveTo(cx, cy + 50); ctx.lineTo(cx - 80, cy - 60); ctx.lineTo(cx - 100, cy - 120);
+                ctx.lineTo(cx - 40, cy - 80); ctx.lineTo(cx, cy - 40); ctx.lineTo(cx + 40, cy - 80);
+                ctx.lineTo(cx + 100, cy - 120); ctx.lineTo(cx + 80, cy - 60); ctx.lineTo(cx, cy + 50); ctx.fill();
+                ctx.fillStyle = 'white'; ctx.beginPath(); ctx.ellipse(cx - 30, cy - 30, 10, 20, 0.5, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(cx + 30, cy - 30, 10, 20, -0.5, 0, Math.PI * 2); ctx.fill();
+            });
+            SPRITES.slug = makeSprite(200, 200, (ctx, cx, cy) => {
+                ctx.fillStyle = '#81ecec'; ctx.strokeStyle = '#00cec9'; ctx.lineWidth = 5;
+                ctx.beginPath(); ctx.ellipse(cx, cy, 60, 80, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+                ctx.beginPath(); ctx.arc(cx, cy - 60, 40, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+                ctx.fillStyle = '#0984e3'; ctx.beginPath(); ctx.arc(cx, cy - 70, 5, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(cx - 20, cy, 10, 0, Math.PI * 2); ctx.fill();
+            });
+        }
+
+        function drawSpikyHair(ctx, x, y, radius, color) {
+            ctx.fillStyle = color; ctx.beginPath();
+            for (let i = 0; i < 8; i++) {
+                const angle = (i / 8) * Math.PI * 2;
+                const ox = x + Math.cos(angle) * radius; const oy = y + Math.sin(angle) * radius;
+                ctx.lineTo(ox, oy);
+                const innerAngle = angle + (Math.PI / 8);
+                const ix = x + Math.cos(innerAngle) * (radius * 0.5); const iy = y + Math.sin(innerAngle) * (radius * 0.5);
+                ctx.lineTo(ix, iy);
+            }
+            ctx.closePath(); ctx.fill();
+        }
+
+        const CHARACTERS = {
+            naruto: { name: "Naruto", sprite: 'naruto', color: "#FFA500", hp: 150, speed: 240, weapon: "Shuriken", skill: "Rasengan", ult: "Tailed Beast Beam", passive: "Uzumaki Vitality", fireRate: 0.8 },
+            sasuke: { name: "Sasuke", sprite: 'sasuke', color: "#8A2BE2", hp: 80, speed: 300, weapon: "Senbon", skill: "Amaterasu", ult: "Susanoo", passive: "Sharingan", fireRate: 0.4 },
+            gaara: { name: "Gaara", sprite: 'gaara', color: "#C2B280", hp: 150, speed: 180, weapon: "SandWave", skill: "SandCoffin", ult: "Pyramid", passive: "Sand Shield", fireRate: 0.8 },
+            sakura: { name: "Sakura", sprite: 'sakura', color: "#FF69B4", hp: 100, speed: 240, weapon: "Smash", skill: "Heal", ult: "Katsuyu", passive: "100 Healings", fireRate: 0.75 }
+        };
+
+        const NATURES = {
+            Fire: { color: "#e74c3c", icon: "🔥", desc: "Burn DoT" },
+            Water: { color: "#3498db", icon: "💧", desc: "Slow Enemies" },
+            Earth: { color: "#795548", icon: "🪨", desc: "Knockback" },
+            Wind: { color: "#2ecc71", icon: "🍃", desc: "Piercing" },
+            Lightning: { color: "#f1c40f", icon: "⚡", desc: "Crit & Chain" },
+            Weapon: { color: "#9b59b6", icon: "📜", desc: "Upgrade Weapon Skill" }
+        };
+
+        let gameState = {
+            running: false, paused: false, time: 0,
+            selectedChar: null, score: 0, camera: { x: 0, y: 0 },
+            spawnTimer: 0
+        };
+
+        let entities = {
+            player: null, enemies: [], projectiles: [],
+            pickups: [], text: [], particles: [], hazards: []
+        };
+
+        let inputs = { w: false, a: false, s: false, d: false, e: false, r: false, mouseX: 0, mouseY: 0 };
+
+        function resize() { CANVAS.width = window.innerWidth; CANVAS.height = window.innerHeight; initSprites(); }
+        window.addEventListener('resize', resize);
+        window.onload = () => { resize(); };
+
+        window.addEventListener('keydown', e => {
+            const k = e.key.toLowerCase();
+            if ('wasd'.includes(k)) inputs[k] = true;
+            if (k === 'e') inputs.e = true; if (k === 'r') inputs.r = true;
+            if (k === 'escape') togglePause();
+        });
+        window.addEventListener('keyup', e => {
+            const k = e.key.toLowerCase();
+            if ('wasd'.includes(k)) inputs[k] = false;
+            if (k === 'e') inputs.e = false; if (k === 'r') inputs.r = false;
+        });
+        window.addEventListener('mousemove', e => { inputs.mouseX = e.clientX; inputs.mouseY = e.clientY; });
+
+        class Entity {
+            constructor(x, y, radius, color) {
+                this.x = x; this.y = y; this.radius = radius; this.color = color;
+                this.dead = false; this.flash = 0;
+            }
+        }
+
+        class Player extends Entity {
+            constructor(charKey) {
+                const config = CHARACTERS[charKey];
+                super(0, 0, 20, config.color);
+                this.config = config;
+                this.maxHp = config.hp; this.hp = config.hp;
+                this.speed = config.speed; this.xp = 0;
+                this.level = 1; this.nextLevelXp = 50;
+                this.skillCD = 0; this.ultCD = 0; this.ultActiveTime = 0;
+                this.weaponLevel = 1; this.isEvolved = false;
+                this.stats = { damageMult: 1, areaMult: 1, cooldownMult: 1, critChance: 0.05, knockback: 1, piercing: 0 };
+                this.elements = { Fire: false, Water: false, Earth: false, Wind: false, Lightning: false };
+                this.clones = [];
+                this.shield = 0; this.maxShield = 50; this.shieldTimer = 0;
+                this.healCharge = 0;
+                this.fireTimer = 0; this.burstTimer = 0; this.burstCount = 0;
+                this.direction = 1; this.punchAnim = 0; this.punchAngle = 0;
+                this.dashTime = 0; this.dashVec = { x: 0, y: 0 }; this.dashHitList = [];
+                this.skillCharging = false; this.skillChargeTime = 0; this.regenTimer = 0;
+
+                if (this.config.name === 'Naruto') {
+                    this.clones.push({ x: 0, y: 0, punchAnim: 0, angle: 0, active: false }, { x: 0, y: 0, punchAnim: 0, angle: 0, active: false });
+                }
+            }
+
+            update(dt) {
+                if (this.dead) return;
+                const LANE_WIDTH = 700;
+                if (this.x < -LANE_WIDTH + 20) this.x = -LANE_WIDTH + 20;
+                if (this.x > LANE_WIDTH - 20) this.x = LANE_WIDTH - 20;
+
+                if (this.config.name === 'Naruto') {
+                    this.regenTimer += dt;
+                    if (this.regenTimer >= 1.0) {
+                        const pct = this.hp / this.maxHp;
+                        const regenMult = pct < 0.3 ? 0.02 : 0.01;
+                        const regen = Math.ceil(this.maxHp * regenMult);
+                        this.hp = Math.min(this.hp + regen, this.maxHp);
+                        this.regenTimer = 0;
+                    }
+                }
+                if (this.config.name === 'Gaara') {
+                    this.shieldTimer += dt;
+                    if (this.shieldTimer > 5.0) { this.shield = Math.min(this.shield + 10, this.maxShield); this.shieldTimer = 0; }
+                }
+
+                if (this.config.name === 'Naruto') {
+                    if (inputs.e && this.skillCD <= 0) {
+                        this.skillCharging = true;
+                        this.skillChargeTime = Math.min(this.skillChargeTime + dt, 1.5);
+                    } else if (this.skillCharging) {
+                        this.useSkill();
+                        this.skillCharging = false;
+                        this.skillChargeTime = 0;
+                    }
+                }
+
+                if (this.dashTime > 0) {
+                    this.x += this.dashVec.x * dt;
+                    this.y += this.dashVec.y * dt;
+                    this.dashTime -= dt;
+                    entities.enemies.forEach(e => {
+                        if (!this.dashHitList.includes(e) && getDistance(this, e) < this.radius + e.radius + 30) {
+                            this.dashHitList.push(e);
+                            e.takeDamage(50 * this.stats.damageMult, 25, Math.atan2(e.y - this.y, e.x - this.x));
+                            createExplosion(this.x + (this.dashVec.x * dt), this.y + (this.dashVec.y * dt), 80, 0, '#00d2ff');
+                        }
+                    });
+
+                    // End of dash safety burst
+                    if (this.dashTime <= 0) {
+                        createExplosion(this.x, this.y, 200, 50 * this.stats.damageMult, '#00d2ff');
+                        this.dashTime = 0;
+                    }
+
+                    if (this.config.name === 'Naruto') this.clones.forEach(c => { if (c.active) { c.x = this.x; c.y = this.y; } });
+                    return;
+                }
+
+                let dx = 0; let dy = 0;
+                let moveSpeed = this.speed;
+                if (this.skillCharging) moveSpeed = 0; // IMMOBILE
+                if (inputs.w) dy -= 1; if (inputs.s) dy += 1;
+                if (inputs.a) { dx -= 1; this.direction = -1; }
+                if (inputs.d) { dx += 1; this.direction = 1; }
+                if (dx !== 0 || dy !== 0) {
+                    const len = Math.sqrt(dx * dx + dy * dy);
+                    this.x += (dx / len) * moveSpeed * dt;
+                    this.y += (dy / len) * moveSpeed * dt;
+                }
+
+                this.fireTimer += dt;
+                const rate = (this.config.fireRate || 0.66) * this.stats.cooldownMult;
+                if (this.fireTimer >= rate) {
+                    this.fire();
+                    this.fireTimer = 0;
+                    if (this.config.name === 'Naruto' && this.weaponLevel >= 2 && !this.isEvolved) {
+                        this.burstTimer = 0.1; // Schedule burst
+                        this.burstCount = 1;
+                    }
+                }
+
+                if (this.burstCount > 0) {
+                    this.burstTimer -= dt;
+                    if (this.burstTimer <= 0) {
+                        this.fire();
+                        this.burstCount--;
+                        if (this.burstCount > 0) this.burstTimer = 0.1;
+                    }
+                }
+
+                if (inputs.e && this.skillCD <= 0 && this.config.name !== 'Naruto') this.useSkill();
+                if (inputs.r && this.ultCD <= 0) this.useUlt();
+
+                if (this.skillCD > 0) this.skillCD -= dt;
+                if (this.ultCD > 0) this.ultCD -= dt;
+                if (this.ultActiveTime > 0) this.ultActiveTime -= dt;
+                if (this.flash > 0) this.flash -= dt;
+                if (this.punchAnim > 0) this.punchAnim -= dt;
+
+                if (this.config.name === 'Naruto') {
+                    if (this.weaponLevel >= 5) this.isEvolved = true;
+                    const offsets = [{ dx: -35, dy: -5 }, { dx: 35, dy: -5 }];
+                    let activeCloneCount = 0;
+                    if (this.weaponLevel >= 3) activeCloneCount = 1;
+                    if (this.weaponLevel >= 4) activeCloneCount = 2;
+                    if (this.isEvolved) activeCloneCount = 2;
+
+                    this.clones.forEach((c, i) => {
+                        if (i < activeCloneCount) {
+                            c.active = true;
+                            const targetX = this.x + offsets[i].dx;
+                            const targetY = this.y + offsets[i].dy;
+                            const smooth = 10 * dt;
+                            c.x += (targetX - c.x) * smooth;
+                            c.y += (targetY - c.y) * smooth;
+                            if (c.punchAnim > 0) c.punchAnim -= dt;
+                        } else {
+                            c.active = false;
+                        }
+                    });
+                }
+            }
+
+            fire() {
+                let target = getNearestEnemy(this.x, this.y);
+                const angle = target ? Math.atan2(target.y - this.y, target.x - this.x) : (this.direction === 1 ? 0 : Math.PI);
+                let dmg = 10 * this.stats.damageMult;
+                let isCrit = false;
+                if (Math.random() < this.stats.critChance) { dmg *= 2; isCrit = true; }
+
+                if (this.config.name === 'Naruto') {
+                    if (this.ultActiveTime > 0) { } else {
+                        const projType = this.isEvolved ? 'rasenshuriken' : 'shuriken';
+                        const pDmg = this.isEvolved ? dmg * 3 : dmg;
+                        const pPierce = this.isEvolved ? 5 : (1 + this.stats.piercing);
+                        const pSpeed = this.isEvolved ? 480 : 600;
+
+                        createProjectile(this.x, this.y, angle, pSpeed, pDmg, projType, this.stats.knockback + 2, pPierce);
+                        if (!this.isEvolved) {
+                            this.clones.forEach(c => {
+                                if (c.active) createProjectile(c.x, c.y, angle, pSpeed, pDmg, projType, this.stats.knockback + 2, pPierce);
+                            });
+                        }
+                    }
+                }
+                else if (this.config.name === 'Sakura') {
+                    this.punchAnim = 0.25; this.punchAngle = angle;
+                    createGroundCrack(this.x + Math.cos(angle) * 40, this.y + Math.sin(angle) * 40);
+                    createExplosion(this.x + Math.cos(angle) * 40, this.y + Math.sin(angle) * 40, 80 * this.stats.areaMult, dmg * 2, 'rgba(0,0,0,0)');
+                    if (this.isEvolved) createProjectile(this.x, this.y, angle, 300, dmg * 3, 'rock_wave', 20, 999);
+                }
+                else if (this.config.name === 'Sasuke') {
+                    createProjectile(this.x, this.y, angle, 120, dmg * 2, 'sword_slash', 10, 99);
+                    createProjectile(this.x, this.y, angle, 720, dmg, 'lightning', 4 + this.stats.knockback, 1 + this.stats.piercing);
+                    if (this.isEvolved && Math.random() < 0.2) {
+                        const randEnemy = entities.enemies[Math.floor(Math.random() * entities.enemies.length)];
+                        if (randEnemy) {
+                            createLightningBolt(randEnemy.x, randEnemy.y - 300, randEnemy.x, randEnemy.y, true);
+                            createExplosion(randEnemy.x, randEnemy.y, 60, dmg * 3, '#00d2ff');
+                        }
+                    }
+                }
+                else if (this.config.name === 'Gaara') {
+                    createProjectile(this.x, this.y, angle, 210, dmg * 1.8, 'sand', 5 + this.stats.knockback, 999);
+                }
+
+                if (isCrit) spawnFloatingText("CRIT!", this.x, this.y - 30, 'gold');
+            }
+
+            useSkill() {
+                this.skillCD = 5.0 * this.stats.cooldownMult;
+                if (this.config.name === 'Naruto') {
+                    spawnFloatingText("RASENGAN CHARGE!", this.x, this.y - 40, '#00d2ff');
+
+                    // Scaled Distance Logic (Base very short)
+                    const chargeRatio = this.skillChargeTime / 1.5;
+                    // Reduced speed for "plow" feel
+                    const speed = 600;
+                    const baseDist = 75;
+                    const maxDist = 375;
+                    const distance = baseDist + (chargeRatio * (maxDist - baseDist));
+
+                    this.dashTime = distance / speed;
+                    this.dashHitList = [];
+
+                    // Aim towards MOUSE cursor
+                    const cx = gameState.camera.x;
+                    const cy = gameState.camera.y;
+                    let dashAngle = Math.atan2(inputs.mouseY - (this.y - cy), inputs.mouseX - (this.x - cx));
+
+                    this.dashVec = { x: Math.cos(dashAngle) * speed, y: Math.sin(dashAngle) * speed };
+
+                } else if (this.config.name === 'Sasuke') {
+                    entities.hazards.push(new HazardZone(this.x, this.y, 100, 5.0, 5, true, 'fire'));
+                    spawnFloatingText("AMATERASU!", this.x, this.y - 40, 'black');
+                } else if (this.config.name === 'Gaara') {
+                    spawnGiantHand(this.x, this.y);
+                    entities.enemies.forEach(e => { if (getDistance(this, e) < 200) e.takeDamage(50, 0); });
+                    spawnFloatingText("SAND COFFIN!", this.x, this.y - 40, '#C2B280');
+                } else if (this.config.name === 'Sakura') {
+                    this.hp = Math.min(this.hp + 50, this.maxHp);
+                    spawnFloatingText("HEAL!", this.x, this.y - 40, 'green');
+                }
+            }
+
+            useUlt() {
+                this.ultCD = 25.0 * this.stats.cooldownMult;
+                this.ultActiveTime = 6.0;
+                spawnFloatingText(this.config.ult.toUpperCase(), this.x, this.y - 50, 'gold');
+            }
+
+            takeDamage(amt) {
+                if (this.dashTime > 0) return;
+                if (this.ultActiveTime > 0) return;
+                if (this.config.name === 'Sasuke' && Math.random() < 0.15) {
+                    spawnFloatingText("DODGE", this.x, this.y - 20, '#aaa'); return;
+                }
+                if (this.config.name === 'Gaara' && this.shield > 0) {
+                    if (this.shield >= amt) { this.shield -= amt; amt = 0; }
+                    else { amt -= this.shield; this.shield = 0; }
+                }
+                if (this.config.name === 'Sakura') {
+                    this.healCharge += amt;
+                    if (this.healCharge >= 50) {
+                        this.hp = Math.min(this.hp + 30, this.maxHp);
+                        this.healCharge = 0;
+                        spawnFloatingText("PASSIVE HEAL", this.x, this.y - 20, 'pink');
+                        createExplosion(this.x, this.y, 150, 20, 'pink');
+                    }
+                }
+                if (amt > 0) {
+                    this.hp -= amt; this.flash = 0.1;
+                    spawnFloatingText(amt, this.x, this.y, 'red');
+                    if (this.hp <= 0) { this.dead = true; gameOver(); }
+                }
+            }
+
+            gainXp(amt) {
+                this.xp += amt;
+                if (this.xp >= this.nextLevelXp) { this.xp = 0; this.level++; this.nextLevelXp *= 1.2; showLevelUp(); }
+            }
+
+            draw(ctx, cx, cy) {
+                if (this.ultActiveTime > 0) {
+                    ctx.save(); ctx.globalAlpha = 0.8;
+                    if (this.config.name === 'Naruto') {
+                        ctx.shadowBlur = 20; ctx.shadowColor = 'red';
+                        ctx.drawImage(SPRITES.kurama, this.x - cx - 150, this.y - cy - 180);
+                        const angle = Math.atan2(inputs.mouseY - (this.y - cy), inputs.mouseX - (this.x - cx));
+                        ctx.save();
+                        ctx.translate(this.x - cx, this.y - cy);
+                        ctx.rotate(angle);
+                        const grd = ctx.createLinearGradient(0, -30, 0, 30);
+                        grd.addColorStop(0, "rgba(255, 0, 0, 0)");
+                        grd.addColorStop(0.5, "rgba(255, 200, 0, 0.9)");
+                        grd.addColorStop(1, "rgba(255, 0, 0, 0)");
+                        ctx.fillStyle = grd;
+                        ctx.fillRect(0, -30, 2000, 60);
+                        ctx.restore();
+                        if (Math.random() < 0.2) {
+                            const lx = Math.cos(angle); const ly = Math.sin(angle);
+                            entities.enemies.forEach(e => {
+                                const ex = e.x - this.x; const ey = e.y - this.y;
+                                const dp = ex * lx + ey * ly;
+                                if (dp > 0) {
+                                    const dist = Math.abs(ex * -ly + ey * lx);
+                                    if (dist < 40) {
+                                        e.takeDamage(50, 0, 0, false);
+                                        createExplosion(e.x, e.y, 40, 0, 'orange');
+                                    }
+                                }
+                            });
+                        }
+                        ctx.shadowBlur = 0;
+                    }
+                    else if (this.config.name === 'Sasuke') ctx.drawImage(SPRITES.susanoo, this.x - cx - 150, this.y - cy - 180);
+                    else if (this.config.name === 'Gaara') { ctx.fillStyle = 'rgba(194, 178, 128, 0.5)'; ctx.beginPath(); ctx.moveTo(this.x - cx, this.y - cy - 100); ctx.lineTo(this.x - cx - 100, this.y - cy + 50); ctx.lineTo(this.x - cx + 100, this.y - cy + 50); ctx.fill(); }
+                    else if (this.config.name === 'Sakura') ctx.drawImage(SPRITES.slug, this.x - cx - 100, this.y - cy - 100);
+                    ctx.restore();
+                }
+
+                if (this.flash > 0) ctx.globalAlpha = 0.5;
+
+                if (this.config.name === 'Naruto') {
+                    this.clones.forEach(c => {
+                        if (!c.active) return;
+                        ctx.globalAlpha = 0.8;
+                        let drawX = c.x - cx; let drawY = c.y - cy;
+                        ctx.drawImage(SPRITES.naruto, drawX - 32, drawY - 32);
+                    });
+                    ctx.globalAlpha = 1.0;
+                }
+
+                // Rasengan Charging (Aiming Indicator)
+                if (this.config.name === 'Naruto' && this.skillCharging) {
+                    // Calculate potential distance
+                    const chargeRatio = this.skillChargeTime / 1.5;
+                    const baseDist = 75;
+                    const maxDist = 375;
+                    const dist = baseDist + (chargeRatio * (maxDist - baseDist));
+
+                    // Draw Aim Line
+                    const angle = Math.atan2(inputs.mouseY - (this.y - cy), inputs.mouseX - (this.x - cx));
+
+                    ctx.save();
+                    ctx.translate(this.x - cx, this.y - cy);
+                    ctx.rotate(angle);
+
+                    // Background line
+                    ctx.fillStyle = 'rgba(0, 210, 255, 0.2)';
+                    ctx.fillRect(0, -2, dist, 4);
+
+                    // Impact circle ghost
+                    ctx.beginPath();
+                    ctx.arc(dist, 0, 50, 0, Math.PI * 2); // Anticipated hit radius
+                    ctx.fillStyle = 'rgba(0, 210, 255, 0.3)';
+                    ctx.fill();
+
+                    ctx.restore();
+
+                    const size = 1 + (this.skillChargeTime / 1.5) * 2;
+                    ctx.save();
+                    ctx.translate(this.x - cx, this.y - cy);
+                    ctx.scale(size, size);
+                    ctx.rotate(gameState.time * 10);
+                    ctx.drawImage(SPRITES.rasengan, -50, -50);
+                    ctx.restore();
+                }
+
+                if (this.config.name === 'Naruto' && this.dashTime > 0) {
+                    const size = 2.5;
+                    ctx.save();
+                    ctx.translate(this.x - cx, this.y - cy);
+                    const angle = Math.atan2(this.dashVec.y, this.dashVec.x);
+                    ctx.rotate(angle);
+                    ctx.drawImage(SPRITES.rasengan, 0, -50, 100, 100);
+                    ctx.restore();
+                }
+
+                if (this.config.name === 'Sakura' && this.punchAnim > 0) {
+                    ctx.save(); ctx.translate(this.x - cx, this.y - cy); ctx.rotate(this.punchAngle);
+                    ctx.fillStyle = 'rgba(0, 210, 255, 0.6)'; ctx.beginPath(); ctx.arc(35, 0, 15, 0, Math.PI * 2); ctx.rect(0, -10, 35, 20); ctx.fill();
+                    ctx.restore();
+                }
+
+                ctx.save();
+                if (this.direction === -1) { ctx.translate(this.x - cx, this.y - cy); ctx.scale(-1, 1); ctx.drawImage(SPRITES[this.config.sprite], -32, -32); }
+                else { ctx.drawImage(SPRITES[this.config.sprite], this.x - cx - 32, this.y - cy - 32); }
+                ctx.restore();
+                if (this.flash > 0) ctx.globalAlpha = 1.0;
+
+                ctx.fillStyle = 'red'; ctx.fillRect(this.x - cx - 15, this.y - cy + 25, 30, 4);
+                ctx.fillStyle = '#0f0'; ctx.fillRect(this.x - cx - 15, this.y - cy + 25, 30 * (this.hp / this.maxHp), 4);
+
+                if (this.config.name === 'Gaara' && this.shield > 0) {
+                    ctx.fillStyle = '#f1c40f'; ctx.fillRect(this.x - cx - 15, this.y - cy + 21, 30 * (this.shield / this.maxShield), 3);
+                }
+            }
+        }
+
+        class Enemy extends Entity {
+            constructor(type) {
+                const side = Math.random() < 0.5 ? -1 : 1;
+                const startX = side === -1 ? -MAP_WIDTH / 2 - 50 : MAP_WIDTH / 2 + 50;
+                const startY = entities.player.y + (Math.random() - 0.5) * 800;
+                super(startX, startY, 15, 'white');
+                this.type = type;
+                if (type === 'zetsu') { this.hp = 20 + gameState.time / 5; this.speed = 120; this.xp = 5; this.sprite = 'zetsu'; this.radius = 20; }
+                else if (type === 'sound') { this.hp = 15 + gameState.time / 5; this.speed = 210; this.xp = 10; this.sprite = 'sound_ninja'; this.radius = 20; }
+                else if (type === 'snake') { this.hp = 200 + gameState.time; this.speed = 90; this.xp = 50; this.sprite = 'snake'; this.radius = 40; }
+                else { this.hp = 100 + gameState.time; this.speed = 90; this.xp = 25; this.sprite = 'puppet'; this.radius = 25; }
+                this.pushX = 0; this.pushY = 0;
+                this.burnStacks = 0; this.bleedStacks = 0;
+                this.slowTimer = 0; this.stunTimer = 0; this.dotTimer = 0;
+            }
+
+            update(dt) {
+                if (this.stunTimer > 0) { this.stunTimer -= dt; return; }
+                const p = entities.player;
+                const angle = Math.atan2(p.y - this.y, p.x - this.x);
+                this.pushX *= 0.9; this.pushY *= 0.9;
+                let currentSpeed = this.speed;
+                if (this.slowTimer > 0) { currentSpeed *= 0.5; this.slowTimer -= dt; }
+                this.x += (Math.cos(angle) * currentSpeed * dt) + this.pushX;
+                this.y += (Math.sin(angle) * currentSpeed * dt) + this.pushY;
+                if (this.burnStacks > 0 || this.bleedStacks > 0) {
+                    this.dotTimer += dt;
+                    if (this.dotTimer >= 0.5) {
+                        const dot = this.burnStacks + this.bleedStacks;
+                        this.takeDamage(dot, 0, 0, false);
+                        if (this.burnStacks > 0) createParticle(this.x, this.y, '#ff4500');
+                        if (this.bleedStacks > 0) createParticle(this.x, this.y, '#8b0000');
+                        this.dotTimer = 0;
+                    }
+                }
+                if (getDistance(this, p) < this.radius + p.radius) p.takeDamage(1);
+            }
+
+            draw(ctx, cx, cy) {
+                ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(this.x - cx, this.y - cy + this.radius, this.radius / 2, this.radius / 4, 0, 0, Math.PI * 2); ctx.fill();
+                const s = SPRITES[this.sprite];
+                let off = s.width / 2;
+                if (this.slowTimer > 0) { ctx.globalAlpha = 0.5; ctx.fillStyle = 'cyan'; ctx.beginPath(); ctx.arc(this.x - cx, this.y - cy, this.radius + 5, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1.0; }
+                if (this.stunTimer > 0) { ctx.fillStyle = 'gray'; ctx.fillText('💫', this.x - cx, this.y - cy - 30); }
+                if (this.x < entities.player.x) { ctx.drawImage(s, this.x - cx - off, this.y - cy - s.height / 2); }
+                else { ctx.save(); ctx.translate(this.x - cx, this.y - cy); ctx.scale(-1, 1); ctx.drawImage(s, -off, -s.height / 2); ctx.restore(); }
+                if (this.burnStacks > 0) { ctx.fillStyle = '#ff4500'; ctx.fillText('🔥', this.x - cx - 10, this.y - cy - this.radius - 5); }
+                if (this.bleedStacks > 0) { ctx.fillStyle = 'red'; ctx.fillText('🩸', this.x - cx + 10, this.y - cy - this.radius - 5); }
+            }
+
+            takeDamage(amt, knockback = 0, angle = 0, triggerEffects = true) {
+                this.hp -= amt;
+                spawnFloatingText(Math.floor(amt), this.x, this.y, 'white');
+                if (knockback) { this.pushX += Math.cos(angle) * knockback; this.pushY += Math.sin(angle) * knockback; }
+                if (triggerEffects) {
+                    const p = entities.player;
+                    if (p.elements.Fire) this.burnStacks += 2;
+                    if (p.elements.Water) this.slowTimer = 2.0;
+                    if (p.elements.Lightning) triggerChainLightning(this);
+                    if (p.config.name === 'Sasuke' && Math.random() < p.stats.critChance) this.bleedStacks += 5;
+                    if (p.config.name === 'Gaara' && p.isEvolved) this.stunTimer = 1.0;
+                }
+                if (this.hp <= 0) {
+                    this.dead = true;
+                    entities.pickups.push(new Pickup(this.x, this.y, this.xp));
+                    gameState.score++;
+                }
+            }
+        }
+
+        function triggerChainLightning(source) {
+            let target = null; let minDist = 200;
+            entities.enemies.forEach(e => { if (e !== source && !e.dead) { const d = getDistance(source, e); if (d < minDist) { minDist = d; target = e; } } });
+            if (target) {
+                createLightningBolt(source.x, source.y, target.x, target.y);
+                target.takeDamage(5, 0, 0, false);
+            }
+        }
+
+        class Projectile extends Entity {
+            constructor(x, y, angle, speed, dmg, type, knock = 1, pierce = 1) {
+                super(x, y, 10, 'white');
+                this.vx = Math.cos(angle) * speed; this.vy = Math.sin(angle) * speed;
+                this.dmg = dmg; this.type = type; this.knock = knock; this.pierce = pierce;
+                this.life = 1.0; this.angle = angle; this.hitList = [];
+                if (type === 'tailed_beast_bomb') { this.life = 2.0; this.radius = 25; }
+                else if (type === 'clone_punch') { this.life = 0.25; this.radius = 25; }
+                else if (type === 'rock_wave') { this.life = 1.5; this.radius = 40; }
+                else if (type === 'sword_slash') { this.life = 0.15; this.radius = 60; }
+                else if (type === 'rasenshuriken') { this.life = 2.0; this.radius = 40; }
+            }
+
+            update(dt) {
+                this.x += this.vx * dt; this.y += this.vy * dt; this.life -= dt;
+                if (this.life <= 0) this.dead = true;
+
+                entities.enemies.forEach(e => {
+                    if (!e.dead && !this.hitList.includes(e) && getDistance(this, e) < this.radius + e.radius) {
+                        if (this.type === 'rasenshuriken') {
+                            e.takeDamage(this.dmg, this.knock, this.angle); this.hitList.push(e);
+                            if (this.pierce > 0) this.pierce--;
+                            if (this.pierce <= 0) {
+                                this.dead = true;
+                                createExplosion(this.x, this.y, 200, this.dmg * 2, 'cyan');
+                            }
+                        }
+                        else if (this.type === 'tailed_beast_bomb') { createExplosion(this.x, this.y, 150, this.dmg, 'purple'); this.dead = true; }
+                        else if (this.type === 'clone_punch') { e.takeDamage(this.dmg, this.knock, this.angle); this.hitList.push(e); }
+                        else if (this.type === 'rock_wave') { e.takeDamage(this.dmg, this.knock, this.angle); this.hitList.push(e); }
+                        else if (this.type === 'sword_slash') { e.takeDamage(this.dmg, this.knock, this.angle); this.hitList.push(e); }
+                        else {
+                            e.takeDamage(this.dmg, this.knock, this.angle); this.hitList.push(e);
+                            if (this.type !== 'sand') { this.pierce--; if (this.pierce <= 0) this.dead = true; }
+                        }
+                    }
+                });
+
+                if (this.type === 'rasenshuriken' && this.life <= 0) {
+                    createExplosion(this.x, this.y, 200, this.dmg * 2, 'cyan');
+                }
+            }
+
+            draw(ctx, cx, cy) {
+                ctx.save(); ctx.translate(this.x - cx, this.y - cy);
+                ctx.rotate(this.angle + (['shuriken', 'rasenshuriken'].includes(this.type) ? gameState.time * 10 : 0));
+
+                if (this.type === 'shuriken') {
+                    ctx.drawImage(SPRITES.shuriken, -16, -16);
+                } else if (this.type === 'rasenshuriken') {
+                    ctx.drawImage(SPRITES.rasenshuriken, -64, -64);
+                } else if (this.type === 'lightning') {
+                    ctx.strokeStyle = '#f1c40f'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-10, 0); ctx.lineTo(0, -5); ctx.lineTo(0, 5); ctx.lineTo(10, 0); ctx.stroke();
+                } else if (this.type === 'sand') {
+                    ctx.fillStyle = '#d35400'; ctx.beginPath(); ctx.arc(0, 0, 15, -Math.PI / 2, Math.PI / 2); ctx.bezierCurveTo(-5, 10, -5, -10, 0, -15); ctx.fill();
+                } else if (this.type === 'tailed_beast_bomb') {
+                    ctx.drawImage(SPRITES.tailed_beast_bomb, -32, -32);
+                } else if (this.type === 'clone_punch') {
+                    const punchProgress = 1 - (this.life / 0.25);
+                    ctx.fillStyle = `rgba(255, 140, 0, ${0.8 - punchProgress * 0.5})`;
+                    ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, 50, -Math.PI / 4, Math.PI / 4); ctx.fill();
+                } else if (this.type === 'rock_wave') {
+                    ctx.drawImage(SPRITES.rock_wave, -40, -20);
+                } else if (this.type === 'sword_slash') {
+                    ctx.drawImage(SPRITES.sword_slash, -20, -30);
+                }
+                ctx.restore();
+            }
+        }
+
+        class HazardZone {
+            constructor(x, y, r, dur, dmg, friendly, type) {
+                this.x = x; this.y = y; this.r = r; this.dur = dur; this.dmg = dmg; this.friendly = friendly; this.type = type;
+                this.timer = 0; this.dead = false;
+            }
+            update(dt) {
+                this.dur -= dt; if (this.dur <= 0) this.dead = true;
+                this.timer += dt;
+                if (this.timer >= 0.5 && this.friendly) {
+                    entities.enemies.forEach(e => { if (getDistance(this, e) < this.r) e.takeDamage(this.dmg); });
+                    this.timer = 0;
+                }
+            }
+            draw(ctx, cx, cy) {
+                ctx.globalAlpha = 0.4;
+                if (this.type === 'acid') ctx.fillStyle = '#2ecc71';
+                else ctx.fillStyle = this.friendly ? 'black' : 'red';
+
+                ctx.beginPath(); ctx.arc(this.x - cx, this.y - cy, this.r, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = this.friendly ? '#555' : 'orange'; ctx.lineWidth = 2; ctx.stroke(); ctx.globalAlpha = 1.0;
+
+                if (this.type === 'acid' && Math.random() < 0.2) {
+                    ctx.fillStyle = '#0f0'; ctx.beginPath(); ctx.arc(this.x - cx + (Math.random() - 0.5) * this.r, this.y - cy + (Math.random() - 0.5) * this.r, 3, 0, Math.PI * 2); ctx.fill();
+                }
+            }
+        }
+
+        class Pickup extends Entity {
+            constructor(x, y, val) { super(x, y, 5, '#3498db'); this.val = val; }
+            update(dt) {
+                if (getDistance(this, entities.player) < 100) {
+                    const dx = entities.player.x - this.x;
+                    const dy = entities.player.y - this.y;
+                    this.x += dx * 5 * dt;
+                    this.y += dy * 5 * dt;
+                    if (getDistance(this, entities.player) < 20) { entities.player.gainXp(this.val); this.dead = true; }
+                }
+            }
+            draw(ctx, cx, cy) {
+                ctx.fillStyle = '#00d2ff'; ctx.shadowBlur = 10; ctx.shadowColor = '#00d2ff';
+                ctx.beginPath(); ctx.arc(this.x - cx, this.y - cy, 4, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+            }
+        }
+
+        // --- VFX ---
+        function createParticle(x, y, color) {
+            entities.particles.push({
+                x, y, vx: (Math.random() - 0.5) * 120, vy: (Math.random() - 0.5) * 120, life: 0.6, color, type: 'particle',
+                update: function (dt) { this.x += this.vx * dt; this.y += this.vy * dt; this.life -= dt; },
+                draw: function (ctx, cx, cy) { ctx.fillStyle = this.color; ctx.globalAlpha = this.life / 0.6; ctx.fillRect(this.x - cx, this.y - cy, 4, 4); ctx.globalAlpha = 1; }
+            });
+        }
+        function createLightningBolt(x1, y1, x2, y2, isBlue = false) {
+            entities.particles.push({
+                life: 0.2, type: 'bolt', color: isBlue ? '#00d2ff' : '#f1c40f',
+                update: function (dt) { this.life -= dt; },
+                draw: function (ctx, cx, cy) {
+                    ctx.strokeStyle = this.color; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x1 - cx, y1 - cy);
+                    const midX = (x1 + x2) / 2 + (Math.random() - 0.5) * 50; const midY = (y1 + y2) / 2 + (Math.random() - 0.5) * 50;
+                    ctx.lineTo(midX - cx, midY - cy); ctx.lineTo(x2 - cx, y2 - cy); ctx.stroke();
+                }
+            });
+        }
+        function createGroundCrack(x, y) {
+            entities.particles.push({
+                x, y, life: 0.5, type: 'crack',
+                update: function (dt) { this.life -= dt; },
+                draw: function (ctx, cx, cy) {
+                    ctx.globalAlpha = this.life / 0.5;
+                    ctx.drawImage(SPRITES.cracks, this.x - cx - 50, this.y - cy - 50);
+                    ctx.globalAlpha = 1;
+                }
+            });
+        }
+        function createExplosion(x, y, r, dmg, color) {
+            entities.enemies.forEach(e => { if (getDistance({ x, y }, e) < r) e.takeDamage(dmg, 10, Math.atan2(e.y - y, e.x - x)); });
+            entities.particles.push({
+                x, y, r: 1, maxR: r, color, life: 0.5, type: 'explosion',
+                update: function (dt) { this.r += (this.maxR - this.r) * 5 * dt; this.life -= dt; },
+                draw: function (ctx, cx, cy) { ctx.fillStyle = this.color; ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.arc(this.x - cx, this.y - cy, this.r, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; }
+            });
+        }
+        function spawnGiantHand(x, y) {
+            entities.particles.push({
+                x, y, life: 1.0, type: 'hand', maxLife: 1.0,
+                update: function (dt) { this.life -= dt; },
+                draw: function (ctx, cx, cy) {
+                    const progress = 1 - (this.life / this.maxLife); const yOffset = Math.sin(progress * Math.PI) * 50;
+                    ctx.save(); ctx.globalAlpha = 0.9 * Math.sin(progress * Math.PI); ctx.translate(this.x - cx, this.y - cy + 50 - yOffset);
+                    ctx.drawImage(SPRITES.sand_hand, -60, -80); ctx.restore();
+                }
+            });
+        }
+        function spawnFloatingText(txt, x, y, color) {
+            entities.text.push({
+                txt, x, y, color, life: 1.0,
+                update: function (dt) { this.y -= 30 * dt; this.life -= dt; },
+                draw: function (ctx, cx, cy) { ctx.fillStyle = this.color; ctx.strokeStyle = 'black'; ctx.lineWidth = 3; ctx.font = "bold 20px 'Bangers'"; ctx.strokeText(this.txt, this.x - cx, this.y - cy); ctx.fillText(this.txt, this.x - cx, this.y - cy); }
+            });
+        }
+        function getDistance(a, b) { return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2); }
+        function getNearestEnemy(x, y) {
+            let n = null, min = Infinity;
+            entities.enemies.forEach(e => { const d = getDistance({ x, y }, e); if (d < min) { min = d; n = e; } });
+            return n;
+        }
+        function createProjectile(x, y, a, s, d, t, k = 1, p = 1) { entities.projectiles.push(new Projectile(x, y, a, s, d, t, k, p)); }
+
+        let lastTime = 0;
+        function gameLoop(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            const dt = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+
+            if (gameState.running && !gameState.paused) {
+                update(dt);
+                render();
+            }
+            requestAnimationFrame(gameLoop);
+        }
+
+        function update(dt) {
+            gameState.time += dt;
+            gameState.spawnTimer += dt;
+
+            const spawnRate = Math.max(0.2, 1.0 - (gameState.time / 600));
+            if (gameState.spawnTimer >= spawnRate) {
+                entities.enemies.push(new Enemy('zetsu'));
+                gameState.spawnTimer = 0;
+                if (gameState.time > 30 && Math.random() < 0.3) entities.enemies.push(new Enemy('sound'));
+                if (gameState.time > 60 && Math.random() < 0.1) entities.enemies.push(new Enemy('snake'));
+            }
+
+            entities.player.update(dt);
+
+            ['enemies', 'projectiles', 'pickups', 'hazards', 'particles', 'text'].forEach(k => {
+                entities[k] = entities[k].filter(e => !e.dead && (e.life === undefined || e.life > 0));
+                entities[k].forEach(e => e.update(dt));
+            });
+
+            gameState.camera.x = entities.player.x - CANVAS.width / 2;
+            gameState.camera.y = entities.player.y - CANVAS.height / 2;
+            updateHUD();
+        }
+
+        function render() {
+            if (!gameState.running) return;
+            CTX.fillStyle = '#1b2e1b'; CTX.fillRect(0, 0, CANVAS.width, CANVAS.height);
+            const cx = gameState.camera.x; const cy = gameState.camera.y;
+            CTX.fillStyle = '#264026';
+            const TILE = 128;
+            const sx = Math.floor(cx / TILE) * TILE; const sy = Math.floor(cy / TILE) * TILE;
+            for (let x = sx; x < cx + CANVAS.width + TILE; x += TILE) {
+                for (let y = sy; y < cy + CANVAS.height + TILE; y += TILE) {
+                    if ((Math.abs(x * y)) % 7 === 0) CTX.fillRect(x - cx, y - cy, 10, 20);
+                    if ((Math.abs(x + y)) % 13 === 0) CTX.fillRect(x - cx + 50, y - cy + 50, 20, 10);
+                }
+            }
+
+            const gridY = 100;
+            const startY = Math.floor((cy - 200) / gridY) * gridY;
+            const endY = cy + CANVAS.height + 200;
+            const forestLeft = -700; const forestRight = 700;
+
+            for (let y = startY; y < endY; y += gridY) {
+                if (cx < forestLeft + 200) {
+                    for (let x = forestLeft - 300; x < forestLeft; x += 80) {
+                        const offX = ((Math.abs(y * x)) % 20);
+                        CTX.drawImage(SPRITES.tree, x - cx + offX, y - cy);
+                    }
+                }
+                if (cx + CANVAS.width > forestRight - 200) {
+                    for (let x = forestRight; x < forestRight + 300; x += 80) {
+                        const offX = ((Math.abs(y * x)) % 15);
+                        CTX.drawImage(SPRITES.tree, x - cx + offX, y - cy);
+                    }
+                }
+            }
+
+            ['hazards', 'pickups', 'enemies'].forEach(k => entities[k].forEach(e => e.draw(CTX, cx, cy)));
+            entities.player.draw(CTX, cx, cy);
+            ['projectiles', 'particles', 'text'].forEach(k => entities[k].forEach(e => e.draw(CTX, cx, cy)));
+            const grad = CTX.createRadialGradient(CANVAS.width / 2, CANVAS.height / 2, CANVAS.height / 3, CANVAS.width / 2, CANVAS.height / 2, CANVAS.height);
+            grad.addColorStop(0, 'rgba(0,0,0,0)'); grad.addColorStop(1, 'rgba(0,0,0,0.6)');
+            CTX.fillStyle = grad; CTX.fillRect(0, 0, CANVAS.width, CANVAS.height);
+        }
+
+        function updateHUD() {
+            const p = entities.player;
+            document.getElementById('timer-display').innerText = `${Math.floor(gameState.time / 60).toString().padStart(2, '0')}:${Math.floor(gameState.time % 60).toString().padStart(2, '0')}`;
+            document.getElementById('hp-bar-fill').style.width = (p.hp / p.maxHp * 100) + '%';
+            document.getElementById('xp-bar-fill').style.width = (p.xp / p.nextLevelXp * 100) + '%';
+            document.getElementById('level-display').innerText = p.level;
+            document.getElementById('shield-bar-fill').style.width = (p.shield / p.maxShield * 100) + '%';
+            document.getElementById('cd-e').style.height = (p.skillCD > 0 ? (p.skillCD / (300 * p.stats.cooldownMult)) * 100 : 0) + '%';
+            document.getElementById('cd-r').style.height = (p.ultCD > 0 ? (p.ultCD / (1500 * p.stats.cooldownMult)) * 100 : 0) + '%';
+            document.getElementById('passive-text').innerText = p.config.passive;
+        }
+
+        function startGame() {
+            if (!gameState.selectedChar) return alert("SELECT SHINOBI FIRST");
+            document.getElementById('start-screen').classList.add('hidden');
+            entities.player = new Player(gameState.selectedChar);
+            entities.enemies = []; entities.projectiles = []; entities.pickups = [];
+            entities.particles = []; entities.hazards = []; entities.text = [];
+            gameState.score = 0; gameState.time = 0;
+            gameState.running = true; gameState.paused = false;
+            lastTime = performance.now();
+            initSprites();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function selectChar(key, el) {
+            gameState.selectedChar = key;
+            document.querySelectorAll('.char-card').forEach(c => c.classList.remove('selected'));
+            el.classList.add('selected');
+        }
+
+        function showLevelUp() {
+            gameState.paused = true;
+            const el = document.getElementById('level-up-options');
+            el.innerHTML = '';
+            const natureKeys = Object.keys(NATURES);
+            for (let i = 0; i < 3; i++) {
+                const k = natureKeys[Math.floor(Math.random() * natureKeys.length)];
+                const n = NATURES[k];
+                const card = document.createElement('div');
+                card.className = 'upgrade-card';
+                card.innerHTML = `<div class="card-title" style="color:${n.color}">${k}</div><div class="nature-icon">${n.icon}</div><p style="color:#aaa">${n.desc}</p>`;
+                card.onclick = () => {
+                    const p = entities.player;
+                    if (k === 'Weapon') { p.weaponLevel++; if (p.weaponLevel >= 5) p.isEvolved = true; }
+                    else {
+                        p.elements[k] = true;
+                        if (k === 'Fire') p.stats.damageMult += 0.2;
+                        if (k === 'Water') p.stats.cooldownMult *= 0.9;
+                        if (k === 'Wind') p.stats.piercing++;
+                        if (k === 'Earth') p.stats.knockback++;
+                        if (k === 'Lightning') p.stats.critChance += 0.1;
+                    }
+                    document.getElementById('levelup-screen').classList.add('hidden');
+                    gameState.paused = false;
+                    lastTime = performance.now(); // Reset delta to prevent huge jump
+                    requestAnimationFrame(gameLoop);
+                };
+                el.appendChild(card);
+            }
+            document.getElementById('levelup-screen').classList.remove('hidden');
+        }
+
+        function togglePause() {
+            if (!gameState.running) return;
+            gameState.paused = !gameState.paused;
+            if (!gameState.paused) {
+                lastTime = performance.now();
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function gameOver() {
+            gameState.running = false;
+            document.getElementById('gameover-screen').classList.remove('hidden');
+            document.getElementById('final-stats').innerText = `Survived: ${Math.floor(gameState.time)}s | Kills: ${gameState.score}`;
+        }
+    </script>
+</body>
+
+</html>
