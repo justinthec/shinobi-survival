@@ -120,6 +120,7 @@ export class ShinobiSurvivalGame extends Game {
     static timestep = 1000 / 60;
     static canvasSize = { width: 640, height: 360 };
     static numPlayers = 4; // Default, can be overridden by wrapper
+    static localPlayerId: number | null = null;
 
     // Game State
     players: Record<number, PlayerState> = {};
@@ -152,11 +153,21 @@ export class ShinobiSurvivalGame extends Game {
         this.netplayPlayers = players;
         initSprites();
 
+        // Capture local player ID from the initial players list
+        // This list is correct at startup (P0 local on Host, P1 local on Client)
+        // We use a static variable because this.netplayPlayers gets overwritten by state sync
+        for (const p of players) {
+            if (p.isLocal) {
+                ShinobiSurvivalGame.localPlayerId = p.id;
+                break;
+            }
+        }
+
         // Initialize players
         for (let p of players) {
-            this.players[p.getID()] = {
-                id: p.getID(),
-                name: `Player ${p.getID() + 1}`,
+            this.players[p.id] = {
+                id: p.id,
+                name: `Player ${p.id + 1}`,
                 pos: new Vec2(0, 0),
                 hp: 100,
                 maxHp: 100,
@@ -196,7 +207,7 @@ export class ShinobiSurvivalGame extends Game {
     tickCharSelect(playerInputs: Map<NetplayPlayer, DefaultInput>) {
         let allReady = true;
         for (const [player, input] of playerInputs.entries()) {
-            const id = player.getID();
+            const id = player.id;
             const pState = this.players[id];
 
             if (input.keysPressed['1']) pState.character = 'naruto';
@@ -242,7 +253,7 @@ export class ShinobiSurvivalGame extends Game {
 
         // Player Updates
         for (const [player, input] of playerInputs.entries()) {
-            const id = player.getID();
+            const id = player.id;
             const p = this.players[id];
             if (p.dead) continue;
 
@@ -422,7 +433,7 @@ export class ShinobiSurvivalGame extends Game {
         // Wait for all players to select upgrades
         let allSelected = true;
         for (const [player, input] of playerInputs.entries()) {
-            const id = player.getID();
+            const id = player.id;
             const p = this.players[id];
             if (p.selectedUpgrade === null) {
                 if (input.keysPressed['1']) p.selectedUpgrade = 0;
@@ -480,8 +491,11 @@ export class ShinobiSurvivalGame extends Game {
         // Draw Tiled Background (Simple Grid)
         ctx.save();
         // Camera setup
-        const localPlayerNet = this.netplayPlayers.find(p => p.isLocalPlayer());
-        const localPlayerId = localPlayerNet ? localPlayerNet.getID() : 0;
+        let localPlayerId = ShinobiSurvivalGame.localPlayerId;
+        if (localPlayerId === null) localPlayerId = 0; // Fallback
+
+        if (Math.random() < 0.01) console.log("Drawing with localPlayerId:", localPlayerId);
+
         const localPlayer = this.players[localPlayerId];
 
         let cx = 0, cy = 0;
