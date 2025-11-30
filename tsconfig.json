@@ -9,7 +9,12 @@
         "allowJs": true,
         "moduleResolution": "node",
         "esModuleInterop": true,
-        "skipLibCheck": true
+        "skipLibCheck": true,
+        "lib": [
+            "dom",
+            "dom.iterable",
+            "es6"
+        ]
     },
     "exclude": [
         "node_modules"

@@ -66,6 +66,17 @@ export interface PlayerState {
     direction: number; // 1 or -1
     aimAngle: number;
     flash: number; // Damage flash timer
+
+    // Combat State
+    fireTimer: number;
+    burstTimer: number;
+    burstCount: number;
+    shield: number;
+    maxShield: number;
+    healCharge: number;
+    skillChargeTime: number;
+    skillCharging: boolean;
+    ultActiveTime: number;
 }
 
 export interface EnemyState {
@@ -116,6 +127,16 @@ export interface ParticleState {
     size: number;
 }
 
+export interface HazardZoneState {
+    id: number;
+    pos: Vec2;
+    radius: number;
+    duration: number;
+    damage: number;
+    type: string; // 'fire', 'acid'
+    ownerId: number;
+}
+
 export class ShinobiSurvivalGame extends Game {
     static timestep = 1000 / 60;
     static canvasSize = { width: 640, height: 360 };
@@ -128,6 +149,7 @@ export class ShinobiSurvivalGame extends Game {
     projectiles: ProjectileState[] = [];
     xpOrbs: XpOrbState[] = [];
     particles: ParticleState[] = [];
+    hazards: HazardZoneState[] = [];
 
     gamePhase: GamePhase = 'charSelect';
     teamXP: number = 0;
@@ -186,7 +208,16 @@ export class ShinobiSurvivalGame extends Game {
                 dead: false,
                 direction: 1,
                 aimAngle: 0,
-                flash: 0
+                flash: 0,
+                fireTimer: 0,
+                burstTimer: 0,
+                burstCount: 0,
+                shield: 0,
+                maxShield: 50,
+                healCharge: 0,
+                skillChargeTime: 0,
+                skillCharging: false,
+                ultActiveTime: 0
             };
         }
     }
@@ -273,6 +304,15 @@ export class ShinobiSurvivalGame extends Game {
                 if (dx !== 0) p.direction = Math.sign(dx);
             }
 
+            // Map Boundaries
+            const MAP_WIDTH = 1400;
+            const LANE_WIDTH = MAP_WIDTH / 2;
+            if (p.pos.x < -LANE_WIDTH + 20) p.pos.x = -LANE_WIDTH + 20;
+            if (p.pos.x > LANE_WIDTH - 20) p.pos.x = LANE_WIDTH - 20;
+            // Y is infinite? Original code didn't clamp Y, but let's check index.html.
+            // index.html only clamps X: if (this.x < -LANE_WIDTH + 20) ...
+            // So we only clamp X.
+
             // Mouse Aiming
             if (input.mousePosition) {
                 // Assuming camera is centered on player, mouse pos relative to center is aim direction
@@ -289,11 +329,27 @@ export class ShinobiSurvivalGame extends Game {
 
             // Skills
             // Skill 1 (E)
-            if (input.keysPressed['e']) {
-                const skill = p.skills.skill1;
-                if (skill.cooldown <= 0) {
-                    this.useSkill(p, 'skill1');
-                    skill.cooldown = 2.0 * p.stats.cooldownMult; // Example cooldown
+            // Skill 1 (E)
+            if (p.character === 'naruto') {
+                if (input.keysHeld['e'] && p.skills.skill1.cooldown <= 0) {
+                    p.skillCharging = true; // We need to add this to PlayerState if missing, or use chargeTime > 0
+                    p.skillChargeTime = Math.min(p.skillChargeTime + dt, 1.5);
+                } else {
+                    if (p.skillChargeTime > 0) {
+                        // Released
+                        this.useSkill(p, 'skill1');
+                        p.skillChargeTime = 0;
+                        p.skillCharging = false;
+                        p.skills.skill1.cooldown = 5.0 * p.stats.cooldownMult;
+                    }
+                }
+            } else {
+                if (input.keysPressed['e']) {
+                    const skill = p.skills.skill1;
+                    if (skill.cooldown <= 0) {
+                        this.useSkill(p, 'skill1');
+                        skill.cooldown = 5.0 * p.stats.cooldownMult;
+                    }
                 }
             }
             // Ult (R)
@@ -305,9 +361,114 @@ export class ShinobiSurvivalGame extends Game {
                 }
             }
 
-            // Basic Attack (Auto-fire closest enemy? Or click?)
-            // For now, let's say left click or auto. Let's do auto-fire for simplicity like Vampire Survivors
-            // Or maybe click to shoot shuriken
+            // Basic Attack (Auto-fire)
+            p.fireTimer += dt;
+            const fireRate = (p.character === 'sasuke' ? 0.4 : 0.8) * p.stats.cooldownMult; // Base rates from index.html
+
+            if (p.fireTimer >= fireRate) {
+                this.fireWeapon(p);
+                p.fireTimer = 0;
+                if (p.character === 'naruto' && p.weaponLevel >= 2 && !p.isEvolved) {
+                    p.burstTimer = 0.1;
+                    p.burstCount = 1;
+                }
+            }
+
+            if (p.burstCount > 0) {
+                p.burstTimer -= dt;
+                if (p.burstTimer <= 0) {
+                    this.fireWeapon(p);
+                    p.burstCount--;
+                    if (p.burstCount > 0) p.burstTimer = 0.1;
+                }
+            }
+
+            // --- ABILITIES ---
+            // Naruto Charge Logic
+            if (p.character === 'naruto') {
+                if (input.keysHeld['e']) {
+                    p.skillChargeTime = Math.min(p.skillChargeTime + dt, 1.5);
+                } else if (p.skillChargeTime > 0) {
+                    // Release Charge -> Dash
+                    const chargeRatio = p.skillChargeTime / 1.5;
+                    const speed = 600;
+                    const baseDist = 75;
+                    const maxDist = 375;
+                    const distance = baseDist + (chargeRatio * (maxDist - baseDist));
+
+                    // Dash towards mouse
+                    const angle = p.aimAngle;
+                    const dx = Math.cos(angle) * distance;
+                    const dy = Math.sin(angle) * distance;
+
+                    // Move player (with collision check ideally, but simple for now)
+                    p.pos.x += dx;
+                    p.pos.y += dy;
+
+                    // Damage enemies in path (simplified as circle at end or line)
+                    // Let's do a simple area check at destination
+                    for (const e of this.enemies) {
+                        const d = Math.sqrt((p.pos.x - e.pos.x) ** 2 + (p.pos.y - e.pos.y) ** 2);
+                        if (d < 100) {
+                            e.hp -= 50 * p.stats.damageMult * (1 + chargeRatio);
+                        }
+                    }
+                    p.skillChargeTime = 0;
+                }
+            }
+
+            // Ultimate Active Logic
+            if (p.ultActiveTime > 0) {
+                p.ultActiveTime -= dt;
+                if (p.character === 'naruto') {
+                    // Continuous Beam Damage
+                    // Line from player to mouse (aimAngle)
+                    // We need to check enemies near this line
+                    const range = 2000;
+                    const p1 = p.pos;
+                    const p2 = { x: p.pos.x + Math.cos(p.aimAngle) * range, y: p.pos.y + Math.sin(p.aimAngle) * range };
+
+                    for (const e of this.enemies) {
+                        // Distance from point to line segment
+                        const l2 = (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2;
+                        if (l2 == 0) continue;
+                        let t = ((e.pos.x - p1.x) * (p2.x - p1.x) + (e.pos.y - p1.y) * (p2.y - p1.y)) / l2;
+                        t = Math.max(0, Math.min(1, t));
+                        const proj = { x: p1.x + t * (p2.x - p1.x), y: p1.y + t * (p2.y - p1.y) };
+                        const dist = Math.sqrt((e.pos.x - proj.x) ** 2 + (e.pos.y - proj.y) ** 2);
+
+                        if (dist < 30) { // Beam width
+                            e.hp -= 5 * p.stats.damageMult; // Per tick damage
+                        }
+                    }
+                } else if (p.character === 'sasuke') {
+                    // Susanoo Area Damage
+                    for (const e of this.enemies) {
+                        const d = Math.sqrt((p.pos.x - e.pos.x) ** 2 + (p.pos.y - e.pos.y) ** 2);
+                        if (d < 150) {
+                            e.hp -= 2 * p.stats.damageMult;
+                        }
+                    }
+                }
+            }
+
+        }
+
+        // Hazards Update
+        for (let i = this.hazards.length - 1; i >= 0; i--) {
+            const h = this.hazards[i];
+            h.duration -= dt;
+            if (h.duration <= 0) {
+                this.hazards.splice(i, 1);
+                continue;
+            }
+            // Damage enemies
+            for (const e of this.enemies) {
+                const d = Math.sqrt((h.pos.x - e.pos.x) ** 2 + (h.pos.y - e.pos.y) ** 2);
+                if (d < h.radius) {
+                    e.hp -= h.damage * dt; // Per second approx if damage is high, or just small per tick
+                }
+            }
         }
 
         // Enemy Spawning
@@ -397,6 +558,7 @@ export class ShinobiSurvivalGame extends Game {
                         this.teamXP += orb.val;
                         this.xpOrbs.splice(i, 1);
                         if (this.teamXP >= this.xpToNextLevel) {
+                            this.teamXP = 0; // Reset XP for next level
                             this.teamLevel++;
                             this.xpToNextLevel *= 1.2;
                             this.gamePhase = 'levelUp';
@@ -411,22 +573,114 @@ export class ShinobiSurvivalGame extends Game {
         }
     }
 
-    useSkill(p: PlayerState, slot: string) {
-        // Simple projectile spawn for now
-        const speed = 600;
+
+
+    fireWeapon(p: PlayerState) {
+        // Find nearest enemy
+        let closestE: EnemyState | null = null;
+        let minDist = Infinity;
+        for (const e of this.enemies) {
+            const d = Math.sqrt((p.pos.x - e.pos.x) ** 2 + (p.pos.y - e.pos.y) ** 2);
+            if (d < minDist) { minDist = d; closestE = e; }
+        }
+
+        const angle = closestE ? Math.atan2(closestE.pos.y - p.pos.y, closestE.pos.x - p.pos.x) : (p.direction === 1 ? 0 : Math.PI);
+        let dmg = 10 * p.stats.damageMult;
+        if (this.random() < p.stats.critChance) dmg *= 2;
+
+        if (p.character === 'naruto') {
+            if (p.ultActiveTime > 0) { return; } // Ult handles its own damage
+            const projType = p.isEvolved ? 'rasenshuriken' : 'shuriken';
+            const pDmg = p.isEvolved ? dmg * 3 : dmg;
+            const pPierce = p.isEvolved ? 5 : (1 + p.stats.piercing);
+            const pSpeed = p.isEvolved ? 480 : 600;
+
+            this.spawnProjectile(p.id, p.pos, angle, pSpeed, pDmg, projType, p.stats.knockback + 2, pPierce);
+        } else if (p.character === 'sasuke') {
+            this.spawnProjectile(p.id, p.pos, angle, 120, dmg * 2, 'sword_slash', 10, 99);
+            this.spawnProjectile(p.id, p.pos, angle, 720, dmg, 'lightning', 4 + p.stats.knockback, 1 + p.stats.piercing);
+        } else if (p.character === 'gaara') {
+            this.spawnProjectile(p.id, p.pos, angle, 210, dmg * 1.8, 'sand', 5 + p.stats.knockback, 999);
+        } else if (p.character === 'sakura') {
+            // Sakura punch (short range area)
+            // For simplicity, spawn a short lived projectile or just damage area
+            this.spawnProjectile(p.id, p.pos, angle, 300, dmg * 2, 'rock_wave', 20, 999); // Using rock_wave as punch visual/hitbox
+        }
+    }
+
+    spawnProjectile(ownerId: number, pos: Vec2, angle: number, speed: number, dmg: number, type: string, knock: number, pierce: number) {
         this.projectiles.push({
             id: this.nextEntityId++,
-            type: slot === 'skill1' ? 'shuriken' : 'rasengan',
-            pos: new Vec2(p.pos.x, p.pos.y),
-            vel: new Vec2(Math.cos(p.aimAngle) * speed, Math.sin(p.aimAngle) * speed),
-            dmg: 20 * p.stats.damageMult,
-            knock: 10,
-            pierce: 1,
+            type: type,
+            pos: new Vec2(pos.x, pos.y),
+            vel: new Vec2(Math.cos(angle) * speed, Math.sin(angle) * speed),
+            dmg: dmg,
+            knock: knock,
+            pierce: pierce,
             life: 2.0,
-            angle: p.aimAngle,
-            ownerId: p.id,
+            angle: angle,
+            ownerId: ownerId,
             hitList: []
         });
+    }
+
+    useSkill(p: PlayerState, slot: string) {
+        if (slot === 'skill1') { // E Skill
+            if (p.character === 'naruto') {
+                // Naruto E: Charged Rasengan (Handled in tickPlaying for charge logic, this triggers start)
+                // Actually, for charge, we need to detect hold.
+                // Let's change this: useSkill is called when key is PRESSED.
+                // For Naruto E, we start charging.
+                p.skillChargeTime = 0;
+                // We need a flag to know we are charging? 
+                // We can use p.skillChargeTime > 0 or a separate flag.
+                // Let's assume we handle charge in tickPlaying and this just initializes if needed.
+                // But wait, tickPlaying calls useSkill when key is pressed.
+                // We should move Naruto E logic to tickPlaying entirely or use a state.
+            } else if (p.character === 'sasuke') {
+                // Amaterasu
+                this.hazards.push({
+                    id: this.nextEntityId++,
+                    pos: new Vec2(p.pos.x, p.pos.y),
+                    radius: 100,
+                    duration: 5.0,
+                    damage: 5,
+                    type: 'fire',
+                    ownerId: p.id
+                });
+            } else if (p.character === 'gaara') {
+                // Sand Coffin
+                // Damage enemies around player
+                for (const e of this.enemies) {
+                    const d = Math.sqrt((p.pos.x - e.pos.x) ** 2 + (p.pos.y - e.pos.y) ** 2);
+                    if (d < 200) {
+                        e.hp -= 50 * p.stats.damageMult;
+                        // Visuals would be nice (particle)
+                    }
+                }
+            } else if (p.character === 'sakura') {
+                // Heal
+                p.hp = Math.min(p.hp + 50, p.maxHp);
+            }
+        } else if (slot === 'ult') { // R Ult
+            if (p.character === 'naruto') {
+                p.ultActiveTime = 6.0;
+            } else if (p.character === 'sasuke') {
+                p.ultActiveTime = 6.0; // Susanoo
+            } else if (p.character === 'gaara') {
+                // Pyramid Seal
+                // Big damage area
+                for (const e of this.enemies) {
+                    const d = Math.sqrt((p.pos.x - e.pos.x) ** 2 + (p.pos.y - e.pos.y) ** 2);
+                    if (d < 300) {
+                        e.hp -= 100 * p.stats.damageMult;
+                        e.stunTimer = 3.0;
+                    }
+                }
+            } else if (p.character === 'sakura') {
+                p.ultActiveTime = 6.0; // Katsuyu
+            }
+        }
     }
 
     tickLevelUp(playerInputs: Map<NetplayPlayer, DefaultInput>) {
@@ -456,21 +710,27 @@ export class ShinobiSurvivalGame extends Game {
     }
 
     spawnEnemy() {
-        const id = this.nextEntityId++;
-        const angle = this.random() * Math.PI * 2;
-        const dist = 600; // Spawn outside screen
-        // Find a reference point (e.g. first player)
-        const p = Object.values(this.players)[0];
-        const center = p ? p.pos : new Vec2(0, 0);
+        const type = this.random() < 0.8 ? 'zetsu' : (this.random() < 0.5 ? 'sound' : 'snake');
+        const side = this.random() < 0.5 ? -1 : 1;
+        const MAP_WIDTH = 1400;
+        const pIds = Object.keys(this.players);
+        if (pIds.length === 0) return;
+        const p = this.players[parseInt(pIds[Math.floor(this.random() * pIds.length)])];
 
-        const pos = new Vec2(center.x + Math.cos(angle) * dist, center.y + Math.sin(angle) * dist);
+        const startX = side === -1 ? -MAP_WIDTH / 2 - 50 : MAP_WIDTH / 2 + 50;
+        const startY = p.pos.y + (this.random() - 0.5) * 800;
+
+        let hp = 20;
+        let speed = 100;
+        if (type === 'sound') { hp = 15; speed = 210; }
+        if (type === 'snake') { hp = 200; speed = 90; }
 
         this.enemies.push({
-            id: id,
-            type: this.random() > 0.8 ? 'sound_ninja' : 'zetsu',
-            pos: pos,
-            hp: 30,
-            maxHp: 30,
+            id: this.nextEntityId++,
+            type: type,
+            pos: new Vec2(startX, startY),
+            hp: hp,
+            maxHp: hp,
             dead: false,
             burnStacks: 0,
             bleedStacks: 0,
@@ -489,6 +749,7 @@ export class ShinobiSurvivalGame extends Game {
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         // Draw Tiled Background (Simple Grid)
+
         ctx.save();
         // Camera setup
         let localPlayerId = ShinobiSurvivalGame.localPlayerId;
@@ -507,7 +768,27 @@ export class ShinobiSurvivalGame extends Game {
         ctx.translate(-cx, -cy);
 
         // Draw Grid/Trees
-        // ... (Simplified for now, just the base color)
+        const gridY = 100;
+        const startY = Math.floor((cy - 200) / gridY) * gridY;
+        const endY = cy + canvas.height + 200;
+        const forestLeft = -700;
+        const forestRight = 700;
+
+        for (let y = startY; y < endY; y += gridY) {
+            if (cx < forestLeft + 200) {
+                for (let x = forestLeft - 300; x < forestLeft; x += 80) {
+                    const offX = ((Math.abs(y * x)) % 20);
+                    // Draw tree sprite (placeholder rect if sprite not ready, but we have SPRITES.tree)
+                    if (SPRITES.tree) ctx.drawImage(SPRITES.tree, x, y);
+                }
+            }
+            if (cx + canvas.width > forestRight - 200) {
+                for (let x = forestRight; x < forestRight + 300; x += 80) {
+                    const offX = ((Math.abs(y * x)) % 15);
+                    if (SPRITES.tree) ctx.drawImage(SPRITES.tree, x, y);
+                }
+            }
+        }
 
         // Draw XP Orbs
         for (const orb of this.xpOrbs) {
@@ -653,4 +934,5 @@ export class ShinobiSurvivalGame extends Game {
         }
     }
 }
+
 
