@@ -5,137 +5,22 @@ import {
     Vec2,
 } from "netplayjs";
 import { initSprites, SPRITES } from "./sprites";
+import { getSkill } from "./skills";
 
-export type GamePhase = 'lobby' | 'charSelect' | 'playing' | 'levelUp' | 'gameOver';
-
-export interface SkillState {
-    cooldown: number;
-    chargeTime: number;
-    isCharging: boolean;
-    activeTime: number;
-}
-
-export interface PlayerStats {
-    damageMult: number;
-    areaMult: number;
-    cooldownMult: number;
-    critChance: number;
-    knockback: number;
-    piercing: number;
-}
-
-export interface ElementFlags {
-    Fire: boolean;
-    Water: boolean;
-    Earth: boolean;
-    Wind: boolean;
-    Lightning: boolean;
-}
-
-export interface UpgradeOption {
-    id: string;
-    name: string;
-    description: string;
-    type: 'stat' | 'element' | 'weapon';
-}
-
-export interface PlayerState {
-    id: number;
-    name: string;
-    pos: Vec2;
-    hp: number;
-    maxHp: number;
-    character: string | null; // 'naruto', 'sasuke', 'gaara', 'sakura'
-
-    // Generalized Ability State
-    skills: Record<string, SkillState>;
-
-    // Stats & Upgrades
-    weaponLevel: number;
-    isEvolved: boolean;
-    stats: PlayerStats;
-    elements: ElementFlags;
-
-    // Meta
-    ready: boolean;
-    offeredUpgrades: UpgradeOption[];
-    selectedUpgrade: number | null; // 0, 1, 2
-    dead: boolean;
-
-    // Visuals
-    direction: number; // 1 or -1
-    aimAngle: number;
-    flash: number; // Damage flash timer
-
-    // Combat State
-    fireTimer: number;
-    burstTimer: number;
-    burstCount: number;
-    shield: number;
-    maxShield: number;
-    healCharge: number;
-    skillChargeTime: number;
-    skillCharging: boolean;
-    ultActiveTime: number;
-}
-
-export interface EnemyState {
-    id: number;
-    type: string;
-    pos: Vec2;
-    hp: number;
-    maxHp: number;
-    dead: boolean;
-    // Status effects
-    burnStacks: number;
-    bleedStacks: number;
-    slowTimer: number;
-    stunTimer: number;
-    dotTimer: number;
-    push: Vec2;
-}
-
-export interface ProjectileState {
-    id: number;
-    type: string;
-    pos: Vec2;
-    vel: Vec2;
-    dmg: number;
-    knock: number;
-    pierce: number;
-    life: number;
-    angle: number;
-    ownerId: number;
-    hitList: number[]; // Enemy IDs hit
-}
-
-export interface XpOrbState {
-    id: number;
-    pos: Vec2;
-    val: number;
-    dead: boolean;
-}
-
-export interface ParticleState {
-    id: number;
-    type: string;
-    pos: Vec2;
-    vel: Vec2;
-    life: number;
-    maxLife: number;
-    color: string;
-    size: number;
-}
-
-export interface HazardZoneState {
-    id: number;
-    pos: Vec2;
-    radius: number;
-    duration: number;
-    damage: number;
-    type: string; // 'fire', 'acid'
-    ownerId: number;
-}
+import {
+    GamePhase,
+    SkillState,
+    PlayerStats,
+    ElementFlags,
+    UpgradeOption,
+    PlayerState,
+    EnemyState,
+    ProjectileState,
+    XpOrbState,
+    ParticleState,
+    HazardZoneState,
+    FloatingText
+} from "./types";
 
 export class ShinobiSurvivalGame extends Game {
     static timestep = 1000 / 60;
@@ -150,6 +35,7 @@ export class ShinobiSurvivalGame extends Game {
     xpOrbs: XpOrbState[] = [];
     particles: ParticleState[] = [];
     hazards: HazardZoneState[] = [];
+    floatingTexts: FloatingText[] = [];
 
     gamePhase: GamePhase = 'charSelect';
     teamXP: number = 0;
@@ -217,7 +103,10 @@ export class ShinobiSurvivalGame extends Game {
                 healCharge: 0,
                 skillChargeTime: 0,
                 skillCharging: false,
-                ultActiveTime: 0
+                ultActiveTime: 0,
+                dashTime: 0,
+                dashVec: new Vec2(0, 0),
+                dashHitList: []
             };
         }
     }
@@ -289,19 +178,87 @@ export class ShinobiSurvivalGame extends Game {
             if (p.dead) continue;
 
             // Movement
-            let dx = 0; let dy = 0;
-            if (input.keysHeld['a']) dx -= 1;
-            if (input.keysHeld['d']) dx += 1;
-            if (input.keysHeld['w']) dy -= 1;
-            if (input.keysHeld['s']) dy += 1;
+            // Movement
+            if (p.dashTime > 0) {
+                // Dash Logic
+                p.pos.x += p.dashVec.x * dt;
+                p.pos.y += p.dashVec.y * dt;
+                p.dashTime -= dt;
 
-            if (dx !== 0 || dy !== 0) {
-                const len = Math.sqrt(dx * dx + dy * dy);
-                const speed = 240; // Base speed
-                p.pos.x += (dx / len) * speed * dt;
-                p.pos.y += (dy / len) * speed * dt;
+                // Dash Collision
+                for (const e of this.enemies) {
+                    if (!p.dashHitList.includes(e.id)) {
+                        const dist = Math.sqrt((p.pos.x - e.pos.x) ** 2 + (p.pos.y - e.pos.y) ** 2);
+                        if (dist < 100) { // Increased radius
+                            p.dashHitList.push(e.id);
+                            const dmg = 50 * p.stats.damageMult;
+                            e.hp -= dmg;
+                            this.spawnFloatingText(e.pos, Math.ceil(dmg).toString(), 'white');
+                        }
+                    }
+                }
 
-                if (dx !== 0) p.direction = Math.sign(dx);
+                // End of dash safety burst
+                if (p.dashTime <= 0) {
+                    p.dashTime = 0;
+
+                    // Rasengan Blast Effect
+                    if (p.character === 'naruto') {
+                        // Crater Visual
+                        this.particles.push({
+                            id: this.nextEntityId++,
+                            type: 'crater',
+                            pos: new Vec2(p.pos.x, p.pos.y),
+                            vel: new Vec2(0, 0),
+                            life: 2.0, // Shorter life
+                            maxLife: 2.0,
+                            color: '',
+                            size: 1
+                        });
+
+                        // Blast Damage & Knockback
+                        for (const e of this.enemies) {
+                            const dist = Math.sqrt((p.pos.x - e.pos.x) ** 2 + (p.pos.y - e.pos.y) ** 2);
+                            if (dist < 150) {
+                                const dmg = 50 * p.stats.damageMult;
+                                e.hp -= dmg;
+                                this.spawnFloatingText(e.pos, Math.ceil(dmg).toString(), 'white');
+
+                                // Knockback
+                                const angle = Math.atan2(e.pos.y - p.pos.y, e.pos.x - p.pos.x);
+                                e.push.x += Math.cos(angle) * 650; // Much stronger knockback
+                                e.push.y += Math.sin(angle) * 650;
+                            }
+                        }
+                    } else {
+                        // Generic Dash End (if any other char dashes)
+                        for (const e of this.enemies) {
+                            const dist = Math.sqrt((p.pos.x - e.pos.x) ** 2 + (p.pos.y - e.pos.y) ** 2);
+                            if (dist < 150) {
+                                e.hp -= 50 * p.stats.damageMult;
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Normal Movement
+                let moveSpeed = 120; // Base speed
+                if (p.skillCharging) moveSpeed = 0; // Immobile while charging
+                if (p.character === 'naruto' && p.ultActiveTime > 0) moveSpeed = 0; // Immobile during Ult
+
+                let dx = 0; let dy = 0;
+                if (input.keysHeld['a']) dx -= 1;
+                if (input.keysHeld['d']) dx += 1;
+                if (input.keysHeld['w']) dy -= 1;
+                if (input.keysHeld['s']) dy += 1;
+
+                if (dx !== 0 || dy !== 0) {
+                    const len = Math.sqrt(dx * dx + dy * dy);
+                    p.pos.x += (dx / len) * moveSpeed * dt;
+                    p.pos.y += (dy / len) * moveSpeed * dt;
+
+                    if (dx !== 0) p.direction = Math.sign(dx);
+                }
             }
 
             // Map Boundaries
@@ -328,42 +285,48 @@ export class ShinobiSurvivalGame extends Game {
             }
 
             // Skills
+            const skill1Logic = getSkill(p.character || '', 'skill1');
+            const ultLogic = getSkill(p.character || '', 'ult');
+
+            // Update Skills
+            if (skill1Logic) skill1Logic.update(p.skills.skill1, p, this, dt);
+            if (ultLogic) ultLogic.update(p.skills.ult, p, this, dt);
+
+            // Input Handling
             // Skill 1 (E)
-            // Skill 1 (E)
-            if (p.character === 'naruto') {
-                if (input.keysHeld['e'] && p.skills.skill1.cooldown <= 0) {
-                    p.skillCharging = true; // We need to add this to PlayerState if missing, or use chargeTime > 0
-                    p.skillChargeTime = Math.min(p.skillChargeTime + dt, 1.5);
-                } else {
-                    if (p.skillChargeTime > 0) {
-                        // Released
-                        this.useSkill(p, 'skill1');
-                        p.skillChargeTime = 0;
-                        p.skillCharging = false;
-                        p.skills.skill1.cooldown = 5.0 * p.stats.cooldownMult;
-                    }
-                }
-            } else {
-                if (input.keysPressed['e']) {
-                    const skill = p.skills.skill1;
-                    if (skill.cooldown <= 0) {
-                        this.useSkill(p, 'skill1');
-                        skill.cooldown = 5.0 * p.stats.cooldownMult;
-                    }
-                }
+            if (input.keysHeld['e']) {
+                if (skill1Logic) skill1Logic.onHold(p.skills.skill1, p, this, dt);
+                // For press detection, we might need a better way if we want single frame press
+                // But keysPressed is available
             }
+
+            if (input.keysPressed['e']) {
+                if (skill1Logic) skill1Logic.onPress(p.skills.skill1, p, this);
+            }
+
+            // Detect release (if needed, simplified)
+            // Ideally we track previous key state, but for now we can check if not held
+            // Actually, we need to know if it WAS held. 
+            // For Naruto's charge, we rely on `skillCharging` state or similar.
+            // Let's rely on the logic class to handle state transitions if possible, 
+            // but we need to signal release.
+            // A simple way: if we were charging and now key is not held.
+            if (!input.keysHeld['e'] && p.skills.skill1.isCharging) {
+                if (skill1Logic) skill1Logic.onRelease(p.skills.skill1, p, this);
+            }
+
             // Ult (R)
             if (input.keysPressed['r']) {
-                const skill = p.skills.ult;
-                if (skill.cooldown <= 0) {
-                    this.useSkill(p, 'ult');
-                    skill.cooldown = 10.0 * p.stats.cooldownMult;
-                }
+                if (ultLogic) ultLogic.onPress(p.skills.ult, p, this);
             }
+
+            // Ultimate Active Logic (Moved to later block to avoid duplication)
+            // Lines 408-437 removed to prevent double counting time and damage
+
 
             // Basic Attack (Auto-fire)
             p.fireTimer += dt;
-            const fireRate = (p.character === 'sasuke' ? 0.4 : 0.8) * p.stats.cooldownMult; // Base rates from index.html
+            const fireRate = (p.character === 'sasuke' ? 1.0 : 1.5) * p.stats.cooldownMult; // Base rates from index.html
 
             if (p.fireTimer >= fireRate) {
                 this.fireWeapon(p);
@@ -383,74 +346,7 @@ export class ShinobiSurvivalGame extends Game {
                 }
             }
 
-            // --- ABILITIES ---
-            // Naruto Charge Logic
-            if (p.character === 'naruto') {
-                if (input.keysHeld['e']) {
-                    p.skillChargeTime = Math.min(p.skillChargeTime + dt, 1.5);
-                } else if (p.skillChargeTime > 0) {
-                    // Release Charge -> Dash
-                    const chargeRatio = p.skillChargeTime / 1.5;
-                    const speed = 600;
-                    const baseDist = 75;
-                    const maxDist = 375;
-                    const distance = baseDist + (chargeRatio * (maxDist - baseDist));
-
-                    // Dash towards mouse
-                    const angle = p.aimAngle;
-                    const dx = Math.cos(angle) * distance;
-                    const dy = Math.sin(angle) * distance;
-
-                    // Move player (with collision check ideally, but simple for now)
-                    p.pos.x += dx;
-                    p.pos.y += dy;
-
-                    // Damage enemies in path (simplified as circle at end or line)
-                    // Let's do a simple area check at destination
-                    for (const e of this.enemies) {
-                        const d = Math.sqrt((p.pos.x - e.pos.x) ** 2 + (p.pos.y - e.pos.y) ** 2);
-                        if (d < 100) {
-                            e.hp -= 50 * p.stats.damageMult * (1 + chargeRatio);
-                        }
-                    }
-                    p.skillChargeTime = 0;
-                }
-            }
-
-            // Ultimate Active Logic
-            if (p.ultActiveTime > 0) {
-                p.ultActiveTime -= dt;
-                if (p.character === 'naruto') {
-                    // Continuous Beam Damage
-                    // Line from player to mouse (aimAngle)
-                    // We need to check enemies near this line
-                    const range = 2000;
-                    const p1 = p.pos;
-                    const p2 = { x: p.pos.x + Math.cos(p.aimAngle) * range, y: p.pos.y + Math.sin(p.aimAngle) * range };
-
-                    for (const e of this.enemies) {
-                        // Distance from point to line segment
-                        const l2 = (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2;
-                        if (l2 == 0) continue;
-                        let t = ((e.pos.x - p1.x) * (p2.x - p1.x) + (e.pos.y - p1.y) * (p2.y - p1.y)) / l2;
-                        t = Math.max(0, Math.min(1, t));
-                        const proj = { x: p1.x + t * (p2.x - p1.x), y: p1.y + t * (p2.y - p1.y) };
-                        const dist = Math.sqrt((e.pos.x - proj.x) ** 2 + (e.pos.y - proj.y) ** 2);
-
-                        if (dist < 30) { // Beam width
-                            e.hp -= 5 * p.stats.damageMult; // Per tick damage
-                        }
-                    }
-                } else if (p.character === 'sasuke') {
-                    // Susanoo Area Damage
-                    for (const e of this.enemies) {
-                        const d = Math.sqrt((p.pos.x - e.pos.x) ** 2 + (p.pos.y - e.pos.y) ** 2);
-                        if (d < 150) {
-                            e.hp -= 2 * p.stats.damageMult;
-                        }
-                    }
-                }
-            }
+            // Old hardcoded skill logic removed
 
         }
 
@@ -466,15 +362,37 @@ export class ShinobiSurvivalGame extends Game {
             for (const e of this.enemies) {
                 const d = Math.sqrt((h.pos.x - e.pos.x) ** 2 + (h.pos.y - e.pos.y) ** 2);
                 if (d < h.radius) {
-                    e.hp -= h.damage * dt; // Per second approx if damage is high, or just small per tick
+                    const dmg = h.damage * dt;
+                    e.hp -= dmg;
+                    if (Math.random() < 0.1) this.spawnFloatingText(e.pos, Math.ceil(h.damage).toString(), 'white');
                 }
             }
         }
 
         // Enemy Spawning
         this.spawnTimer += dt;
-        if (this.spawnTimer > 1.0) {
+
+        // Wave Logic
+        let spawnRate = 1.0;
+        let waveMultiplier = 1;
+
+        if (this.gameTime < 60) {
+            spawnRate = 1.5; // Slow start
+            waveMultiplier = 1;
+        } else if (this.gameTime < 120) {
+            spawnRate = 0.8; // Medium
+            waveMultiplier = 2;
+        } else {
+            spawnRate = 0.4; // Fast
+            waveMultiplier = 3;
+        }
+
+        if (this.spawnTimer > spawnRate) {
             this.spawnEnemy();
+            // Chance for extra spawns based on wave
+            if (waveMultiplier >= 2 && this.random() < 0.4) this.spawnEnemy();
+            if (waveMultiplier >= 3 && this.random() < 0.6) this.spawnEnemy();
+
             this.spawnTimer = 0;
         }
 
@@ -493,8 +411,35 @@ export class ShinobiSurvivalGame extends Game {
             if (closestP) {
                 const angle = Math.atan2(closestP.pos.y - e.pos.y, closestP.pos.x - e.pos.x);
                 const speed = 100;
-                e.pos.x += Math.cos(angle) * speed * dt;
-                e.pos.y += Math.sin(angle) * speed * dt;
+                // Apply Push
+                e.pos.x += (Math.cos(angle) * speed + e.push.x) * dt;
+                e.pos.y += (Math.sin(angle) * speed + e.push.y) * dt;
+
+                // Decay Push
+                e.push.x *= 0.95;
+                e.push.y *= 0.95;
+
+                // Collision with Player (Damage)
+                if (closestP) {
+                    // Invincibility check for Naruto during Rasengan
+                    if (closestP.character === 'naruto' && (closestP.skillCharging || closestP.dashTime > 0)) {
+                        // Invincible
+                    } else {
+                        const d = Math.sqrt((closestP.pos.x - e.pos.x) ** 2 + (closestP.pos.y - e.pos.y) ** 2);
+                        if (d < 30) { // Touch radius
+                            const dmg = 10 * dt; // DPS
+                            closestP.hp -= dmg;
+                            if (Math.random() < 0.1) this.spawnFloatingText(closestP.pos, Math.ceil(10).toString(), 'red');
+                        }
+                    }
+                }
+            }
+        }
+
+        // Remove dead enemies
+        for (let i = this.enemies.length - 1; i >= 0; i--) {
+            if (this.enemies[i].dead) {
+                this.enemies.splice(i, 1);
             }
         }
 
@@ -518,6 +463,7 @@ export class ShinobiSurvivalGame extends Game {
                 const dist = Math.sqrt((proj.pos.x - e.pos.x) ** 2 + (proj.pos.y - e.pos.y) ** 2);
                 if (dist < 30) { // Hit radius
                     e.hp -= proj.dmg;
+                    this.spawnFloatingText(e.pos, Math.ceil(proj.dmg).toString(), 'white');
                     proj.hitList.push(e.id);
                     if (proj.pierce > 0) {
                         proj.pierce--;
@@ -569,6 +515,28 @@ export class ShinobiSurvivalGame extends Game {
                         }
                     }
                 }
+            }
+        }
+
+        // Particle Update
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            const part = this.particles[i];
+            part.life -= dt;
+            if (part.life <= 0) {
+                this.particles.splice(i, 1);
+                continue;
+            }
+            part.pos.x += part.vel.x * dt;
+            part.pos.y += part.vel.y * dt;
+        }
+
+        // Floating Text Update
+        for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
+            const ft = this.floatingTexts[i];
+            ft.life -= dt;
+            ft.pos.y -= 20 * dt; // Float up
+            if (ft.life <= 0) {
+                this.floatingTexts.splice(i, 1);
             }
         }
     }
@@ -624,64 +592,7 @@ export class ShinobiSurvivalGame extends Game {
         });
     }
 
-    useSkill(p: PlayerState, slot: string) {
-        if (slot === 'skill1') { // E Skill
-            if (p.character === 'naruto') {
-                // Naruto E: Charged Rasengan (Handled in tickPlaying for charge logic, this triggers start)
-                // Actually, for charge, we need to detect hold.
-                // Let's change this: useSkill is called when key is PRESSED.
-                // For Naruto E, we start charging.
-                p.skillChargeTime = 0;
-                // We need a flag to know we are charging? 
-                // We can use p.skillChargeTime > 0 or a separate flag.
-                // Let's assume we handle charge in tickPlaying and this just initializes if needed.
-                // But wait, tickPlaying calls useSkill when key is pressed.
-                // We should move Naruto E logic to tickPlaying entirely or use a state.
-            } else if (p.character === 'sasuke') {
-                // Amaterasu
-                this.hazards.push({
-                    id: this.nextEntityId++,
-                    pos: new Vec2(p.pos.x, p.pos.y),
-                    radius: 100,
-                    duration: 5.0,
-                    damage: 5,
-                    type: 'fire',
-                    ownerId: p.id
-                });
-            } else if (p.character === 'gaara') {
-                // Sand Coffin
-                // Damage enemies around player
-                for (const e of this.enemies) {
-                    const d = Math.sqrt((p.pos.x - e.pos.x) ** 2 + (p.pos.y - e.pos.y) ** 2);
-                    if (d < 200) {
-                        e.hp -= 50 * p.stats.damageMult;
-                        // Visuals would be nice (particle)
-                    }
-                }
-            } else if (p.character === 'sakura') {
-                // Heal
-                p.hp = Math.min(p.hp + 50, p.maxHp);
-            }
-        } else if (slot === 'ult') { // R Ult
-            if (p.character === 'naruto') {
-                p.ultActiveTime = 6.0;
-            } else if (p.character === 'sasuke') {
-                p.ultActiveTime = 6.0; // Susanoo
-            } else if (p.character === 'gaara') {
-                // Pyramid Seal
-                // Big damage area
-                for (const e of this.enemies) {
-                    const d = Math.sqrt((p.pos.x - e.pos.x) ** 2 + (p.pos.y - e.pos.y) ** 2);
-                    if (d < 300) {
-                        e.hp -= 100 * p.stats.damageMult;
-                        e.stunTimer = 3.0;
-                    }
-                }
-            } else if (p.character === 'sakura') {
-                p.ultActiveTime = 6.0; // Katsuyu
-            }
-        }
-    }
+    // useSkill removed, logic moved to SkillLogic classes
 
     tickLevelUp(playerInputs: Map<NetplayPlayer, DefaultInput>) {
         // Wait for all players to select upgrades
@@ -710,7 +621,21 @@ export class ShinobiSurvivalGame extends Game {
     }
 
     spawnEnemy() {
-        const type = this.random() < 0.8 ? 'zetsu' : (this.random() < 0.5 ? 'sound' : 'snake');
+        // Determine enemy type based on time
+        let type = 'zetsu';
+        const rand = this.random();
+
+        if (this.gameTime < 60) {
+            // Mostly Zetsu
+            type = rand < 0.9 ? 'zetsu' : 'sound';
+        } else if (this.gameTime < 120) {
+            // Mix
+            type = rand < 0.6 ? 'zetsu' : (rand < 0.9 ? 'sound' : 'snake');
+        } else {
+            // Harder mix
+            type = rand < 0.4 ? 'zetsu' : (rand < 0.7 ? 'sound' : 'snake');
+        }
+
         const side = this.random() < 0.5 ? -1 : 1;
         const MAP_WIDTH = 1400;
         const pIds = Object.keys(this.players);
@@ -720,10 +645,14 @@ export class ShinobiSurvivalGame extends Game {
         const startX = side === -1 ? -MAP_WIDTH / 2 - 50 : MAP_WIDTH / 2 + 50;
         const startY = p.pos.y + (this.random() - 0.5) * 800;
 
-        let hp = 20;
+        // HP Scaling
+        const timeScale = 1 + (this.gameTime / 60); // +100% HP every minute
+
+        let hp = 20 * timeScale;
         let speed = 100;
-        if (type === 'sound') { hp = 15; speed = 210; }
-        if (type === 'snake') { hp = 200; speed = 90; }
+
+        if (type === 'sound') { hp = 15 * timeScale; speed = 210; }
+        if (type === 'snake') { hp = 200 * timeScale; speed = 90; }
 
         this.enemies.push({
             id: this.nextEntityId++,
@@ -741,198 +670,293 @@ export class ShinobiSurvivalGame extends Game {
         });
     }
 
+    spawnFloatingText(pos: Vec2, text: string, color: string) {
+        this.floatingTexts.push({
+            id: this.nextEntityId++,
+            pos: new Vec2(pos.x, pos.y - 20),
+            vel: new Vec2(0, -20),
+            text: text,
+            color: color,
+            life: 1.0,
+            maxLife: 1.0,
+            size: 20
+        });
+    }
+
     draw(canvas: HTMLCanvasElement) {
-        const ctx = canvas.getContext("2d")!;
+        try {
+            const ctx = canvas.getContext("2d")!;
 
-        // Background
-        ctx.fillStyle = "#1b2e1b";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // Background
+            ctx.fillStyle = "#1b2e1b";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Draw Tiled Background (Simple Grid)
-
-        ctx.save();
-        // Camera setup
-        let localPlayerId = ShinobiSurvivalGame.localPlayerId;
-        if (localPlayerId === null) localPlayerId = 0; // Fallback
-
-        if (Math.random() < 0.01) console.log("Drawing with localPlayerId:", localPlayerId);
-
-        const localPlayer = this.players[localPlayerId];
-
-        let cx = 0, cy = 0;
-        if (localPlayer) {
-            cx = localPlayer.pos.x - canvas.width / 2;
-            cy = localPlayer.pos.y - canvas.height / 2;
-        }
-
-        ctx.translate(-cx, -cy);
-
-        // Draw Grid/Trees
-        const gridY = 100;
-        const startY = Math.floor((cy - 200) / gridY) * gridY;
-        const endY = cy + canvas.height + 200;
-        const forestLeft = -700;
-        const forestRight = 700;
-
-        for (let y = startY; y < endY; y += gridY) {
-            if (cx < forestLeft + 200) {
-                for (let x = forestLeft - 300; x < forestLeft; x += 80) {
-                    const offX = ((Math.abs(y * x)) % 20);
-                    // Draw tree sprite (placeholder rect if sprite not ready, but we have SPRITES.tree)
-                    if (SPRITES.tree) ctx.drawImage(SPRITES.tree, x, y);
-                }
-            }
-            if (cx + canvas.width > forestRight - 200) {
-                for (let x = forestRight; x < forestRight + 300; x += 80) {
-                    const offX = ((Math.abs(y * x)) % 15);
-                    if (SPRITES.tree) ctx.drawImage(SPRITES.tree, x, y);
-                }
-            }
-        }
-
-        // Draw XP Orbs
-        for (const orb of this.xpOrbs) {
-            ctx.fillStyle = '#00d2ff';
-            ctx.beginPath(); ctx.arc(orb.pos.x, orb.pos.y, 4, 0, Math.PI * 2); ctx.fill();
-            ctx.shadowBlur = 5; ctx.shadowColor = '#00d2ff'; ctx.fill(); ctx.shadowBlur = 0;
-        }
-
-        // Draw Enemies
-        for (const e of this.enemies) {
-            const sprite = SPRITES[e.type] || SPRITES.zetsu;
-            ctx.drawImage(sprite, e.pos.x - sprite.width / 2, e.pos.y - sprite.height / 2);
-
-            // Enemy HP Bar
-            const hpPct = e.hp / e.maxHp;
-            ctx.fillStyle = 'red'; ctx.fillRect(e.pos.x - 15, e.pos.y - 40, 30, 4);
-            ctx.fillStyle = '#0f0'; ctx.fillRect(e.pos.x - 15, e.pos.y - 40, 30 * hpPct, 4);
-        }
-
-        // Draw Players
-        for (let id in this.players) {
-            const p = this.players[id];
-            if (p.dead) continue;
-
-            const spriteKey = p.character || 'naruto';
-            const sprite = SPRITES[spriteKey];
+            // Draw Tiled Background (Simple Grid)
 
             ctx.save();
-            ctx.translate(p.pos.x, p.pos.y);
-            ctx.scale(p.direction, 1); // Flip based on direction
-            if (sprite) {
-                ctx.drawImage(sprite, -sprite.width / 2, -sprite.height / 2);
-            } else {
-                ctx.fillStyle = 'orange'; ctx.fillRect(-10, -10, 20, 20);
-            }
-            ctx.restore();
+            // Camera setup
+            let localPlayerId = ShinobiSurvivalGame.localPlayerId;
+            if (localPlayerId === null) localPlayerId = 0; // Fallback
 
-            // Player Name & HP (Above Head)
-            if (parseInt(id) !== localPlayerId) {
-                ctx.fillStyle = 'white'; ctx.font = '12px Arial'; ctx.textAlign = 'center';
-                ctx.fillText(p.name, p.pos.x, p.pos.y - 45);
+            const localPlayer = this.players[localPlayerId];
 
-                const hpPct = p.hp / p.maxHp;
-                ctx.fillStyle = 'red'; ctx.fillRect(p.pos.x - 20, p.pos.y - 40, 40, 5);
-                ctx.fillStyle = '#0f0'; ctx.fillRect(p.pos.x - 20, p.pos.y - 40, 40 * hpPct, 5);
-            }
-        }
-
-        // Draw Projectiles
-        for (const proj of this.projectiles) {
-            const sprite = SPRITES[proj.type];
-            ctx.save();
-            ctx.translate(proj.pos.x, proj.pos.y);
-            ctx.rotate(proj.angle);
-            if (sprite) {
-                ctx.drawImage(sprite, -sprite.width / 2, -sprite.height / 2);
-            } else {
-                ctx.fillStyle = 'yellow'; ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
-            }
-            ctx.restore();
-        }
-
-        ctx.restore(); // End Camera Transform
-
-        // HUD (Screen Space)
-        if (this.gamePhase === 'playing' || this.gamePhase === 'levelUp') {
-            // Team XP Bar (Top Center)
-            const xpPct = Math.min(this.teamXP / this.xpToNextLevel, 1);
-            const barW = 600; const barH = 20;
-            const barX = (canvas.width - barW) / 2;
-
-            ctx.fillStyle = '#333'; ctx.fillRect(barX, 10, barW, barH);
-            ctx.fillStyle = '#00d2ff'; ctx.fillRect(barX, 10, barW * xpPct, barH);
-            ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(barX, 10, barW, barH);
-
-            ctx.fillStyle = 'white'; ctx.font = 'bold 16px Arial'; ctx.textAlign = 'center';
-            ctx.fillText(`Team Level ${this.teamLevel}`, canvas.width / 2, 26);
-
-            // Local Player HUD (Bottom Left)
+            let cx = 0, cy = 0;
             if (localPlayer) {
-                // HP Bar
-                const hpPct = localPlayer.hp / localPlayer.maxHp;
-                ctx.fillStyle = '#333'; ctx.fillRect(20, canvas.height - 40, 200, 20);
-                ctx.fillStyle = '#2ecc71'; ctx.fillRect(20, canvas.height - 40, 200 * hpPct, 20);
-                ctx.strokeStyle = '#fff'; ctx.strokeRect(20, canvas.height - 40, 200, 20);
-                ctx.fillStyle = 'white'; ctx.font = '14px Arial'; ctx.textAlign = 'left';
-                ctx.fillText(`${Math.ceil(localPlayer.hp)} / ${localPlayer.maxHp}`, 25, canvas.height - 25);
+                cx = localPlayer.pos.x - canvas.width / 2;
+                cy = localPlayer.pos.y - canvas.height / 2;
+            }
 
-                // Skills
-                const drawSkill = (x: number, key: string, label: string) => {
-                    const skill = localPlayer.skills[key];
-                    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(x, canvas.height - 90, 50, 50);
-                    ctx.strokeStyle = 'white'; ctx.strokeRect(x, canvas.height - 90, 50, 50);
+            ctx.translate(-cx, -cy);
 
-                    ctx.fillStyle = 'white'; ctx.font = '12px Arial'; ctx.textAlign = 'center';
-                    ctx.fillText(label, x + 25, canvas.height - 95);
+            // Draw Grid/Trees
+            const gridY = 100;
+            const startY = Math.floor((cy - 200) / gridY) * gridY;
+            const endY = cy + canvas.height + 200;
+            const forestLeft = -700;
+            const forestRight = 700;
 
-                    if (skill.cooldown > 0) {
-                        ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(x, canvas.height - 90, 50, 50);
-                        ctx.fillStyle = 'white'; ctx.font = 'bold 16px Arial';
-                        ctx.fillText(Math.ceil(skill.cooldown).toString(), x + 25, canvas.height - 60);
+            for (let y = startY; y < endY; y += gridY) {
+                // Grass Texture (More detailed noise)
+                for (let x = forestLeft - 200; x < forestRight + 200; x += 20) {
+                    // Use a deterministic pseudo-random noise based on position
+                    const noise = Math.sin(x * 0.12 + y * 0.15) * Math.cos(x * 0.08 + y * 0.02) * Math.sin((x + y) * 0.05);
+
+                    if (noise > 0.2) {
+                        const gx = x + (noise * 10);
+                        const gy = y + (noise * 10);
+
+                        // Vary color slightly
+                        const colorVar = Math.floor(noise * 40);
+                        // Brighter Green: Base #3cb043 (60, 176, 67)
+                        // High Contrast: #2ecc71 (46, 204, 113)
+                        // Let's go with a vibrant anime grass look
+                        // Base: 46, 200, 80. Var: +/- 20
+                        const r = 46 + colorVar;
+                        const g = 180 + colorVar;
+                        const b = 60 + colorVar;
+
+                        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                        ctx.fillRect(gx, gy, 6, 6);
                     }
-                };
+                }
 
-                drawSkill(240, 'skill1', 'E');
-                drawSkill(300, 'ult', 'R');
+                if (cx < forestLeft + 200) {
+                    for (let x = forestLeft - 300; x < forestLeft; x += 80) {
+                        const offX = ((Math.abs(y * x)) % 20);
+                        // Draw tree sprite (placeholder rect if sprite not ready, but we have SPRITES.tree)
+                        if (SPRITES.tree) ctx.drawImage(SPRITES.tree, x, y);
+                    }
+                }
+                if (cx + canvas.width > forestRight - 200) {
+                    for (let x = forestRight; x < forestRight + 300; x += 80) {
+                        const offX = ((Math.abs(y * x)) % 15);
+                        if (SPRITES.tree) ctx.drawImage(SPRITES.tree, x - 60, y); // Shift left by half width to align trunk
+                    }
+                }
             }
-        }
 
-        // Character Select / Level Up Overlays
-        if (this.gamePhase === 'charSelect') {
-            ctx.fillStyle = 'rgba(0,0,0,0.8)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = 'white';
-            ctx.font = '30px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText("Select Character: 1-Naruto, 2-Sasuke, 3-Gaara, 4-Sakura", canvas.width / 2, 100);
-            ctx.fillText("Press SPACE to Ready", canvas.width / 2, 150);
+            // Draw Hazards
+            for (const h of this.hazards) {
+                ctx.globalAlpha = 0.4;
+                if (h.type === 'acid') ctx.fillStyle = '#2ecc71';
+                else ctx.fillStyle = 'black'; // Amaterasu is black fire
 
-            let y = 200;
+                ctx.beginPath(); ctx.arc(h.pos.x, h.pos.y, h.radius, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = '#555'; ctx.lineWidth = 2; ctx.stroke(); ctx.globalAlpha = 1.0;
+            }
+
+            // Draw XP Orbs
+            for (const orb of this.xpOrbs) {
+                ctx.fillStyle = '#00d2ff';
+                ctx.beginPath(); ctx.arc(orb.pos.x, orb.pos.y, 4, 0, Math.PI * 2); ctx.fill();
+                ctx.shadowBlur = 5; ctx.shadowColor = '#00d2ff'; ctx.fill(); ctx.shadowBlur = 0;
+            }
+
+            // Draw Enemies
+            for (const e of this.enemies) {
+                const sprite = SPRITES[e.type] || SPRITES.zetsu;
+                ctx.drawImage(sprite, e.pos.x - sprite.width / 2, e.pos.y - sprite.height / 2);
+
+                // Enemy HP Bar
+                const hpPct = Math.min(Math.max(e.hp / e.maxHp, 0), 1);
+                ctx.fillStyle = 'red'; ctx.fillRect(e.pos.x - 15, e.pos.y - 40, 30, 4);
+                ctx.fillStyle = '#0f0'; ctx.fillRect(e.pos.x - 15, e.pos.y - 40, 30 * hpPct, 4);
+            }
+
+            // Draw Players
             for (let id in this.players) {
                 const p = this.players[id];
-                const status = p.ready ? "READY" : (p.character ? p.character.toUpperCase() : "Selecting...");
-                ctx.fillText(`${p.name}: ${status}`, canvas.width / 2, y);
-                y += 40;
-            }
-        } else if (this.gamePhase === 'levelUp') {
-            ctx.fillStyle = 'rgba(0,0,0,0.7)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = 'white'; ctx.font = '40px Arial'; ctx.textAlign = 'center';
-            ctx.fillText("LEVEL UP!", canvas.width / 2, 100);
-            ctx.font = '20px Arial';
-            ctx.fillText("Select an upgrade (1, 2, or 3)", canvas.width / 2, 140);
+                if (p.dead) continue;
 
-            // Show waiting status
-            let y = 200;
-            for (let id in this.players) {
-                const p = this.players[id];
-                const status = p.selectedUpgrade !== null ? "SELECTED" : "CHOOSING...";
-                ctx.fillText(`${p.name}: ${status}`, canvas.width / 2, y);
-                y += 30;
+                const spriteKey = p.character || 'naruto';
+                const sprite = SPRITES[spriteKey];
+
+                // Ultimate Visuals (Delegated)
+                const ultLogic = getSkill(p.character || '', 'ult');
+                if (ultLogic) ultLogic.draw(ctx, p.skills.ult, p, this);
+
+                ctx.save(); // Start player rendering group
+
+                ctx.translate(p.pos.x, p.pos.y);
+                ctx.scale(p.direction, 1); // Flip based on direction
+                if (sprite) {
+                    ctx.drawImage(sprite, -sprite.width / 2, -sprite.height / 2);
+                } else {
+                    ctx.fillStyle = 'orange'; ctx.fillRect(-10, -10, 20, 20);
+                }
+
+                ctx.restore(); // End Player Sprite Transform (Scale/Flip)
+
+                // Rasengan Charging Visuals (Delegated)
+                const skill1Logic = getSkill(p.character || '', 'skill1');
+                if (skill1Logic) skill1Logic.draw(ctx, p.skills.skill1, p, this);
+
+                // Rasengan Dash Visuals
+                if (p.character === 'naruto' && p.dashTime > 0) {
+                    const size = 2.5;
+                    ctx.save();
+                    ctx.translate(p.pos.x, p.pos.y);
+                    const angle = Math.atan2(p.dashVec.y, p.dashVec.x);
+                    ctx.rotate(angle);
+                    if (SPRITES.rasengan) ctx.drawImage(SPRITES.rasengan, 0, -50, 100, 100);
+                    ctx.restore();
+                }
+
+                // Player Name & HP (Above Head)
+                if (parseInt(id) !== localPlayerId) {
+                    ctx.fillStyle = 'white'; ctx.font = '12px Arial'; ctx.textAlign = 'center';
+                    ctx.fillText(p.name, p.pos.x, p.pos.y - 45);
+
+                    const hpPct = Math.min(Math.max(p.hp / p.maxHp, 0), 1);
+                    ctx.fillStyle = 'red'; ctx.fillRect(p.pos.x - 20, p.pos.y - 40, 40, 5);
+                    ctx.fillStyle = '#0f0'; ctx.fillRect(p.pos.x - 20, p.pos.y - 40, 40 * hpPct, 5);
+                }
             }
+
+            // Draw Particles (Craters)
+            for (const part of this.particles) {
+                if (part.type === 'crater') {
+                    ctx.save();
+                    ctx.translate(part.pos.x, part.pos.y);
+                    ctx.globalAlpha = part.life / part.maxLife;
+                    if (SPRITES.cracks) ctx.drawImage(SPRITES.cracks, -50, -50);
+                    else {
+                        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                        ctx.beginPath(); ctx.ellipse(0, 0, 40, 20, 0, 0, Math.PI * 2); ctx.fill();
+                    }
+                    ctx.restore();
+                }
+            }
+
+            // Draw Projectiles
+            for (const proj of this.projectiles) {
+                const sprite = SPRITES[proj.type];
+                ctx.save();
+                ctx.translate(proj.pos.x, proj.pos.y);
+                ctx.rotate(proj.angle);
+                if (sprite) {
+                    ctx.drawImage(sprite, -sprite.width / 2, -sprite.height / 2);
+                } else {
+                    ctx.fillStyle = 'yellow'; ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
+                }
+                ctx.restore();
+            }
+
+            // Draw Floating Texts
+            for (const ft of this.floatingTexts) {
+                ctx.save();
+                ctx.fillStyle = ft.color;
+                ctx.font = `bold ${ft.size}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.shadowColor = 'black';
+                ctx.shadowBlur = 2;
+                ctx.fillText(ft.text, ft.pos.x, ft.pos.y);
+                ctx.restore();
+            }
+
+            ctx.restore(); // End Camera Transform
+
+            // HUD (Screen Space)
+            if (this.gamePhase === 'playing' || this.gamePhase === 'levelUp') {
+                // Team XP Bar (Top Center)
+                const xpPct = Math.min(this.teamXP / this.xpToNextLevel, 1);
+                const barW = 600; const barH = 20;
+                const barX = (canvas.width - barW) / 2;
+
+                ctx.fillStyle = '#333'; ctx.fillRect(barX, 10, barW, barH);
+                ctx.fillStyle = '#00d2ff'; ctx.fillRect(barX, 10, barW * xpPct, barH);
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(barX, 10, barW, barH);
+
+                ctx.fillStyle = 'white'; ctx.font = 'bold 16px Arial'; ctx.textAlign = 'center';
+                ctx.fillText(`Team Level ${this.teamLevel}`, canvas.width / 2, 26);
+
+                // Local Player HUD (Bottom Left)
+                if (localPlayer) {
+                    // HP Bar
+                    const hpPct = localPlayer.hp / localPlayer.maxHp;
+                    ctx.fillStyle = '#333'; ctx.fillRect(20, canvas.height - 40, 200, 20);
+                    ctx.fillStyle = '#2ecc71'; ctx.fillRect(20, canvas.height - 40, 200 * hpPct, 20);
+                    ctx.strokeStyle = '#fff'; ctx.strokeRect(20, canvas.height - 40, 200, 20);
+                    ctx.fillStyle = 'white'; ctx.font = '14px Arial'; ctx.textAlign = 'left';
+                    ctx.fillText(`${Math.ceil(localPlayer.hp)} / ${localPlayer.maxHp}`, 25, canvas.height - 25);
+
+                    // Skills
+                    const drawSkill = (x: number, key: string, label: string) => {
+                        const skill = localPlayer.skills[key];
+                        ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(x, canvas.height - 90, 50, 50);
+                        ctx.strokeStyle = 'white'; ctx.strokeRect(x, canvas.height - 90, 50, 50);
+
+                        ctx.fillStyle = 'white'; ctx.font = '12px Arial'; ctx.textAlign = 'center';
+                        ctx.fillText(label, x + 25, canvas.height - 95);
+
+                        if (skill.cooldown > 0) {
+                            ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(x, canvas.height - 90, 50, 50);
+                            ctx.fillStyle = 'white'; ctx.font = 'bold 16px Arial';
+                            ctx.fillText(Math.ceil(skill.cooldown).toString(), x + 25, canvas.height - 60);
+                        }
+                    };
+
+                    drawSkill(240, 'skill1', 'E');
+                    drawSkill(300, 'ult', 'R');
+                }
+            }
+
+            // Character Select / Level Up Overlays
+            if (this.gamePhase === 'charSelect') {
+                ctx.fillStyle = 'rgba(0,0,0,0.8)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = 'white';
+                ctx.font = '30px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText("Select Character: 1-Naruto, 2-Sasuke, 3-Gaara, 4-Sakura", canvas.width / 2, 100);
+                ctx.fillText("Press SPACE to Ready", canvas.width / 2, 150);
+
+                let y = 200;
+                for (let id in this.players) {
+                    const p = this.players[id];
+                    const status = p.ready ? "READY" : (p.character ? p.character.toUpperCase() : "Selecting...");
+                    ctx.fillText(`${p.name}: ${status}`, canvas.width / 2, y);
+                    y += 40;
+                }
+            } else if (this.gamePhase === 'levelUp') {
+                ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = 'white'; ctx.font = '40px Arial'; ctx.textAlign = 'center';
+                ctx.fillText("LEVEL UP!", canvas.width / 2, 100);
+                ctx.font = '20px Arial';
+                ctx.fillText("Select an upgrade (1, 2, or 3)", canvas.width / 2, 140);
+
+                // Show waiting status
+                let y = 200;
+                for (let id in this.players) {
+                    const p = this.players[id];
+                    const status = p.selectedUpgrade !== null ? "SELECTED" : "CHOOSING...";
+                    ctx.fillText(`${p.name}: ${status}`, canvas.width / 2, y);
+                    y += 30;
+                }
+            }
+        } catch (err) {
+            console.error("DRAW ERROR:", err);
         }
     }
 }
-
-
