@@ -1,4 +1,4 @@
-import { RollbackWrapper } from "netplayjs";
+import { MultiplayerRollbackWrapper } from "netplayjs";
 import { ShinobiSurvivalGame } from "./multiplayer-game";
 
-new RollbackWrapper(ShinobiSurvivalGame).start();
+new MultiplayerRollbackWrapper(ShinobiSurvivalGame).start();
