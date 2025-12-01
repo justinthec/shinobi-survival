@@ -554,7 +554,9 @@
 
 /*! ../netcode/rollback */
 
-/*! ../types */
+/*! ../netcode/types */
+
+/*! ../serialization/autoserialize */
 
 /*! ../ui/gamemenu */
 
@@ -688,6 +690,8 @@
 
 /*! ./mode */
 
+/*! ./netcode/types */
+
 /*! ./numeric-data */
 
 /*! ./objDisplay */
@@ -720,8 +724,6 @@
 
 /*! ./segments */
 
-/*! ./serialization/autoserialize */
-
 /*! ./serialization/serialize */
 
 /*! ./serialize */
@@ -733,8 +735,6 @@
 /*! ./touchcontrols */
 
 /*! ./transferFlags */
-
-/*! ./types */
 
 /*! ./utils */
 
@@ -829,10 +829,6 @@
   \**********************/
 
 /*!**********************!*\
-  !*** ./src/types.ts ***!
-  \**********************/
-
-/*!**********************!*\
   !*** ./src/utils.ts ***!
   \**********************/
 
@@ -855,6 +851,10 @@
 /*!*****************************!*\
   !*** ./src/defaultinput.ts ***!
   \*****************************/
+
+/*!******************************!*\
+  !*** ./src/netcode/types.ts ***!
+  \******************************/
 
 /*!******************************!*\
   !*** ./src/touchcontrols.ts ***!

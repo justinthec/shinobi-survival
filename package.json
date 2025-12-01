@@ -7,7 +7,7 @@
     "dev": "webpack serve --mode development"
   },
   "dependencies": {
-    "netplayjs": "^0.4.1"
+    "netplayjs": "file:../netplayjs/netplayjs/netplayjs-client/netplayjs-0.4.1.tgz"
   },
   "devDependencies": {
     "@types/chai": "^5.2.3",
