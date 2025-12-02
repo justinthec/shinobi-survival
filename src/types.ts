@@ -33,6 +33,26 @@ export interface UpgradeOption {
     type: 'stat' | 'element' | 'weapon';
 }
 
+export interface NarutoState {
+    regenTimer: number;
+}
+
+export interface SasukeState {
+    dodgeBuffTimer: number;
+    sharinganCooldown: number;
+}
+
+export interface GaaraState {
+    shieldHp: number;
+    shieldRegenTimer: number;
+}
+
+export interface SakuraState {
+    meter: number; // 0-100
+}
+
+export type CharacterState = NarutoState | SasukeState | GaaraState | SakuraState;
+
 export interface PlayerState {
     id: number;
     name: string;
@@ -40,6 +60,7 @@ export interface PlayerState {
     hp: number;
     maxHp: number;
     character: string | null; // 'naruto', 'sasuke', 'gaara', 'sakura'
+    charState: CharacterState | null;
 
     // Generalized Ability State
     skills: Record<string, SkillState>;
@@ -59,18 +80,21 @@ export interface PlayerState {
     // Visuals
     direction: number; // 1 or -1
     aimAngle: number;
+    targetPos: Vec2; // World space target position (from mouse)
     flash: number; // Damage flash timer
 
     // Combat State
     fireTimer: number;
     burstTimer: number;
     burstCount: number;
-    shield: number;
+    shield: number; // Keeping for generic shield if needed, but Gaara has specific
     maxShield: number;
     healCharge: number;
     skillChargeTime: number;
     skillCharging: boolean;
     ultActiveTime: number;
+    invincible: boolean;
+    rooted: boolean;
 
     // Dash / Movement Skill State
     dashTime: number;
@@ -92,6 +116,9 @@ export interface EnemyState {
     stunTimer: number;
     dotTimer: number;
     push: Vec2;
+    rooted: boolean; // For Gaara's ult
+    damageDebuff: number; // Multiplier (1.0 = normal, 1.5 = +50% dmg taken)
+    speedMult: number; // Multiplier (1.0 = normal, 0.5 = slow)
 }
 
 export interface ProjectileState {
@@ -132,7 +159,7 @@ export interface HazardZoneState {
     radius: number;
     duration: number;
     damage: number;
-    type: string; // 'fire', 'acid'
+    type: string; // 'fire', 'acid', 'quicksand'
     ownerId: number;
 }
 

@@ -9,6 +9,17 @@ export class RasenganSkill implements SkillLogic {
         if (state.cooldown > 0) {
             state.cooldown -= dt;
         }
+        // Manage invincibility during dash/charge
+        if (player.skillCharging || player.dashTime > 0) {
+            player.invincible = true;
+        } else if (player.character === 'naruto' && player.ultActiveTime <= 0) {
+            // Only reset if not in Ult (Ult handles its own invincibility)
+            // But wait, other things might set invincibility.
+            // We should only set it true, and let a central system reset it?
+            // Or manage it strictly here.
+            // If we set it true here, we must set it false when done.
+            player.invincible = false;
+        }
     }
 
     onPress(state: SkillState, player: PlayerState, game: ShinobiSurvivalGame): void {
@@ -28,6 +39,7 @@ export class RasenganSkill implements SkillLogic {
             player.direction = Math.abs(player.aimAngle) > Math.PI / 2 ? -1 : 1;
             player.skillCharging = true; // Sync to player state for movement lock
             player.skillChargeTime = state.chargeTime; // Sync for visuals if needed elsewhere
+            player.invincible = true; // Invincible while charging
         }
     }
 
@@ -53,6 +65,16 @@ export class RasenganSkill implements SkillLogic {
 
             player.skillCharging = false;
             player.skillChargeTime = 0;
+            player.invincible = true; // Invincible during dash (handled by dash logic or here)
+            // Actually, dash logic in game loop decrements dashTime. 
+            // We should set invincible = true there? 
+            // Or just let it be. The dash is short.
+            // Let's set it to true, and rely on game loop to clear it? 
+            // No, game loop doesn't clear invincible automatically unless we tell it.
+            // We'll handle invincibility in update() or let the game loop handle dash invincibility.
+            // For now, let's leave dash invincibility to the game loop check or add a generic dash invincibility.
+            // But we want to remove hardcoded checks.
+            // So let's set p.invincible = true in update if dashTime > 0.
         }
     }
 
@@ -87,6 +109,7 @@ export class RasenganSkill implements SkillLogic {
             const size = 1 + (state.chargeTime / 1.5) * 2;
             ctx.save();
             ctx.scale(size, size);
+            // Rotate ball itself
             ctx.rotate(game.gameTime * 10);
             if (SPRITES.rasengan) ctx.drawImage(SPRITES.rasengan, -50, -50);
             ctx.restore();
@@ -105,6 +128,7 @@ export class KuramaModeSkill implements SkillLogic {
         if (state.activeTime > 0) {
             state.activeTime -= dt;
             player.ultActiveTime = state.activeTime; // Sync
+            player.invincible = true;
 
             // Continuous Beam Damage
             const range = 2000;
@@ -123,18 +147,21 @@ export class KuramaModeSkill implements SkillLogic {
                 if (dist < 30) { // Beam width
                     if (e.dead) continue;
                     const dmg = 5 * player.stats.damageMult;
-                    e.hp -= dmg;
-                    if (Math.random() < 0.3) game.spawnFloatingText(e.pos, Math.ceil(dmg).toString(), 'white');
-                    if (e.hp <= 0) {
-                        e.dead = true;
-                        game.xpOrbs.push({
-                            id: game.nextEntityId++,
-                            pos: new Vec2(e.pos.x, e.pos.y),
-                            val: 10,
-                            dead: false
-                        });
-                    }
+                    // Use game.damageEnemy
+                    game.damageEnemy(e, dmg, player);
                 }
+            }
+        } else {
+            // Reset invincibility if this skill was the one keeping it
+            // But we need to be careful not to override other skills.
+            // For now, if activeTime just finished (was > 0, now <= 0), we could reset.
+            // But update runs every frame.
+            // If activeTime <= 0, we don't set invincible = true.
+            // If nothing else sets it, it should be false (default).
+            // But we need to ensure it's reset.
+            // Let's assume the game loop resets it or we explicitly set it false if not active.
+            if (player.character === 'naruto' && !player.skillCharging && player.dashTime <= 0) {
+                player.invincible = false;
             }
         }
     }
