@@ -1,4 +1,4 @@
-import { SkillLogic, SkillState } from "./types";
+import { SkillLogic, SkillState, CharacterLogic } from "./types";
 import { PlayerState } from "../types";
 import type { ShinobiSurvivalGame } from "../multiplayer-game";
 import { Vec2 } from "netplayjs";
@@ -80,6 +80,22 @@ export class SphereOfSandSkill implements SkillLogic {
             ctx.lineWidth = 3;
             ctx.stroke();
             ctx.restore();
+        }
+    }
+}
+
+export class GaaraLogic implements CharacterLogic {
+    updatePassives(player: PlayerState, game: ShinobiSurvivalGame, dt: number): void {
+        if (player.dead) return;
+
+        if (player.character === 'gaara' && player.charState && 'shieldHp' in player.charState) {
+            player.charState.shieldRegenTimer += dt;
+            if (player.charState.shieldRegenTimer >= 8.0) {
+                if (player.charState.shieldHp < 50) {
+                    player.charState.shieldHp += 10 * dt;
+                    if (player.charState.shieldHp > 50) player.charState.shieldHp = 50;
+                }
+            }
         }
     }
 }

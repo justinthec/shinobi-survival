@@ -1,4 +1,4 @@
-import { SkillLogic, SkillState } from "./types";
+import { SkillLogic, SkillState, CharacterLogic } from "./types";
 import { PlayerState } from "../types";
 import type { ShinobiSurvivalGame } from "../multiplayer-game";
 import { Vec2 } from "netplayjs";
@@ -272,6 +272,25 @@ export class KirinSkill implements SkillLogic {
             }
 
             ctx.restore();
+        }
+    }
+}
+
+export class SasukeLogic implements CharacterLogic {
+    updatePassives(player: PlayerState, game: ShinobiSurvivalGame, dt: number): void {
+        if (player.dead) return;
+
+        if (player.character === 'sasuke' && player.charState) {
+            if ('dodgeBuffTimer' in player.charState && player.charState.dodgeBuffTimer > 0) {
+                player.charState.dodgeBuffTimer -= dt;
+                player.stats.critChance = 0.5;
+            } else {
+                player.stats.critChance = 0.05;
+            }
+
+            if ('sharinganCooldown' in player.charState && player.charState.sharinganCooldown > 0) {
+                player.charState.sharinganCooldown -= dt;
+            }
         }
     }
 }

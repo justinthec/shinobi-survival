@@ -1,4 +1,4 @@
-import { SkillLogic, SkillState } from "./types";
+import { SkillLogic, SkillState, CharacterLogic } from "./types";
 import { PlayerState } from "../types";
 import type { ShinobiSurvivalGame } from "../multiplayer-game";
 import { Vec2 } from "netplayjs";
@@ -37,6 +37,16 @@ export class ChakraScalpelSkill implements SkillLogic {
             ctx.stroke();
             ctx.restore();
         }
+    }
+}
+
+export class SakuraLogic implements CharacterLogic {
+    updatePassives(player: PlayerState, game: ShinobiSurvivalGame, dt: number): void {
+        if (player.dead) return;
+
+        // Note: Sakura's meter gain on taking damage is handled in `damagePlayer`
+        // as it's a reactive effect. This function is for proactive passives.
+        // If she had passive regen or other continuous effects, they would go here.
     }
 }
 

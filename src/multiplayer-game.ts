@@ -5,7 +5,7 @@ import {
     Vec2,
 } from "netplayjs";
 import { initSprites, SPRITES } from "./sprites";
-import { getSkill } from "./skills";
+import { getSkill, getCharacterLogic } from "./skills";
 
 import {
     GamePhase,
@@ -187,204 +187,164 @@ export class ShinobiSurvivalGame extends Game {
         const dt = ShinobiSurvivalGame.timestep / 1000;
         this.gameTime += dt;
 
-        // Player Updates
+        this.updatePlayers(playerInputs, dt);
+        this.updateHazards(dt);
+        this.spawnEnemies(dt);
+        this.updateEnemies(dt);
+        this.updateProjectiles(dt);
+        this.updateXpOrbs(dt);
+        this.updateParticles(dt);
+        this.updateFloatingTexts(dt);
+    }
+
+    updatePlayers(playerInputs: Map<NetplayPlayer, DefaultInput>, dt: number) {
         for (const [player, input] of playerInputs.entries()) {
             const id = player.id;
             const p = this.players[id];
             if (p.dead) continue;
 
-            // Movement
-            this.updateCharacterPassives(p, dt);
+            const charLogic = getCharacterLogic(p.character || '');
+            if (charLogic) {
+                charLogic.updatePassives(p, this, dt);
+            }
 
-            // Root Check
             if (p.rooted) {
                 // Cannot move
             } else if (p.dashTime > 0) {
-                // Dash Logic
-                p.pos.x += p.dashVec.x * dt;
-                p.pos.y += p.dashVec.y * dt;
-                p.dashTime -= dt;
-
-                // Dash Collision
-                for (const e of this.enemies) {
-                    if (!p.dashHitList.includes(e.id)) {
-                        const dist = Math.sqrt((p.pos.x - e.pos.x) ** 2 + (p.pos.y - e.pos.y) ** 2);
-                        if (dist < 100) { // Increased radius
-                            p.dashHitList.push(e.id);
-                            p.dashHitList.push(e.id);
-                            const dmg = 50 * p.stats.damageMult;
-                            this.damageEnemy(e, dmg, p);
-                        }
-                    }
-                }
-
-                // End of dash safety burst
-                if (p.dashTime <= 0) {
-                    p.dashTime = 0;
-
-                    // Rasengan Blast Effect
-                    if (p.character === 'naruto') {
-                        // Crater Visual
-                        this.particles.push({
-                            id: this.nextEntityId++,
-                            type: 'crater',
-                            pos: new Vec2(p.pos.x, p.pos.y),
-                            vel: new Vec2(0, 0),
-                            life: 2.0, // Shorter life
-                            maxLife: 2.0,
-                            color: '',
-                            size: 1
-                        });
-
-                        // Blast Damage & Knockback
-                        for (const e of this.enemies) {
-                            const dist = Math.sqrt((p.pos.x - e.pos.x) ** 2 + (p.pos.y - e.pos.y) ** 2);
-                            if (dist < 150) {
-                                const dmg = 50 * p.stats.damageMult;
-                                this.damageEnemy(e, dmg, p);
-
-                                // Knockback
-                                const angle = Math.atan2(e.pos.y - p.pos.y, e.pos.x - p.pos.x);
-                                e.push.x += Math.cos(angle) * 650; // Much stronger knockback
-                                e.push.y += Math.sin(angle) * 650;
-                            }
-                        }
-                    } else {
-                        // Generic Dash End (if any other char dashes)
-                        for (const e of this.enemies) {
-                            const dist = Math.sqrt((p.pos.x - e.pos.x) ** 2 + (p.pos.y - e.pos.y) ** 2);
-                            if (dist < 150) {
-                                this.damageEnemy(e, 50 * p.stats.damageMult, p);
-                            }
-                        }
-                    }
-                }
+                this.handlePlayerDash(p, dt);
             } else {
-                // Normal Movement
-                let moveSpeed = 120; // Base speed
-                if (p.skillCharging) moveSpeed = 0; // Immobile while charging
-                if (p.character === 'naruto' && p.ultActiveTime > 0) moveSpeed = 0; // Immobile during Ult
-
-                let dx = 0; let dy = 0;
-                if (input.keysHeld['a']) dx -= 1;
-                if (input.keysHeld['d']) dx += 1;
-                if (input.keysHeld['w']) dy -= 1;
-                if (input.keysHeld['s']) dy += 1;
-
-                if (dx !== 0 || dy !== 0) {
-                    const len = Math.sqrt(dx * dx + dy * dy);
-                    p.pos.x += (dx / len) * moveSpeed * dt;
-                    p.pos.y += (dy / len) * moveSpeed * dt;
-
-                    if (dx !== 0) p.direction = Math.sign(dx);
-                }
+                this.handlePlayerMovement(p, input, dt);
             }
 
-            // Map Boundaries
-            const MAP_WIDTH = 1400;
-            const LANE_WIDTH = MAP_WIDTH / 2;
-            if (p.pos.x < -LANE_WIDTH + 20) p.pos.x = -LANE_WIDTH + 20;
-            if (p.pos.x > LANE_WIDTH - 20) p.pos.x = LANE_WIDTH - 20;
-            // Y is infinite? Original code didn't clamp Y, but let's check index.html.
-            // index.html only clamps X: if (this.x < -LANE_WIDTH + 20) ...
-            // So we only clamp X.
+            this.clampPlayerPosition(p);
+            this.handlePlayerAiming(p, input);
 
-            // Mouse Aiming
-            if (input.mousePosition) {
-                // Assuming camera is centered on player, mouse pos relative to center is aim direction
-                const mx = input.mousePosition.x - ShinobiSurvivalGame.canvasSize.width / 2;
-                const my = input.mousePosition.y - ShinobiSurvivalGame.canvasSize.height / 2;
-                p.aimAngle = Math.atan2(my, mx);
-
-                // Calculate World Target Position
-                // Camera is at p.pos (roughly, actually it's interpolated but for logic p.pos is fine)
-                // Wait, camera logic in draw() translates by -player.pos + center.
-                // So screen center IS player position.
-                // So input.mousePosition relative to center IS relative to player.
-                // So world target = player.pos + (mousePos - center)
-                p.targetPos.x = p.pos.x + mx;
-                p.targetPos.y = p.pos.y + my;
-            }
-
-            // Cooldowns
             for (let key in p.skills) {
                 const skill = p.skills[key];
                 if (skill.cooldown > 0) skill.cooldown -= dt;
             }
 
-            // Skills
-            const skill1Logic = getSkill(p.character || '', 'skill1');
-            const ultLogic = getSkill(p.character || '', 'ult');
+            this.handlePlayerSkills(p, input, dt);
+            this.handlePlayerAttacks(p, dt);
+        }
+    }
 
-            // Update Skills
-            if (skill1Logic) skill1Logic.update(p.skills.skill1, p, this, dt);
-            if (ultLogic) ultLogic.update(p.skills.ult, p, this, dt);
+    handlePlayerDash(p: PlayerState, dt: number) {
+        p.pos.x += p.dashVec.x * dt;
+        p.pos.y += p.dashVec.y * dt;
+        p.dashTime -= dt;
 
-            // Input Handling
-            // Skill 1 (E)
-            if (input.keysHeld['e']) {
-                if (skill1Logic) skill1Logic.onHold(p.skills.skill1, p, this, dt);
-                // For press detection, we might need a better way if we want single frame press
-                // But keysPressed is available
-            }
-
-            if (input.keysPressed['e']) {
-                if (skill1Logic) skill1Logic.onPress(p.skills.skill1, p, this);
-            }
-
-            // Detect release (if needed, simplified)
-            // Ideally we track previous key state, but for now we can check if not held
-            // Actually, we need to know if it WAS held. 
-            // For Naruto's charge, we rely on `skillCharging` state or similar.
-            // Let's rely on the logic class to handle state transitions if possible, 
-            // but we need to signal release.
-            // A simple way: if we were charging and now key is not held.
-            if (!input.keysHeld['e'] && p.skills.skill1.isCharging) {
-                if (skill1Logic) skill1Logic.onRelease(p.skills.skill1, p, this);
-            }
-
-            // Ult (R)
-            if (input.keysPressed['r']) {
-                if (ultLogic) ultLogic.onPress(p.skills.ult, p, this);
-            }
-
-            // Detect Ult Release
-            if (!input.keysHeld['r'] && p.skills.ult.isCharging) {
-                if (ultLogic) ultLogic.onRelease(p.skills.ult, p, this);
-            }
-
-            // Ultimate Active Logic (Moved to later block to avoid duplication)
-            // Lines 408-437 removed to prevent double counting time and damage
-
-
-            // Basic Attack (Auto-fire)
-            p.fireTimer += dt;
-            const fireRate = (p.character === 'sasuke' ? 1.0 : 1.5) * p.stats.cooldownMult; // Base rates from index.html
-
-            if (p.fireTimer >= fireRate) {
-                this.fireWeapon(p);
-                p.fireTimer = 0;
-                if (p.character === 'naruto' && p.weaponLevel >= 2 && !p.isEvolved) {
-                    p.burstTimer = 0.1;
-                    p.burstCount = 1;
-                }
-            }
-
-            if (p.burstCount > 0) {
-                p.burstTimer -= dt;
-                if (p.burstTimer <= 0) {
-                    this.fireWeapon(p);
-                    p.burstCount--;
-                    if (p.burstCount > 0) p.burstTimer = 0.1;
+        for (const e of this.enemies) {
+            if (!p.dashHitList.includes(e.id)) {
+                const dist = Math.sqrt((p.pos.x - e.pos.x) ** 2 + (p.pos.y - e.pos.y) ** 2);
+                if (dist < 100) {
+                    p.dashHitList.push(e.id);
+                    const dmg = 50 * p.stats.damageMult;
+                    this.damageEnemy(e, dmg, p);
                 }
             }
         }
 
-        // Bleed Logic (Enemy Update Loop handles movement, let's add DoT there or here)
-        // Let's add it to the Enemy Update Loop (line 418+) or a separate loop?
-        // We can add it to the existing enemy loop to save iterations.
+        if (p.dashTime <= 0) {
+            p.dashTime = 0;
 
-        // Hazards Update
+            const skill1Logic = getSkill(p.character || '', 'skill1');
+            if (skill1Logic && skill1Logic.onDashEnd) {
+                skill1Logic.onDashEnd(p, this);
+            } else {
+                // Generic dash end effect if any
+                for (const e of this.enemies) {
+                    const dist = Math.sqrt((p.pos.x - e.pos.x) ** 2 + (p.pos.y - e.pos.y) ** 2);
+                    if (dist < 150) this.damageEnemy(e, 50 * p.stats.damageMult, p);
+                }
+            }
+        }
+    }
+
+    handlePlayerMovement(p: PlayerState, input: DefaultInput, dt: number) {
+        let moveSpeed = 120;
+        if (p.skillCharging) moveSpeed = 0;
+        if (p.character === 'naruto' && p.ultActiveTime > 0) moveSpeed = 0;
+
+        let dx = 0; let dy = 0;
+        if (input.keysHeld['a']) dx -= 1;
+        if (input.keysHeld['d']) dx += 1;
+        if (input.keysHeld['w']) dy -= 1;
+        if (input.keysHeld['s']) dy += 1;
+
+        if (dx !== 0 || dy !== 0) {
+            const len = Math.sqrt(dx * dx + dy * dy);
+            p.pos.x += (dx / len) * moveSpeed * dt;
+            p.pos.y += (dy / len) * moveSpeed * dt;
+            if (dx !== 0) p.direction = Math.sign(dx);
+        }
+    }
+
+    clampPlayerPosition(p: PlayerState) {
+        const MAP_WIDTH = 1400;
+        const LANE_WIDTH = MAP_WIDTH / 2;
+        if (p.pos.x < -LANE_WIDTH + 20) p.pos.x = -LANE_WIDTH + 20;
+        if (p.pos.x > LANE_WIDTH - 20) p.pos.x = LANE_WIDTH - 20;
+    }
+
+    handlePlayerAiming(p: PlayerState, input: DefaultInput) {
+        if (input.mousePosition) {
+            const mx = input.mousePosition.x - ShinobiSurvivalGame.canvasSize.width / 2;
+            const my = input.mousePosition.y - ShinobiSurvivalGame.canvasSize.height / 2;
+            p.aimAngle = Math.atan2(my, mx);
+            p.targetPos.x = p.pos.x + mx;
+            p.targetPos.y = p.pos.y + my;
+        }
+    }
+
+    handlePlayerSkills(p: PlayerState, input: DefaultInput, dt: number) {
+        const skill1Logic = getSkill(p.character || '', 'skill1');
+        const ultLogic = getSkill(p.character || '', 'ult');
+
+        if (skill1Logic) skill1Logic.update(p.skills.skill1, p, this, dt);
+        if (ultLogic) ultLogic.update(p.skills.ult, p, this, dt);
+
+        if (input.keysHeld['e']) {
+            if (skill1Logic) skill1Logic.onHold(p.skills.skill1, p, this, dt);
+        }
+        if (input.keysPressed['e']) {
+            if (skill1Logic) skill1Logic.onPress(p.skills.skill1, p, this);
+        }
+        if (!input.keysHeld['e'] && p.skills.skill1.isCharging) {
+            if (skill1Logic) skill1Logic.onRelease(p.skills.skill1, p, this);
+        }
+        if (input.keysPressed['r']) {
+            if (ultLogic) ultLogic.onPress(p.skills.ult, p, this);
+        }
+        if (!input.keysHeld['r'] && p.skills.ult.isCharging) {
+            if (ultLogic) ultLogic.onRelease(p.skills.ult, p, this);
+        }
+    }
+
+    handlePlayerAttacks(p: PlayerState, dt: number) {
+        p.fireTimer += dt;
+        const fireRate = (p.character === 'sasuke' ? 1.0 : 1.5) * p.stats.cooldownMult;
+
+        if (p.fireTimer >= fireRate) {
+            this.fireWeapon(p);
+            p.fireTimer = 0;
+            if (p.character === 'naruto' && p.weaponLevel >= 2 && !p.isEvolved) {
+                p.burstTimer = 0.1;
+                p.burstCount = 1;
+            }
+        }
+
+        if (p.burstCount > 0) {
+            p.burstTimer -= dt;
+            if (p.burstTimer <= 0) {
+                this.fireWeapon(p);
+                p.burstCount--;
+                if (p.burstCount > 0) p.burstTimer = 0.1;
+            }
+        }
+    }
+
+    updateHazards(dt: number) {
         for (let i = this.hazards.length - 1; i >= 0; i--) {
             const h = this.hazards[i];
             h.duration -= dt;
@@ -392,50 +352,43 @@ export class ShinobiSurvivalGame extends Game {
                 this.hazards.splice(i, 1);
                 continue;
             }
-            // Damage enemies
             for (const e of this.enemies) {
                 const d = Math.sqrt((h.pos.x - e.pos.x) ** 2 + (h.pos.y - e.pos.y) ** 2);
                 if (d < h.radius) {
                     if (h.type === 'quicksand') {
-                        e.speedMult *= 0.5; // 50% slow
+                        e.speedMult *= 0.5;
                     }
                     const dmg = h.damage * dt;
                     e.hp -= dmg;
-                    if (Math.random() < 0.1) this.spawnFloatingText(e.pos, Math.ceil(h.damage).toString(), 'white');
+                    if (this.random() < 0.1) this.spawnFloatingText(e.pos, Math.ceil(h.damage).toString(), 'white');
                 }
             }
         }
+    }
 
-        // Enemy Spawning
+    spawnEnemies(dt: number) {
         this.spawnTimer += dt;
-
-        // Wave Logic
         let spawnRate = 1.0;
         let waveMultiplier = 1;
 
         if (this.gameTime < 60) {
-            spawnRate = 1.0; // Slow start
-            waveMultiplier = 1;
+            spawnRate = 1.0; waveMultiplier = 1;
         } else if (this.gameTime < 120) {
-            spawnRate = 0.8; // Medium
-            waveMultiplier = 2;
+            spawnRate = 0.8; waveMultiplier = 2;
         } else {
-            spawnRate = 0.4; // Fast
-            waveMultiplier = 3;
+            spawnRate = 0.4; waveMultiplier = 3;
         }
 
         if (this.spawnTimer > spawnRate) {
             this.spawnEnemy();
-            // Chance for extra spawns based on wave
             if (waveMultiplier >= 2 && this.random() < 0.4) this.spawnEnemy();
             if (waveMultiplier >= 3 && this.random() < 0.6) this.spawnEnemy();
-
             this.spawnTimer = 0;
         }
+    }
 
-        // Enemy Updates
+    updateEnemies(dt: number) {
         for (const e of this.enemies) {
-            // Find closest player
             let closestP: PlayerState | null = null;
             let minDist = Infinity;
             for (let id in this.players) {
@@ -447,74 +400,40 @@ export class ShinobiSurvivalGame extends Game {
 
             if (closestP) {
                 const angle = Math.atan2(closestP.pos.y - e.pos.y, closestP.pos.x - e.pos.x);
-                // We need to apply hazards BEFORE movement to affect speedMult?
-                // Currently hazards update is BEFORE enemy update?
-                // No, hazards update is at line 371. Enemy update is at 418.
-                // So hazards run first.
-                // So Hazards set speedMult.
-                // Then Enemy Update uses it.
-                // But we need to reset it somewhere.
-                // If we reset it inside Enemy Update (line 418), we overwrite Hazard effects!
-                // So we must reset it BEFORE Hazards Update.
-                // Where is Hazards Update? Line 371.
-                // So we need to iterate enemies and reset speedMult BEFORE 371.
-                // Or just reset it at the end of Enemy Update?
-                // If we reset at end, then next frame Hazards run and modify it.
-                // Yes.
-
                 if (e.rooted) e.speedMult = 0;
-
                 const speed = 50 * e.speedMult;
-                // Apply Push
                 e.pos.x += (Math.cos(angle) * speed + e.push.x) * dt;
                 e.pos.y += (Math.sin(angle) * speed + e.push.y) * dt;
 
-                // Decay Push
                 e.push.x *= 0.95;
                 e.push.y *= 0.95;
 
-                // Bleed Damage
                 if (e.bleedStacks > 0) {
                     e.dotTimer -= dt;
                     if (e.dotTimer <= 0) {
-                        e.dotTimer = 1.0; // Tick every second
-                        const bleedDmg = e.bleedStacks * 5; // 5 damage per stack
+                        e.dotTimer = 1.0;
+                        const bleedDmg = e.bleedStacks * 5;
                         e.hp -= bleedDmg;
                         this.spawnFloatingText(e.pos, bleedDmg.toString(), "red");
-                        // Bleed stacks decay? Or permanent until death?
-                        // Usually stacks decay or have duration.
-                        // Let's say they decay by 1 every tick? Or separate duration?
-                        // For simplicity, permanent for now, or decay 1 stack per tick.
-                        // Let's decay 1 stack per tick to prevent infinite scaling.
-                        // e.bleedStacks = Math.max(0, e.bleedStacks - 1);
-                        // Actually, let's keep them permanent for "Chakra Scalpel" feel, or maybe duration based.
-                        // Design doc says "Apply Bleed".
-                        // Let's keep it simple: Permanent until death.
                     }
                 }
 
-                // Collision with Player (Damage)
-                if (closestP) {
-                    const d = Math.sqrt((closestP.pos.x - e.pos.x) ** 2 + (closestP.pos.y - e.pos.y) ** 2);
-                    if (d < 30) { // Touch radius
-                        const dmg = 10 * dt * e.damageDebuff; // DPS * Debuff
-                        this.damagePlayer(closestP, dmg);
-                    }
+                const d = Math.sqrt((closestP.pos.x - e.pos.x) ** 2 + (closestP.pos.y - e.pos.y) ** 2);
+                if (d < 30) {
+                    const dmg = 10 * dt * e.damageDebuff;
+                    this.damagePlayer(closestP, dmg);
                 }
             }
-
-            // Reset speedMult for next frame (so hazards can re-apply it)
             e.speedMult = 1.0;
         }
-
-        // Remove dead enemies
         for (let i = this.enemies.length - 1; i >= 0; i--) {
             if (this.enemies[i].dead) {
                 this.enemies.splice(i, 1);
             }
         }
+    }
 
-        // Projectile Updates
+    updateProjectiles(dt: number) {
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const proj = this.projectiles[i];
             proj.life -= dt;
@@ -523,127 +442,100 @@ export class ShinobiSurvivalGame extends Game {
                 continue;
             }
 
-            // Rotating Slash Logic
             if (proj.type === 'rotating_slash') {
-                const owner = this.players[proj.ownerId];
-                if (owner) {
-                    // Swing Arc Logic
-                    // We want a 70 degree arc swing.
-                    // Let's map life to angle.
-                    // Life starts at 0.5 (we need to set this in spawnProjectile or assume)
-                    // Let's assume maxLife is 0.3 for a quick swipe.
-                    const maxLife = 0.3;
-                    // If life > maxLife, we clamp or just use ratio.
-                    // Actually, we can use a custom property or just calculate based on life.
-                    // Let's assume we spawn it with life = 0.3.
-                    const progress = 1 - (proj.life / 0.3); // 0 to 1
-
-                    // Arc: -35 to +35 degrees relative to aimAngle?
-                    // Or start from one side and swing to other.
-                    // Let's swing from -35 to +35.
-                    const swingRange = 70 * (Math.PI / 180);
-                    const startAngle = -swingRange / 2;
-                    const currentSwing = startAngle + (swingRange * progress);
-
-                    // Attach to owner aim
-                    // We need to lock the aimAngle at start of swing? 
-                    // Or follow player aim? User said "attached to his body".
-                    // Usually this means it follows the player's facing.
-                    // Let's follow current aimAngle.
-                    proj.angle = owner.aimAngle + currentSwing;
-
-                    const radius = 30; // Closer to body (was 40)
-                    proj.pos.x = owner.pos.x + Math.cos(proj.angle) * radius;
-                    proj.pos.y = owner.pos.y + Math.sin(proj.angle) * radius;
-                }
+                this.handleRotatingSlash(proj);
             } else {
                 proj.pos.x += proj.vel.x * dt;
                 proj.pos.y += proj.vel.y * dt;
             }
 
-            // Collision with Enemies
-            for (let j = this.enemies.length - 1; j >= 0; j--) {
-                const e = this.enemies[j];
-                if (proj.hitList.includes(e.id)) continue;
+            this.handleProjectileCollision(proj, i);
+        }
+    }
 
-                let hit = false;
-                if (proj.type === 'rotating_slash') {
-                    // Sector Collision
-                    const owner = this.players[proj.ownerId];
-                    if (owner) {
-                        const distToOwner = Math.sqrt((e.pos.x - owner.pos.x) ** 2 + (e.pos.y - owner.pos.y) ** 2);
-                        if (distToOwner < 80) { // Sword Range
-                            // Check angle
-                            const angleToEnemy = Math.atan2(e.pos.y - owner.pos.y, e.pos.x - owner.pos.x);
-                            // Normalize angle diff
-                            let angleDiff = angleToEnemy - proj.angle;
-                            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-                            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+    handleRotatingSlash(proj: ProjectileState) {
+        const owner = this.players[proj.ownerId];
+        if (owner) {
+            const progress = 1 - (proj.life / 0.3);
+            const swingRange = 70 * (Math.PI / 180);
+            const startAngle = -swingRange / 2;
+            const currentSwing = startAngle + (swingRange * progress);
+            proj.angle = owner.aimAngle + currentSwing;
+            const radius = 30;
+            proj.pos.x = owner.pos.x + Math.cos(proj.angle) * radius;
+            proj.pos.y = owner.pos.y + Math.sin(proj.angle) * radius;
+        }
+    }
 
-                            if (Math.abs(angleDiff) < 0.8) { // ~45 degrees tolerance (total 90? or match visual 70)
-                                hit = true;
-                            }
-                        }
+    handleProjectileCollision(proj: ProjectileState, projIndex: number) {
+        for (let j = this.enemies.length - 1; j >= 0; j--) {
+            const e = this.enemies[j];
+            if (proj.hitList.includes(e.id)) continue;
+
+            let hit = false;
+            if (proj.type === 'rotating_slash') {
+                const owner = this.players[proj.ownerId];
+                if (owner) {
+                    const distToOwner = Math.sqrt((e.pos.x - owner.pos.x) ** 2 + (e.pos.y - owner.pos.y) ** 2);
+                    if (distToOwner < 80) {
+                        const angleToEnemy = Math.atan2(e.pos.y - owner.pos.y, e.pos.x - owner.pos.x);
+                        let angleDiff = angleToEnemy - proj.angle;
+                        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+                        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+                        if (Math.abs(angleDiff) < 0.8) hit = true;
                     }
+                }
+            } else {
+                const dist = Math.sqrt((proj.pos.x - e.pos.x) ** 2 + (proj.pos.y - e.pos.y) ** 2);
+                if (dist < 30) hit = true;
+            }
+
+            if (hit) {
+                const owner = this.players[proj.ownerId];
+                if (owner) this.damageEnemy(e, proj.dmg, owner);
+                else e.hp -= proj.dmg;
+
+                proj.hitList.push(e.id);
+                if (proj.pierce > 0) {
+                    proj.pierce--;
                 } else {
-                    const dist = Math.sqrt((proj.pos.x - e.pos.x) ** 2 + (proj.pos.y - e.pos.y) ** 2);
-                    if (dist < 30) hit = true;
+                    this.projectiles.splice(projIndex, 1);
+                    break;
                 }
 
-                if (hit) {
-                    const owner = this.players[proj.ownerId];
-                    if (owner) {
-                        this.damageEnemy(e, proj.dmg, owner);
-                    } else {
-                        // Fallback if owner disconnected
-                        e.hp -= proj.dmg;
-                    }
-
-                    proj.hitList.push(e.id);
-                    if (proj.pierce > 0) {
-                        proj.pierce--;
-                    } else {
-                        this.projectiles.splice(i, 1);
-                        break; // Projectile destroyed
-                    }
-
-                    if (e.hp <= 0) {
-                        this.enemies.splice(j, 1);
-                        // Drop XP
-                        this.xpOrbs.push({
-                            id: this.nextEntityId++,
-                            pos: new Vec2(e.pos.x, e.pos.y),
-                            val: 10,
-                            dead: false
-                        });
-                    }
+                if (e.hp <= 0) {
+                    this.enemies.splice(j, 1);
+                    this.xpOrbs.push({
+                        id: this.nextEntityId++,
+                        pos: new Vec2(e.pos.x, e.pos.y),
+                        val: 10,
+                        dead: false
+                    });
                 }
             }
         }
+    }
 
-        // XP Collection
+    updateXpOrbs(dt: number) {
         for (let id in this.players) {
             const p = this.players[id];
             if (p.dead) continue;
-
             for (let i = this.xpOrbs.length - 1; i >= 0; i--) {
                 const orb = this.xpOrbs[i];
                 const dist = Math.sqrt((p.pos.x - orb.pos.x) ** 2 + (p.pos.y - orb.pos.y) ** 2);
-                if (dist < 50) { // Magnet range
-                    // Move orb towards player
+                if (dist < 50) {
                     const angle = Math.atan2(p.pos.y - orb.pos.y, p.pos.x - orb.pos.x);
                     orb.pos.x += Math.cos(angle) * 300 * dt;
                     orb.pos.y += Math.sin(angle) * 300 * dt;
 
-                    if (dist < 20) { // Collect
+                    if (dist < 20) {
                         this.teamXP += orb.val;
                         this.xpOrbs.splice(i, 1);
                         if (this.teamXP >= this.xpToNextLevel) {
-                            this.teamXP = 0; // Reset XP for next level
+                            this.teamXP = 0;
                             this.teamLevel++;
                             this.xpToNextLevel *= 1.2;
                             this.gamePhase = 'levelUp';
-                            // Generate upgrades (mock)
                             for (let pid in this.players) {
                                 this.players[pid].selectedUpgrade = null;
                             }
@@ -652,8 +544,9 @@ export class ShinobiSurvivalGame extends Game {
                 }
             }
         }
+    }
 
-        // Particle Update
+    updateParticles(dt: number) {
         for (let i = this.particles.length - 1; i >= 0; i--) {
             const part = this.particles[i];
             part.life -= dt;
@@ -664,12 +557,13 @@ export class ShinobiSurvivalGame extends Game {
             part.pos.x += part.vel.x * dt;
             part.pos.y += part.vel.y * dt;
         }
+    }
 
-        // Floating Text Update
+    updateFloatingTexts(dt: number) {
         for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
             const ft = this.floatingTexts[i];
             ft.life -= dt;
-            ft.pos.y -= 20 * dt; // Float up
+            ft.pos.y -= 20 * dt;
             if (ft.life <= 0) {
                 this.floatingTexts.splice(i, 1);
             }
@@ -769,49 +663,6 @@ export class ShinobiSurvivalGame extends Game {
             });
         }
 
-    }
-
-
-
-    updateCharacterPassives(p: PlayerState, dt: number) {
-        if (p.dead) return;
-
-        // Naruto: Regen
-        if (p.character === 'naruto' && p.charState && 'regenTimer' in p.charState) {
-            p.charState.regenTimer += dt;
-            if (p.charState.regenTimer >= 1.0) {
-                p.charState.regenTimer = 0;
-                let regen = p.maxHp * 0.01;
-                if (p.hp < p.maxHp * 0.3) regen *= 2;
-                p.hp = Math.min(p.hp + regen, p.maxHp);
-            }
-        }
-
-        // Gaara: Shield Regen
-        if (p.character === 'gaara' && p.charState && 'shieldHp' in p.charState) {
-            p.charState.shieldRegenTimer += dt;
-            if (p.charState.shieldRegenTimer >= 8.0) {
-                // Regenerate shield
-                if (p.charState.shieldHp < 50) { // Max shield 50? Or based on HP?
-                    p.charState.shieldHp += 10 * dt; // Slowly regen
-                    if (p.charState.shieldHp > 50) p.charState.shieldHp = 50;
-                }
-            }
-        }
-
-        // Sasuke: Dodge Buff Timer
-        if (p.character === 'sasuke' && p.charState && 'dodgeBuffTimer' in p.charState) {
-            if (p.charState.dodgeBuffTimer > 0) {
-                p.charState.dodgeBuffTimer -= dt;
-                p.stats.critChance = 0.5; // 50% crit chance
-            } else {
-                p.stats.critChance = 0.05; // Reset
-            }
-
-            if (p.charState.sharinganCooldown > 0) {
-                p.charState.sharinganCooldown -= dt;
-            }
-        }
     }
 
 
