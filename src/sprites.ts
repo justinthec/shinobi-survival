@@ -3,7 +3,7 @@ export const SPRITES: Record<string, HTMLCanvasElement | HTMLImageElement> = {};
 export function initSprites() {
     // Load grass tile image
     const grassImg = new Image();
-    grassImg.src = '/grass.png';
+    grassImg.src = './grass.png';
     SPRITES.grass = grassImg;
 
     const makeSprite = (width: number, height: number, drawFn: (ctx: CanvasRenderingContext2D, cx: number, cy: number) => void) => {
