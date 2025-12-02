@@ -5,10 +5,25 @@ import { DesertQuicksandSkill, SphereOfSandSkill, GrandSandMausoleumSkill, Gaara
 import { ChakraScalpelSkill, HealSkill, KatsuyuSkill, SakuraLogic } from "./sakura";
 
 export const SKILL_REGISTRY: Record<string, Record<string, SkillLogic>> = {
-    'naruto': { 'skill1': new RasenganSkill(), 'ult': new KuramaModeSkill() },
-    'sasuke': { 'skill1': new FireballSkill(), 'skill2': new RinneganSwapSkill(), 'ult': new KirinSkill() },
-    'gaara': { 'skill1': new DesertQuicksandSkill(), 'skill2': new SphereOfSandSkill(), 'ult': new GrandSandMausoleumSkill() },
-    'sakura': { 'skill1': new ChakraScalpelSkill(), 'skill2': new HealSkill(), 'ult': new KatsuyuSkill() }
+    'naruto': {
+        'skill1': new RasenganSkill(),
+        'ult': new KuramaModeSkill()
+    },
+    'sasuke': {
+        'skill1': new FireballSkill(),
+        'skill2': new RinneganSwapSkill(),
+        'ult': new KirinSkill()
+    },
+    'gaara': {
+        'skill1': new DesertQuicksandSkill(),
+        'skill2': new SphereOfSandSkill(),
+        'ult': new GrandSandMausoleumSkill()
+    },
+    'sakura': {
+        'skill1': new ChakraScalpelSkill(),
+        'skill2': new HealSkill(),
+        'ult': new KatsuyuSkill()
+    }
 };
 
 export const CHARACTER_LOGIC_REGISTRY: Record<string, CharacterLogic> = {
