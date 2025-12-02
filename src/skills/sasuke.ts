@@ -23,17 +23,10 @@ export class FireballSkill implements SkillLogic {
             // And collision logic is generic: damageEnemy(e, proj.dmg, owner).
             // But we need pushback and burn.
             // damageEnemy handles damage.
-            // Pushback is handled by projectile 'knock' parameter.
-            // Burn? We don't have burn status yet.
-            // Let's just use high knockback and damage for now.
-
-            const speed = 500;
-            const dmg = 20 * player.stats.damageMult;
-            const knock = 20 + player.stats.knockback; // High knockback
-
-            // Spawn projectile
-            // Use 'fireball' type. We added fallback drawing in multiplayer-game.ts
-            game.spawnProjectile(player.id, player.pos, player.aimAngle, speed, dmg, 'fireball', knock, 1); // Pierce 1
+            // Fireball: Big, slow, fire trail
+            const speed = 200; // Was 600
+            const dmg = 40 * player.stats.damageMult;
+            game.spawnProjectile(player.id, player.pos, player.aimAngle, speed, dmg, 'fireball', 50 + player.stats.knockback, 100 + player.stats.piercing);
 
             state.cooldown = 6.0 * player.stats.cooldownMult;
         }
@@ -49,40 +42,71 @@ export class RinneganSwapSkill implements SkillLogic {
         if (state.cooldown > 0) {
             state.cooldown -= dt;
         }
+        if (state.activeTime > 0) {
+            state.activeTime -= dt;
+            player.invincible = true;
+        } else {
+            // Ensure invincibility is cleared if this skill was active
+            // We need to be careful not to clear it if other skills set it
+            // But for simple 0.5s iframe, we can just let it expire.
+            // However, we need to ensure we don't clear it if, say, dash is active.
+            if (player.character === 'sasuke' && !player.skillCharging && player.dashTime <= 0) {
+                player.invincible = false;
+            }
+        }
     }
 
     onPress(state: SkillState, player: PlayerState, game: ShinobiSurvivalGame): void {
         if (state.cooldown <= 0) {
-            // Find furthest enemy
-            let furthestE = null;
-            let maxDist = 0;
+            // Find enemy under cursor (within radius)
+            const cursorWorldPos = player.targetPos; // This is updated in game loop from mouse input
+            const searchRadius = 50;
+
+            let targetEnemy = null;
+            let maxHp = -1;
 
             for (const e of game.enemies) {
-                const d = Math.sqrt((player.pos.x - e.pos.x) ** 2 + (player.pos.y - e.pos.y) ** 2);
-                if (d > maxDist && d < 600) { // Limit range to screen-ish? Or global?
-                    // Let's say max range 600 for gameplay balance
-                    maxDist = d;
-                    furthestE = e;
+                const dist = Math.sqrt((cursorWorldPos.x - e.pos.x) ** 2 + (cursorWorldPos.y - e.pos.y) ** 2);
+                if (dist < searchRadius) {
+                    // Prioritize highest HP
+                    if (e.hp > maxHp) {
+                        maxHp = e.hp;
+                        targetEnemy = e;
+                    }
                 }
             }
 
-            if (furthestE) {
+            if (targetEnemy) {
                 // Teleport
                 // Visual effect at old pos
                 game.spawnFloatingText(player.pos, "Swap!", "purple");
+                game.spawnProjectile(player.id, player.pos, 0, 0, 0, 'rinnegan_effect', 0, 99); // Effect at old pos
 
-                // Move player
-                player.pos.x = furthestE.pos.x;
-                player.pos.y = furthestE.pos.y;
+                // Swap Positions
+                const oldPos = { x: player.pos.x, y: player.pos.y };
+                player.pos.x = targetEnemy.pos.x;
+                player.pos.y = targetEnemy.pos.y;
+                targetEnemy.pos.x = oldPos.x;
+                targetEnemy.pos.y = oldPos.y;
+
+                // Effect at new pos (which is where player is now)
+                game.spawnProjectile(player.id, player.pos, 0, 0, 0, 'rinnegan_effect', 0, 99);
+
+                // Invincibility
+                state.activeTime = 0.5;
 
                 // Damage/Kill Enemy
                 const dmg = 100 * player.stats.damageMult; // Massive damage
-                game.damageEnemy(furthestE, dmg, player);
+                game.damageEnemy(targetEnemy, dmg, player);
 
                 // Visual at new pos
                 // Maybe spawn a particle?
 
                 state.cooldown = 12.0 * player.stats.cooldownMult;
+            } else {
+                // No target found
+                game.spawnFloatingText(player.pos, "Need Target!", "gray");
+                // Do not trigger cooldown
             }
         }
     }

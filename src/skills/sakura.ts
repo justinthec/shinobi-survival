@@ -19,6 +19,14 @@ export class ChakraScalpelSkill implements SkillLogic {
             state.activeTime = 5.0; // 5s duration
             state.cooldown = 12.0 * player.stats.cooldownMult;
             game.spawnFloatingText(player.pos, "Scalpel!", "pink");
+
+            // Dash forward
+            const speed = 600;
+            const distance = 200;
+            player.dashTime = distance / speed;
+            player.dashHitList = [];
+            player.dashVec = new Vec2(Math.cos(player.aimAngle) * speed, Math.sin(player.aimAngle) * speed);
+            player.invincible = true;
         }
     }
 

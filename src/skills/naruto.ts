@@ -4,6 +4,58 @@ import type { ShinobiSurvivalGame } from "../multiplayer-game";
 import { Vec2 } from "netplayjs";
 import { SPRITES } from "../sprites";
 
+export class UzumakiBarrageSkill implements SkillLogic {
+    update(state: SkillState, player: PlayerState, game: ShinobiSurvivalGame, dt: number): void {
+        if (state.cooldown > 0) {
+            state.cooldown -= dt;
+        }
+    }
+
+    onPress(state: SkillState, player: PlayerState, game: ShinobiSurvivalGame): void {
+        if (state.cooldown <= 0) {
+            // Summon 16 clones in a circle and knockback
+            const count = 16;
+            const radius = 50;
+
+            for (let i = 0; i < count; i++) {
+                const angle = (i / count) * Math.PI * 2;
+                const offset = new Vec2(Math.cos(angle) * radius, Math.sin(angle) * radius);
+                const pos = new Vec2(player.pos.x + offset.x, player.pos.y + offset.y);
+
+                // Visual: Spawn particle/clone
+                // Short range burst: slow speed, short lifetime
+                // Speed 50 (was 200), knockback high
+                game.spawnProjectile(player.id, pos, angle, 50, 20 * player.stats.damageMult, 'clone_punch', 50 + player.stats.knockback, 99);
+                // Actually, design says "High kick outward".
+                // Let's spawn a "kick" projectile or just apply AoE damage/knockback immediately.
+
+                // Immediate AoE around player is better for "Get Off Me" tool.
+            }
+
+            // AoE Damage & Knockback
+            for (const e of game.enemies) {
+                const dist = Math.sqrt((player.pos.x - e.pos.x) ** 2 + (player.pos.y - e.pos.y) ** 2);
+                if (dist < 150) { // Range
+                    const dmg = 30 * player.stats.damageMult;
+                    game.damageEnemy(e, dmg, player);
+
+                    // Knockback away from player
+                    const angle = Math.atan2(e.pos.y - player.pos.y, e.pos.x - player.pos.x);
+                    e.push.x += Math.cos(angle) * 800; // Strong knockback
+                    e.push.y += Math.sin(angle) * 800;
+                }
+            }
+
+            game.spawnFloatingText(player.pos, "Uzumaki Barrage!", "orange");
+            state.cooldown = 10.0 * player.stats.cooldownMult;
+        }
+    }
+
+    onHold(state: SkillState, player: PlayerState, game: ShinobiSurvivalGame, dt: number): void { }
+    onRelease(state: SkillState, player: PlayerState, game: ShinobiSurvivalGame): void { }
+    draw(ctx: CanvasRenderingContext2D, state: SkillState, player: PlayerState, game: ShinobiSurvivalGame): void { }
+}
+
 export class RasenganSkill implements SkillLogic {
     update(state: SkillState, player: PlayerState, game: ShinobiSurvivalGame, dt: number): void {
         if (state.cooldown > 0) {
@@ -13,11 +65,6 @@ export class RasenganSkill implements SkillLogic {
         if (player.skillCharging || player.dashTime > 0) {
             player.invincible = true;
         } else if (player.character === 'naruto' && player.ultActiveTime <= 0) {
-            // Only reset if not in Ult (Ult handles its own invincibility)
-            // But wait, other things might set invincibility.
-            // We should only set it true, and let a central system reset it?
-            // Or manage it strictly here.
-            // If we set it true here, we must set it false when done.
             player.invincible = false;
         }
     }
@@ -25,8 +72,6 @@ export class RasenganSkill implements SkillLogic {
     onPress(state: SkillState, player: PlayerState, game: ShinobiSurvivalGame): void {
         if (state.cooldown <= 0 || state.isCharging) {
             state.isCharging = true;
-            // Initialize charge time if starting fresh
-            // But we actually handle accumulation in onHold
         }
     }
 
@@ -65,16 +110,7 @@ export class RasenganSkill implements SkillLogic {
 
             player.skillCharging = false;
             player.skillChargeTime = 0;
-            player.invincible = true; // Invincible during dash (handled by dash logic or here)
-            // Actually, dash logic in game loop decrements dashTime. 
-            // We should set invincible = true there? 
-            // Or just let it be. The dash is short.
-            // Let's set it to true, and rely on game loop to clear it? 
-            // No, game loop doesn't clear invincible automatically unless we tell it.
-            // We'll handle invincibility in update() or let the game loop handle dash invincibility.
-            // For now, let's leave dash invincibility to the game loop check or add a generic dash invincibility.
-            // But we want to remove hardcoded checks.
-            // So let's set p.invincible = true in update if dashTime > 0.
+            player.invincible = true;
         }
     }
 
@@ -152,14 +188,6 @@ export class KuramaModeSkill implements SkillLogic {
                 }
             }
         } else {
-            // Reset invincibility if this skill was the one keeping it
-            // But we need to be careful not to override other skills.
-            // For now, if activeTime just finished (was > 0, now <= 0), we could reset.
-            // But update runs every frame.
-            // If activeTime <= 0, we don't set invincible = true.
-            // If nothing else sets it, it should be false (default).
-            // But we need to ensure it's reset.
-            // Let's assume the game loop resets it or we explicitly set it false if not active.
             if (player.character === 'naruto' && !player.skillCharging && player.dashTime <= 0) {
                 player.invincible = false;
             }

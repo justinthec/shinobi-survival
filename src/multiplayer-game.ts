@@ -22,6 +22,7 @@ import {
     FloatingText
 } from "./types";
 
+const MAX_ENEMIES = 50;
 export class ShinobiSurvivalGame extends Game {
     static timestep = 1000 / 60;
     static canvasSize = { width: 640, height: 360 };
@@ -81,7 +82,8 @@ export class ShinobiSurvivalGame extends Game {
                 maxHp: 100,
                 character: null,
                 skills: {
-                    skill1: { cooldown: 0, chargeTime: 0, isCharging: false, activeTime: 0 },
+                    skillQ: { cooldown: 0, chargeTime: 0, isCharging: false, activeTime: 0 },
+                    skillE: { cooldown: 0, chargeTime: 0, isCharging: false, activeTime: 0 },
                     ult: { cooldown: 0, chargeTime: 0, isCharging: false, activeTime: 0 }
                 },
                 weaponLevel: 1,
@@ -313,34 +315,38 @@ export class ShinobiSurvivalGame extends Game {
             }
 
             // Skills
-            const skill1Logic = getSkill(p.character || '', 'skill1');
+            const skillQLogic = getSkill(p.character || '', 'skillQ');
+            const skillELogic = getSkill(p.character || '', 'skillE');
             const ultLogic = getSkill(p.character || '', 'ult');
 
             // Update Skills
-            if (skill1Logic) skill1Logic.update(p.skills.skill1, p, this, dt);
+            if (skillQLogic) skillQLogic.update(p.skills.skillQ, p, this, dt);
+            if (skillELogic) skillELogic.update(p.skills.skillE, p, this, dt);
             if (ultLogic) ultLogic.update(p.skills.ult, p, this, dt);
 
             // Input Handling
-            // Skill 1 (E)
+            // Skill Q
+            if (input.keysHeld['q']) {
+                if (skillQLogic) skillQLogic.onHold(p.skills.skillQ, p, this, dt);
+            }
+            if (input.keysPressed['q']) {
+                if (skillQLogic) skillQLogic.onPress(p.skills.skillQ, p, this);
+            }
+            if (!input.keysHeld['q'] && p.skills.skillQ.isCharging) {
+                if (skillQLogic) skillQLogic.onRelease(p.skills.skillQ, p, this);
+            }
+
+            // Skill E
             if (input.keysHeld['e']) {
-                if (skill1Logic) skill1Logic.onHold(p.skills.skill1, p, this, dt);
-                // For press detection, we might need a better way if we want single frame press
-                // But keysPressed is available
+                if (skillELogic) skillELogic.onHold(p.skills.skillE, p, this, dt);
             }
 
             if (input.keysPressed['e']) {
-                if (skill1Logic) skill1Logic.onPress(p.skills.skill1, p, this);
+                if (skillELogic) skillELogic.onPress(p.skills.skillE, p, this);
             }
 
-            // Detect release (if needed, simplified)
-            // Ideally we track previous key state, but for now we can check if not held
-            // Actually, we need to know if it WAS held. 
-            // For Naruto's charge, we rely on `skillCharging` state or similar.
-            // Let's rely on the logic class to handle state transitions if possible, 
-            // but we need to signal release.
-            // A simple way: if we were charging and now key is not held.
-            if (!input.keysHeld['e'] && p.skills.skill1.isCharging) {
-                if (skill1Logic) skill1Logic.onRelease(p.skills.skill1, p, this);
+            if (!input.keysHeld['e'] && p.skills.skillE.isCharging) {
+                if (skillELogic) skillELogic.onRelease(p.skills.skillE, p, this);
             }
 
             // Ult (R)
@@ -424,7 +430,7 @@ export class ShinobiSurvivalGame extends Game {
             waveMultiplier = 3;
         }
 
-        if (this.spawnTimer > spawnRate) {
+        if (this.spawnTimer > spawnRate && this.enemies.length < MAX_ENEMIES) {
             this.spawnEnemy();
             // Chance for extra spawns based on wave
             if (waveMultiplier >= 2 && this.random() < 0.4) this.spawnEnemy();
@@ -546,20 +552,24 @@ export class ShinobiSurvivalGame extends Game {
                     const currentSwing = startAngle + (swingRange * progress);
 
                     // Attach to owner aim
-                    // We need to lock the aimAngle at start of swing? 
-                    // Or follow player aim? User said "attached to his body".
-                    // Usually this means it follows the player's facing.
-                    // Let's follow current aimAngle.
-                    proj.angle = owner.aimAngle + currentSwing;
+                    // Use targetAngle if available (fixed direction), else follow player aim
+                    const baseAngle = proj.targetAngle !== undefined ? proj.targetAngle : owner.aimAngle;
+                    proj.angle = baseAngle + currentSwing;
 
                     const radius = 30; // Closer to body (was 40)
                     proj.pos.x = owner.pos.x + Math.cos(proj.angle) * radius;
                     proj.pos.y = owner.pos.y + Math.sin(proj.angle) * radius;
                 }
-            } else {
-                proj.pos.x += proj.vel.x * dt;
-                proj.pos.y += proj.vel.y * dt;
+            } else if (proj.type === 'fireball') {
+                // Spawn fire trail
+                if (this.random() < 0.2) { // 20% chance per tick
+                    this.spawnProjectile(proj.ownerId, proj.pos, 0, 0, 5, 'fire_trail', 0, 99);
+                }
             }
+
+            // Move Projectiles
+            proj.pos.x += proj.vel.x * dt;
+            proj.pos.y += proj.vel.y * dt;
 
             // Collision with Enemies
             for (let j = this.enemies.length - 1; j >= 0; j--) {
@@ -829,12 +839,15 @@ export class ShinobiSurvivalGame extends Game {
         let dmg = 10 * p.stats.damageMult;
         if (this.random() < p.stats.critChance) dmg *= 2;
 
+        // Prevent attacking if specific skills are active
+        if (p.character === 'gaara' && p.skills.skillQ.activeTime > 0) return;
+
         if (p.character === 'naruto') {
             if (p.ultActiveTime > 0) { return; } // Ult handles its own damage
             const projType = p.isEvolved ? 'rasenshuriken' : 'shuriken';
             const pDmg = p.isEvolved ? dmg * 3 : dmg;
-            const pPierce = p.isEvolved ? 5 : (1 + p.stats.piercing);
-            const pSpeed = p.isEvolved ? 480 : 600;
+            const pPierce = p.isEvolved ? 5 : (p.stats.piercing);
+            const pSpeed = p.isEvolved ? 100 : 200;
 
             this.spawnProjectile(p.id, p.pos, angle, pSpeed, pDmg, projType, p.stats.knockback + 2, pPierce);
 
@@ -905,6 +918,7 @@ export class ShinobiSurvivalGame extends Game {
             pierce: pierce,
             life: 2.0,
             angle: angle,
+            targetAngle: angle, // Store initial angle
             ownerId: ownerId,
             hitList: []
         });
@@ -1122,8 +1136,11 @@ export class ShinobiSurvivalGame extends Game {
                 ctx.restore(); // End Player Sprite Transform (Scale/Flip)
 
                 // Rasengan Charging Visuals (Delegated)
-                const skill1Logic = getSkill(p.character || '', 'skill1');
-                if (skill1Logic) skill1Logic.draw(ctx, p.skills.skill1, p, this);
+                const skillQLogic = getSkill(p.character || '', 'skillQ');
+                if (skillQLogic) skillQLogic.draw(ctx, p.skills.skillQ, p, this);
+
+                const skillELogic = getSkill(p.character || '', 'skillE');
+                if (skillELogic) skillELogic.draw(ctx, p.skills.skillE, p, this);
 
                 // Rasengan Dash Visuals
                 if (p.character === 'naruto' && p.dashTime > 0) {
@@ -1176,16 +1193,33 @@ export class ShinobiSurvivalGame extends Game {
                     ctx.arc(0, 0, 80, -Math.PI / 4, Math.PI / 4); // Arc shape
                     ctx.lineTo(0, 0);
                     ctx.fill();
+                } else if (proj.type === 'clone_punch') {
+                    // Draw Clone (Naruto Sprite)
+                    const cloneSprite = SPRITES.naruto;
+                    if (cloneSprite) {
+                        ctx.globalAlpha = 0.7; // Slightly transparent
+                        ctx.drawImage(cloneSprite, -cloneSprite.width / 2, -cloneSprite.height / 2);
+                        ctx.globalAlpha = 1.0;
+                    }
                 } else if (sprite) {
+                    if (proj.type === 'shuriken' || proj.type === 'rasenshuriken') {
+                        ctx.rotate(this.gameTime * 20); // Spin
+                    }
                     ctx.drawImage(sprite, -sprite.width / 2, -sprite.height / 2);
                 } else if (proj.type === 'fireball') {
                     // Fallback Fireball Draw
-                    ctx.fillStyle = 'orange';
-                    ctx.beginPath(); ctx.arc(0, 0, 20, 0, Math.PI * 2); ctx.fill();
-                    ctx.fillStyle = 'red';
+                    ctx.fillStyle = 'orange'; ctx.beginPath(); ctx.arc(0, 0, 20, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = 'yellow'; ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2); ctx.fill();
+                } else if (proj.type === 'rinnegan_effect') {
+                    // Draw Rinnegan Effect (if sprite missing)
+                    ctx.strokeStyle = '#8A2BE2'; ctx.lineWidth = 3;
+                    ctx.beginPath(); ctx.arc(0, 0, 30, 0, Math.PI * 2); ctx.stroke();
+                } else if (proj.type === 'fire_trail') {
+                    // Draw Fire Trail (if sprite missing)
+                    ctx.fillStyle = 'rgba(255, 69, 0, 0.6)';
                     ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2); ctx.fill();
                 } else {
-                    ctx.fillStyle = 'yellow'; ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = 'yellow'; ctx.fillRect(-5, -5, 10, 10);
                 }
                 ctx.restore();
             }
@@ -1244,7 +1278,8 @@ export class ShinobiSurvivalGame extends Game {
                         }
                     };
 
-                    drawSkill(240, 'skill1', 'E');
+                    drawSkill(180, 'skillQ', 'Q');
+                    drawSkill(240, 'skillE', 'E');
                     drawSkill(300, 'ult', 'R');
 
                     this.drawCharacterHUD(ctx, localPlayer);

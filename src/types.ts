@@ -63,9 +63,11 @@ export interface PlayerState {
     charState: CharacterState | null;
 
     // Generalized Ability State
-    skills: Record<string, SkillState>;
-
-    // Stats & Upgrades
+    skills: {
+        skillQ: SkillState;
+        skillE: SkillState;
+        ult: SkillState;
+    };
     weaponLevel: number;
     isEvolved: boolean;
     stats: PlayerStats;
@@ -131,6 +133,7 @@ export interface ProjectileState {
     pierce: number;
     life: number;
     angle: number;
+    targetAngle?: number; // For guided/fixed direction projectiles
     ownerId: number;
     hitList: number[]; // Enemy IDs hit
 }

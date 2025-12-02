@@ -1,27 +1,28 @@
 import { SkillLogic } from "./types";
-import { RasenganSkill, KuramaModeSkill } from "./naruto";
+import { RasenganSkill, KuramaModeSkill, UzumakiBarrageSkill } from "./naruto";
 import { FireballSkill, RinneganSwapSkill, KirinSkill } from "./sasuke";
 import { DesertQuicksandSkill, SphereOfSandSkill, GrandSandMausoleumSkill } from "./gaara";
 import { ChakraScalpelSkill, HealSkill, KatsuyuSkill } from "./sakura";
 
 export const SKILL_REGISTRY: Record<string, Record<string, SkillLogic>> = {
     'naruto': {
-        'skill1': new RasenganSkill(),
+        'skillQ': new UzumakiBarrageSkill(),
+        'skillE': new RasenganSkill(),
         'ult': new KuramaModeSkill()
     },
     'sasuke': {
-        'skill1': new FireballSkill(),
-        'skill2': new RinneganSwapSkill(),
+        'skillQ': new FireballSkill(),
+        'skillE': new RinneganSwapSkill(),
         'ult': new KirinSkill()
     },
     'gaara': {
-        'skill1': new DesertQuicksandSkill(),
-        'skill2': new SphereOfSandSkill(),
+        'skillQ': new SphereOfSandSkill(),
+        'skillE': new DesertQuicksandSkill(),
         'ult': new GrandSandMausoleumSkill()
     },
     'sakura': {
-        'skill1': new ChakraScalpelSkill(),
-        'skill2': new HealSkill(),
+        'skillQ': new HealSkill(),
+        'skillE': new ChakraScalpelSkill(),
         'ult': new KatsuyuSkill()
     }
 };
