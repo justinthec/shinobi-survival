@@ -33,6 +33,7 @@ module.exports = {
             patterns: [
                 { from: "local-testing.html", to: "." },
                 { from: "game.html", to: "." },
+                { from: "grass.png", to: "." },
             ],
         }),
     ],

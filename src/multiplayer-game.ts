@@ -40,7 +40,7 @@ export class ShinobiSurvivalGame extends Game {
     gamePhase: GamePhase = 'charSelect';
     teamXP: number = 0;
     teamLevel: number = 1;
-    xpToNextLevel: number = 50;
+    xpToNextLevel: number = 300;
     gameTime: number = 0;
     spawnTimer: number = 0;
 
@@ -1036,30 +1036,23 @@ export class ShinobiSurvivalGame extends Game {
             const forestLeft = -700;
             const forestRight = 700;
 
-            for (let y = startY; y < endY; y += gridY) {
-                // Grass Texture (More detailed noise)
-                for (let x = forestLeft - 200; x < forestRight + 200; x += 20) {
-                    // Use a deterministic pseudo-random noise based on position
-                    const noise = Math.sin(x * 0.12 + y * 0.15) * Math.cos(x * 0.08 + y * 0.02) * Math.sin((x + y) * 0.05);
+            // Draw tiled grass floor
+            if (SPRITES.grass && SPRITES.grass instanceof HTMLImageElement && SPRITES.grass.complete) {
+                const tileSize = 64; // Adjust based on your grass.png dimensions
+                const grassStartX = Math.floor((cx - 200) / tileSize) * tileSize;
+                const grassStartY = Math.floor((cy - 200) / tileSize) * tileSize;
+                const grassEndX = cx + canvas.width + 200;
+                const grassEndY = cy + canvas.height + 200;
 
-                    if (noise > 0.2) {
-                        const gx = x + (noise * 10);
-                        const gy = y + (noise * 10);
-
-                        // Vary color slightly
-                        const colorVar = Math.floor(noise * 40);
-                        // Brighter Green: Base #3cb043 (60, 176, 67)
-                        // High Contrast: #2ecc71 (46, 204, 113)
-                        // Let's go with a vibrant anime grass look
-                        // Base: 46, 200, 80. Var: +/- 20
-                        const r = 46 + colorVar;
-                        const g = 180 + colorVar;
-                        const b = 60 + colorVar;
-
-                        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-                        ctx.fillRect(gx, gy, 6, 6);
+                for (let y = grassStartY; y < grassEndY; y += tileSize) {
+                    for (let x = grassStartX; x < grassEndX; x += tileSize) {
+                        ctx.drawImage(SPRITES.grass, x, y, tileSize, tileSize);
                     }
                 }
+            }
+
+            // Draw forest borders
+            for (let y = startY; y < endY; y += gridY) {
 
                 if (cx < forestLeft + 200) {
                     for (let x = forestLeft - 300; x < forestLeft; x += 80) {
