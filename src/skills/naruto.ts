@@ -79,28 +79,37 @@ export class RasenganSkill implements SkillLogic {
     }
 
     draw(ctx: CanvasRenderingContext2D, state: SkillState, player: PlayerState, game: ShinobiSurvivalGame): void {
+        // Charging Visuals
         if (state.isCharging) {
             ctx.save();
             ctx.translate(player.pos.x, player.pos.y);
 
+            // Calculate potential distance
             const chargeRatio = state.chargeTime / 1.5;
             const baseDist = 75;
             const maxDist = 375;
             const dist = baseDist + (chargeRatio * (maxDist - baseDist));
 
+            // Draw Aim Line
             ctx.save();
             ctx.rotate(player.aimAngle);
+
+            // Background line
             ctx.fillStyle = 'rgba(0, 210, 255, 0.2)';
             ctx.fillRect(0, -2, dist, 4);
+
+            // Impact circle ghost
             ctx.beginPath();
-            ctx.arc(dist, 0, 50, 0, Math.PI * 2);
+            ctx.arc(dist, 0, 50, 0, Math.PI * 2); // Anticipated hit radius
             ctx.fillStyle = 'rgba(0, 210, 255, 0.3)';
             ctx.fill();
             ctx.restore();
 
+            // Growing Ball
             const size = 1 + (state.chargeTime / 1.5) * 2;
             ctx.save();
             ctx.scale(size, size);
+            // Rotate ball itself
             ctx.rotate(game.gameTime * 10);
             if (SPRITES.rasengan) ctx.drawImage(SPRITES.rasengan, -50, -50);
             ctx.restore();
