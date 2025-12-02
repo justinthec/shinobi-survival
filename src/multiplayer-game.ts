@@ -23,7 +23,8 @@ import {
 } from "./types";
 
 export class ShinobiSurvivalGame extends Game {
-    static timestep = 1000 / 60;
+    // The netplayjs runner ticks the simulation 4 times per frame, so we adjust the timestep accordingly.
+    static timestep = 1000 / 60 / 4;
     static canvasSize = { width: 640, height: 360 };
     static numPlayers = 2; // Default, can be overridden by wrapper
     static localPlayerId: number | null = null;
