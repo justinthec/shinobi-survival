@@ -2,6 +2,15 @@ Shinobi Survival Multiplayer
 
 Play: https://www.jchan.me/shinobi-survival/dist/game.html
 
+## Contributing
+1. Install Antigravity: https://antigravity.google or another IDE / AI IDE
+2. Git clone
+3. go to the root directory
+4. npm install
+
+To run the server, npm run dev
+Open up localhost:9000/game.html in a tab
+
 ## TODOs
  - Naruto Rasengan Charge needs to preserve the ball size when dashing. Also less knockback (or make the uzumaki barrage less of knockback, he shouldn't have 2 big knockback skills)
  - Projectiles should have their own size information for hitbox and drawing. Currently I think it is hardcoded to 30 for everything
