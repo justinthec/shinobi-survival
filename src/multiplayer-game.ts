@@ -23,9 +23,10 @@ import {
 } from "./types";
 
 const MAX_ENEMIES = 50;
+const SIMULATION_TICKS_PER_FRAME = 4;
+
 export class ShinobiSurvivalGame extends Game {
     static timestep = 1000 / 60;
-    static tickRate = 4;
     static canvasSize = { width: 640, height: 360 };
     static numPlayers = 2; // Default, can be overridden by wrapper
     static localPlayerId: number | null = null;
@@ -193,7 +194,10 @@ export class ShinobiSurvivalGame extends Game {
     }
 
     tickPlaying(playerInputs: Map<NetplayPlayer, DefaultInput>) {
-        const dt = ShinobiSurvivalGame.timestep / 1000;
+        let dt = ShinobiSurvivalGame.timestep / 1000;
+        // netplayjs's MultiplayerRollbackWrapper ticks the simulation 4 times per frame by default.
+        // We divide dt by this factor to keep game time and cooldowns in sync with real time.
+        dt /= SIMULATION_TICKS_PER_FRAME;
         this.gameTime += dt;
 
         // Player Updates
