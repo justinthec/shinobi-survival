@@ -25,7 +25,7 @@ import {
 const MAX_ENEMIES = 50;
 export class ShinobiSurvivalGame extends Game {
     static timestep = 1000 / 60;
-    static canvasSize = { width: 640, height: 360 };
+    static canvasSize = { width: 1920, height: 1080 };
     static numPlayers = 2; // Default, can be overridden by wrapper
     static localPlayerId: number | null = null;
 
