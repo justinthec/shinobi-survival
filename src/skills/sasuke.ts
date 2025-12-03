@@ -2,6 +2,8 @@ import { PlayerState, SkillState } from "../types";
 import { ShinobiSurvivalGame } from "../multiplayer-game";
 import { CharacterLogic } from "./types";
 import { SkillLogic } from "./skill-logic";
+import { Vec2 } from "netplayjs";
+import { SPRITES } from "../sprites";
 
 export class SasukeLogic implements CharacterLogic {
     update(player: PlayerState, game: ShinobiSurvivalGame, dt: number): void {

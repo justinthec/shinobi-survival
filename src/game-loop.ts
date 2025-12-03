@@ -1,6 +1,7 @@
 import { ShinobiSurvivalGame } from "./multiplayer-game";
 import { PlayerState } from "./types";
 import { getSkill, getCharacterLogic } from "./skills";
+import { Vec2 } from "netplayjs";
 
 export function updatePlayers(game: ShinobiSurvivalGame, dt: number, playerInputs: any) {
     for (const [player, input] of playerInputs.entries()) {
@@ -46,8 +47,8 @@ export function updatePlayers(game: ShinobiSurvivalGame, dt: number, playerInput
                     game.particles.push({
                         id: game.nextEntityId++,
                         type: 'crater',
-                        pos: p.pos.clone(),
-                        vel: { x: 0, y: 0 },
+                        pos: new Vec2(p.pos.x, p.pos.y),
+                        vel: new Vec2(0, 0),
                         life: 2.0, // Shorter life
                         maxLife: 2.0,
                         color: '',
@@ -256,7 +257,7 @@ export function updateProjectiles(game: ShinobiSurvivalGame, dt: number) {
             if (game.random() < 0.2) {
                 game.hazards.push({
                     id: game.nextEntityId++,
-                    pos: proj.pos.clone(),
+                    pos: new Vec2(proj.pos.x, proj.pos.y),
                     radius: proj.size * 0.8,
                     duration: 2.0,
                     damage: 5,
@@ -313,7 +314,7 @@ export function updateProjectiles(game: ShinobiSurvivalGame, dt: number) {
                     game.enemies.splice(j, 1);
                     game.xpOrbs.push({
                         id: game.nextEntityId++,
-                        pos: e.pos.clone(),
+                        pos: new Vec2(e.pos.x, e.pos.y),
                         val: 10,
                         dead: false
                     });

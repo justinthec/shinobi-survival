@@ -1,6 +1,7 @@
 import { PlayerState } from "../types";
 import { ShinobiSurvivalGame } from "../multiplayer-game";
 import { WeaponLogic } from "./weapon-logic";
+import { Vec2 } from "netplayjs";
 
 export class GaaraWeapon implements WeaponLogic {
     fire(player: PlayerState, game: ShinobiSurvivalGame): void {
@@ -48,10 +49,10 @@ export class GaaraWeapon implements WeaponLogic {
             // Evolved: Giant Sand Burial
             for(let i = 0; i < 6; i++) {
                 const randomAngle = Math.random() * Math.PI * 2;
-                const spawnPos = {
-                    x: player.pos.x + Math.cos(randomAngle) * 200,
-                    y: player.pos.y + Math.sin(randomAngle) * 200,
-                };
+                const spawnPos = new Vec2(
+                    player.pos.x + Math.cos(randomAngle) * 200,
+                    player.pos.y + Math.sin(randomAngle) * 200,
+                );
                 game.spawnProjectile(player.id, spawnPos, 0, 0, damage * 5, 'giant_sand_burial', 0, 999, 100);
             }
         }

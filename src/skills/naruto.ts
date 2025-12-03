@@ -3,6 +3,7 @@ import { ShinobiSurvivalGame } from "../multiplayer-game";
 import { CharacterLogic } from "./types";
 import { SkillLogic } from "./skill-logic";
 import { Vec2 } from "netplayjs";
+import { SPRITES } from "../sprites";
 
 export class NarutoLogic implements CharacterLogic {
     update(player: PlayerState, game: ShinobiSurvivalGame, dt: number): void {

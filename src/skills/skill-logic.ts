@@ -11,7 +11,7 @@ export interface SkillLogic {
 }
 
 // Naruto Skills
-class UzumakiBarrage implements SkillLogic {
+export class UzumakiBarrageSkill implements SkillLogic {
     update(skill: SkillState, player: PlayerState, game: ShinobiSurvivalGame, dt: number) {
         if (skill.cooldown > 0) skill.cooldown -= dt;
     }
@@ -49,7 +49,7 @@ class UzumakiBarrage implements SkillLogic {
     draw(ctx: CanvasRenderingContext2D, skill: SkillState, player: PlayerState, game: ShinobiSurvivalGame) {}
 }
 
-class Rasengan implements SkillLogic {
+export class RasenganSkill implements SkillLogic {
     update(skill: SkillState, player: PlayerState, game: ShinobiSurvivalGame, dt: number) {
         if (skill.cooldown > 0) skill.cooldown -= dt;
         if (player.skillCharging || player.dashTime > 0) {
@@ -103,7 +103,7 @@ class Rasengan implements SkillLogic {
     draw(ctx: CanvasRenderingContext2D, skill: SkillState, player: PlayerState, game: ShinobiSurvivalGame) {}
 }
 
-class KuramaLink implements SkillLogic {
+export class KuramaModeSkill implements SkillLogic {
     update(skill: SkillState, player: PlayerState, game: ShinobiSurvivalGame, dt: number) {
         if (skill.cooldown > 0) skill.cooldown -= dt;
         if (skill.activeTime > 0) {
@@ -155,7 +155,7 @@ class KuramaLink implements SkillLogic {
 }
 
 // Sasuke Skills
-class Fireball implements SkillLogic {
+export class FireballSkill implements SkillLogic {
     update(skill: SkillState, player: PlayerState, game: ShinobiSurvivalGame, dt: number) {
         if (skill.cooldown > 0) skill.cooldown -= dt;
     }
@@ -172,7 +172,7 @@ class Fireball implements SkillLogic {
     draw(ctx: CanvasRenderingContext2D, skill: SkillState, player: PlayerState, game: ShinobiSurvivalGame) {}
 }
 
-class RinneganSwap implements SkillLogic {
+export class RinneganSwapSkill implements SkillLogic {
     update(skill: SkillState, player: PlayerState, game: ShinobiSurvivalGame, dt: number) {
         if (skill.cooldown > 0) skill.cooldown -= dt;
         if (skill.activeTime > 0) {
@@ -225,7 +225,7 @@ class RinneganSwap implements SkillLogic {
     draw(ctx: CanvasRenderingContext2D, skill: SkillState, player: PlayerState, game: ShinobiSurvivalGame) {}
 }
 
-class Kirin implements SkillLogic {
+export class KirinSkill implements SkillLogic {
     update(skill: SkillState, player: PlayerState, game: ShinobiSurvivalGame, dt: number) {
         if (skill.cooldown > 0) skill.cooldown -= dt;
         if (skill.activeTime > 0) {
@@ -269,7 +269,7 @@ class Kirin implements SkillLogic {
 
 
 // Gaara Skills
-class SandTsunami implements SkillLogic {
+export class SphereOfSandSkill implements SkillLogic {
     update(skill: SkillState, player: PlayerState, game: ShinobiSurvivalGame, dt: number) {
         if (skill.cooldown > 0) skill.cooldown -= dt;
         if (skill.activeTime > 0) {
@@ -297,7 +297,7 @@ class SandTsunami implements SkillLogic {
     draw(ctx: CanvasRenderingContext2D, skill: SkillState, player: PlayerState, game: ShinobiSurvivalGame) {}
 }
 
-class Quicksand implements SkillLogic {
+export class DesertQuicksandSkill implements SkillLogic {
     update(skill: SkillState, player: PlayerState, game: ShinobiSurvivalGame, dt: number) {
         if (skill.cooldown > 0) skill.cooldown -= dt;
     }
@@ -320,7 +320,7 @@ class Quicksand implements SkillLogic {
     draw(ctx: CanvasRenderingContext2D, skill: SkillState, player: PlayerState, game: ShinobiSurvivalGame) {}
 }
 
-class SandBurial implements SkillLogic {
+export class GrandSandMausoleumSkill implements SkillLogic {
     update(skill: SkillState, player: PlayerState, game: ShinobiSurvivalGame, dt: number) {
         if (skill.cooldown > 0) skill.cooldown -= dt;
         if (skill.activeTime > 0) {
@@ -353,7 +353,7 @@ class SandBurial implements SkillLogic {
 }
 
 // Sakura Skills
-class HealingJutsu implements SkillLogic {
+export class HealSkill implements SkillLogic {
     update(skill: SkillState, player: PlayerState, game: ShinobiSurvivalGame, dt: number) {
         if (skill.cooldown > 0) skill.cooldown -= dt;
     }
@@ -381,7 +381,7 @@ class HealingJutsu implements SkillLogic {
     draw(ctx: CanvasRenderingContext2D, skill: SkillState, player: PlayerState, game: ShinobiSurvivalGame) {}
 }
 
-class ChakraScalpel implements SkillLogic {
+export class ChakraScalpelSkill implements SkillLogic {
     update(skill: SkillState, player: PlayerState, game: ShinobiSurvivalGame, dt: number) {
         if (skill.cooldown > 0) skill.cooldown -= dt;
         if (skill.activeTime > 0) {
@@ -407,7 +407,7 @@ class ChakraScalpel implements SkillLogic {
     draw(ctx: CanvasRenderingContext2D, skill: SkillState, player: PlayerState, game: ShinobiSurvivalGame) {}
 }
 
-class HundredHealings implements SkillLogic {
+export class KatsuyuSkill implements SkillLogic {
     update(skill: SkillState, player: PlayerState, game: ShinobiSurvivalGame, dt: number) {
         if (skill.cooldown > 0) skill.cooldown -= dt;
         if (skill.activeTime > 0) {
@@ -449,24 +449,24 @@ class HundredHealings implements SkillLogic {
 
 const skills: { [key: string]: { [key: string]: SkillLogic } } = {
     naruto: {
-        skillQ: new UzumakiBarrage(),
-        skillE: new Rasengan(),
-        ult: new KuramaLink(),
+        skillQ: new UzumakiBarrageSkill(),
+        skillE: new RasenganSkill(),
+        ult: new KuramaModeSkill(),
     },
     sasuke: {
-        skillQ: new Fireball(),
-        skillE: new RinneganSwap(),
-        ult: new Kirin(),
+        skillQ: new FireballSkill(),
+        skillE: new RinneganSwapSkill(),
+        ult: new KirinSkill(),
     },
     gaara: {
-        skillQ: new SandTsunami(),
-        skillE: new Quicksand(),
-        ult: new SandBurial(),
+        skillQ: new SphereOfSandSkill(),
+        skillE: new DesertQuicksandSkill(),
+        ult: new GrandSandMausoleumSkill(),
     },
     sakura: {
-        skillQ: new HealingJutsu(),
-        skillE: new ChakraScalpel(),
-        ult: new HundredHealings(),
+        skillQ: new HealSkill(),
+        skillE: new ChakraScalpelSkill(),
+        ult: new KatsuyuSkill(),
     }
 };
 
