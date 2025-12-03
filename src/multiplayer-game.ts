@@ -25,6 +25,7 @@ import {
 const MAX_ENEMIES = 50;
 export class ShinobiSurvivalGame extends Game {
     static timestep = 1000 / 60;
+    static tickRate = 4;
     static canvasSize = { width: 640, height: 360 };
     static numPlayers = 2; // Default, can be overridden by wrapper
     static localPlayerId: number | null = null;
@@ -1392,16 +1393,8 @@ export class ShinobiSurvivalGame extends Game {
 
             // HUD (Screen Space)
             if (this.gamePhase === 'playing' || this.gamePhase === 'levelUp') {
-                // Game Timer
-                const minutes = Math.floor(this.gameTime / 60).toString().padStart(2, '0');
-                const seconds = Math.floor(this.gameTime % 60).toString().padStart(2, '0');
-                ctx.fillStyle = 'white';
-                ctx.font = 'bold 24px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText(`${minutes}:${seconds}`, canvas.width / 2, 30);
-
                 // Team XP Bar (Top Center)
-                const xpBarY = 40;
+                const xpBarY = 20;
                 const xpPct = Math.min(this.teamXP / this.xpToNextLevel, 1);
                 const barW = 400; const barH = 15;
                 const barX = (canvas.width - barW) / 2;
@@ -1412,6 +1405,14 @@ export class ShinobiSurvivalGame extends Game {
 
                 ctx.fillStyle = 'white'; ctx.font = 'bold 14px Arial'; ctx.textAlign = 'center';
                 ctx.fillText(`Team Level ${this.teamLevel}`, canvas.width / 2, xpBarY + 12);
+
+                // Game Timer
+                const minutes = Math.floor(this.gameTime / 60).toString().padStart(2, '0');
+                const seconds = Math.floor(this.gameTime % 60).toString().padStart(2, '0');
+                ctx.fillStyle = 'white';
+                ctx.font = '18px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${minutes}:${seconds}`, canvas.width / 2, xpBarY + 35);
 
 
                 // Local Player HUD (Bottom Left)
