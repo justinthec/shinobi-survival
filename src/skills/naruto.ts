@@ -1,8 +1,80 @@
-import { SkillLogic, SkillState } from "./types";
+import { SkillLogic, SkillState, WeaponLogic } from "./types";
 import { PlayerState } from "../types";
 import type { ShinobiSurvivalGame } from "../multiplayer-game";
 import { Vec2 } from "netplayjs";
 import { SPRITES } from "../sprites";
+
+export class NarutoWeapon implements WeaponLogic {
+    fire(player: PlayerState, game: ShinobiSurvivalGame): void {
+        // Find nearest enemy for targeting
+        let closestE = null;
+        let minDist = Infinity;
+        for (const e of game.enemies) {
+            const d = Math.sqrt((player.pos.x - e.pos.x) ** 2 + (player.pos.y - e.pos.y) ** 2);
+            if (d < minDist) { minDist = d; closestE = e; }
+        }
+
+        const angle = closestE ? Math.atan2(closestE.pos.y - player.pos.y, closestE.pos.x - player.pos.x) : (player.direction === 1 ? 0 : Math.PI);
+        let dmg = 10 * player.stats.damageMult;
+        if (game.random() < player.stats.critChance) dmg *= 2;
+
+        // Prevent attacking during ult
+        if (player.ultActiveTime > 0) return;
+
+        const level = player.weaponLevel;
+        const isEvolved = level >= 5;
+
+        // Determine projectile properties based on level
+        const projType = isEvolved ? 'rasenshuriken' : 'shuriken';
+        const pDmg = isEvolved ? dmg * 3 : dmg;
+        const pPierce = isEvolved ? 5 : player.stats.piercing;
+        const pSpeed = isEvolved ? 100 : 200;
+        const pSize = isEvolved ? 60 : 20;
+
+        // Level 1: Single shuriken
+        // Level 2: Burst fire (2 shuriken in sequence) - handled by burstCount
+        // Level 3+: Shadow clones also fire
+        // Level 5: Evolution (1 Rasenshuriken only, no clones)
+
+        // Fire main projectile
+        game.spawnProjectile(player.id, player.pos, angle, pSpeed, pDmg, projType, player.stats.knockback + 2, pPierce, pSize);
+
+        // Evolution: Only 1 Rasenshuriken, no clones, no burst
+        if (isEvolved) {
+            return;
+        }
+
+        // Level 2+: Set up burst fire (second shot)
+        if (level >= 2) {
+            player.burstTimer = 0.1;
+            player.burstCount = 1;
+        }
+
+        // Level 3+: Shadow Clone 1 (visible as semi-transparent sprite)
+        if (level >= 3) {
+            const c1Pos = new Vec2(
+                player.pos.x + Math.cos(angle + Math.PI / 2) * 30,
+                player.pos.y + Math.sin(angle + Math.PI / 2) * 30
+            );
+            // Spawn visual clone projectile
+            game.spawnProjectile(player.id, c1Pos, angle, 50, 0, 'shadow_clone', 0, 99, 30);
+            // Spawn actual shuriken from clone position
+            game.spawnProjectile(player.id, c1Pos, angle, pSpeed, pDmg, projType, player.stats.knockback + 2, pPierce, pSize);
+        }
+
+        // Level 4+: Shadow Clone 2
+        if (level >= 4) {
+            const c2Pos = new Vec2(
+                player.pos.x + Math.cos(angle - Math.PI / 2) * 30,
+                player.pos.y + Math.sin(angle - Math.PI / 2) * 30
+            );
+            // Spawn visual clone projectile
+            game.spawnProjectile(player.id, c2Pos, angle, 50, 0, 'shadow_clone', 0, 99, 30);
+            // Spawn actual shuriken from clone position
+            game.spawnProjectile(player.id, c2Pos, angle, pSpeed, pDmg, projType, player.stats.knockback + 2, pPierce, pSize);
+        }
+    }
+}
 
 export class UzumakiBarrageSkill implements SkillLogic {
     update(state: SkillState, player: PlayerState, game: ShinobiSurvivalGame, dt: number): void {

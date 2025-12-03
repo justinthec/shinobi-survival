@@ -5,7 +5,7 @@ import {
     Vec2,
 } from "netplayjs";
 import { initSprites, SPRITES } from "./sprites";
-import { getSkill } from "./skills";
+import { getSkill, getWeapon } from "./skills";
 
 import {
     GamePhase,
@@ -52,6 +52,12 @@ export class ShinobiSurvivalGame extends Game {
     random(): number {
         this.rngSeed = (this.rngSeed * 1664525 + 1013904223) % 4294967296;
         return this.rngSeed / 4294967296;
+    }
+
+    // Get unique color for each player
+    getPlayerColor(playerId: number): string {
+        const colors = ['#00d2ff', '#ff4444', '#ffd700', '#00ff88']; // Blue, Red, Yellow, Green
+        return colors[playerId % colors.length];
     }
 
     // For rendering
@@ -665,9 +671,10 @@ export class ShinobiSurvivalGame extends Game {
                             this.teamLevel++;
                             this.xpToNextLevel *= 1.2;
                             this.gamePhase = 'levelUp';
-                            // Generate upgrades (mock)
+                            // Generate upgrades for each player
                             for (let pid in this.players) {
                                 this.players[pid].selectedUpgrade = null;
+                                this.players[pid].offeredUpgrades = this.generateUpgrades(this.players[pid]);
                             }
                         }
                     }
@@ -839,83 +846,9 @@ export class ShinobiSurvivalGame extends Game {
 
 
     fireWeapon(p: PlayerState) {
-        // Find nearest enemy
-        let closestE: EnemyState | null = null;
-        let minDist = Infinity;
-        for (const e of this.enemies) {
-            const d = Math.sqrt((p.pos.x - e.pos.x) ** 2 + (p.pos.y - e.pos.y) ** 2);
-            if (d < minDist) { minDist = d; closestE = e; }
-        }
-
-        const angle = closestE ? Math.atan2(closestE.pos.y - p.pos.y, closestE.pos.x - p.pos.x) : (p.direction === 1 ? 0 : Math.PI);
-        let dmg = 10 * p.stats.damageMult;
-        if (this.random() < p.stats.critChance) dmg *= 2;
-
-        // Prevent attacking if specific skills are active
-        if (p.character === 'gaara' && p.skills.skillQ.activeTime > 0) return;
-
-        if (p.character === 'naruto') {
-            if (p.ultActiveTime > 0) { return; } // Ult handles its own damage
-            const projType = p.isEvolved ? 'rasenshuriken' : 'shuriken';
-            const pDmg = p.isEvolved ? dmg * 3 : dmg;
-            const pPierce = p.isEvolved ? 5 : (p.stats.piercing);
-            const pSpeed = p.isEvolved ? 100 : 200;
-
-            this.spawnProjectile(p.id, p.pos, angle, pSpeed, pDmg, projType, p.stats.knockback + 2, pPierce, p.isEvolved ? 60 : 20);
-
-            // Level 3: Shadow Clone Barrage (Triples projectiles)
-            if (p.weaponLevel >= 3 && !p.isEvolved) {
-                // Clone 1
-                const c1Pos = new Vec2(p.pos.x + Math.cos(angle + Math.PI / 2) * 30, p.pos.y + Math.sin(angle + Math.PI / 2) * 30);
-                this.spawnProjectile(p.id, c1Pos, angle, pSpeed, pDmg, projType, p.stats.knockback + 2, pPierce, p.isEvolved ? 60 : 20);
-                // Clone 2
-                const c2Pos = new Vec2(p.pos.x + Math.cos(angle - Math.PI / 2) * 30, p.pos.y + Math.sin(angle - Math.PI / 2) * 30);
-                this.spawnProjectile(p.id, c2Pos, angle, pSpeed, pDmg, projType, p.stats.knockback + 2, pPierce, p.isEvolved ? 60 : 20);
-            }
-        } else if (p.character === 'sasuke') {
-            // Level 3: Chidori Blade (Increased range/speed)
-            const isChidori = p.weaponLevel >= 3;
-
-            if (isChidori) {
-                const slashSpeed = 180;
-                this.spawnProjectile(p.id, p.pos, angle, slashSpeed, dmg * 2, 'sword_slash', 10, 99, 30);
-
-                // Lightning / Chidori
-                const lightningDmg = dmg * 1.5;
-                const lightningPierce = p.isEvolved ? 999 : 3;
-                const lightningType = p.isEvolved ? 'chidori_spear' : 'lightning';
-
-                this.spawnProjectile(p.id, p.pos, angle, 720, lightningDmg, lightningType, 4 + p.stats.knockback, lightningPierce, 30);
-            } else {
-                // Level 1: Rotating Slash
-                // Spawn with short life for swing
-                this.spawnProjectile(p.id, p.pos, angle, 0, dmg, 'rotating_slash', 5 + p.stats.knockback, 99, 30);
-                // We need to set life to 0.3 manually? spawnProjectile sets it to 2.0 default.
-                // We can find the projectile we just spawned.
-                const proj = this.projectiles[this.projectiles.length - 1];
-                if (proj) proj.life = 0.3;
-            }
-        } else if (p.character === 'gaara') {
-            // Level 3: Sand Tsunami (Wave)
-            if (p.weaponLevel >= 3) {
-                // Spawn 3 sand projectiles in a cone
-                this.spawnProjectile(p.id, p.pos, angle, 210, dmg * 1.8, 'sand', 10 + p.stats.knockback, 999, 30);
-                this.spawnProjectile(p.id, p.pos, angle + 0.3, 210, dmg * 1.8, 'sand', 10 + p.stats.knockback, 999, 30);
-                this.spawnProjectile(p.id, p.pos, angle - 0.3, 210, dmg * 1.8, 'sand', 10 + p.stats.knockback, 999, 30);
-            } else {
-                this.spawnProjectile(p.id, p.pos, angle, 210, dmg * 1.8, 'sand', 5 + p.stats.knockback, 999, 30);
-            }
-        } else if (p.character === 'sakura') {
-            // Level 3: Chakra Punch (Area Impact)
-            // We use a short range projectile that hits multiple times or has large area
-            const punchRange = p.weaponLevel >= 3 ? 1.5 : 1.0;
-            const punchDmg = p.weaponLevel >= 3 ? dmg * 3 : dmg * 2;
-            const punchSize = p.weaponLevel >= 3 ? 40 : 20;
-
-            // We spawn a "rock_wave" or "punch" projectile
-            this.spawnProjectile(p.id, p.pos, angle, 300, punchDmg, 'rock_wave', 20 + p.stats.knockback, 999, 30);
-            // Note: rock_wave logic in update might need to handle size/range if we want it to be distinct.
-            // For now, just using damage/knockback scaling.
+        const weapon = getWeapon(p.character || '');
+        if (weapon) {
+            weapon.fire(p, this);
         }
     }
 
@@ -939,6 +872,44 @@ export class ShinobiSurvivalGame extends Game {
 
     // useSkill removed, logic moved to SkillLogic classes
 
+    generateUpgrades(player: PlayerState): UpgradeOption[] {
+        const upgrades: UpgradeOption[] = [];
+
+        // Always offer weapon level up if not maxed
+        if (player.weaponLevel < 5) {
+            const levelText = player.weaponLevel === 4 ? "Evolution" : `Level ${player.weaponLevel + 1}`;
+            upgrades.push({
+                id: 'weapon_level',
+                name: `Increase Weapon Level (${levelText})`,
+                description: `Upgrade your main weapon to the next level`,
+                type: 'weapon'
+            });
+        }
+
+        // Add placeholder stat upgrades
+        upgrades.push({
+            id: 'damage',
+            name: 'Increase Damage (+20%)',
+            description: 'Increase all damage dealt',
+            type: 'stat'
+        });
+
+        upgrades.push({
+            id: 'cooldown',
+            name: 'Reduce Cooldown (-15%)',
+            description: 'Reduce all skill cooldowns',
+            type: 'stat'
+        });
+
+        // Return 3 random upgrades (shuffle and take 3)
+        for (let i = upgrades.length - 1; i > 0; i--) {
+            const j = Math.floor(this.random() * (i + 1));
+            [upgrades[i], upgrades[j]] = [upgrades[j], upgrades[i]];
+        }
+
+        return upgrades.slice(0, 3);
+    }
+
     tickLevelUp(playerInputs: Map<NetplayPlayer, DefaultInput>) {
         // Wait for all players to select upgrades
         let allSelected = true;
@@ -957,11 +928,33 @@ export class ShinobiSurvivalGame extends Game {
             // Apply upgrades
             for (let id in this.players) {
                 const p = this.players[id];
-                // Apply logic based on p.offeredUpgrades[p.selectedUpgrade]
+                const upgrade = p.offeredUpgrades[p.selectedUpgrade!];
+
+                if (upgrade) {
+                    this.applyUpgrade(p, upgrade);
+                }
+
                 p.selectedUpgrade = null;
                 p.offeredUpgrades = [];
             }
             this.gamePhase = 'playing';
+        }
+    }
+
+    applyUpgrade(player: PlayerState, upgrade: UpgradeOption) {
+        switch (upgrade.id) {
+            case 'weapon_level':
+                player.weaponLevel = Math.min(player.weaponLevel + 1, 5);
+                this.spawnFloatingText(player.pos, `Weapon Level ${player.weaponLevel}!`, 'gold');
+                break;
+            case 'damage':
+                player.stats.damageMult *= 1.2;
+                this.spawnFloatingText(player.pos, '+20% Damage!', 'red');
+                break;
+            case 'cooldown':
+                player.stats.cooldownMult *= 0.85;
+                this.spawnFloatingText(player.pos, '-15% Cooldown!', 'cyan');
+                break;
         }
     }
 
@@ -1154,6 +1147,15 @@ export class ShinobiSurvivalGame extends Game {
                 const ultLogic = getSkill(p.character || '', 'ult');
                 if (ultLogic) ultLogic.draw(ctx, p.skills.ult, p, this);
 
+                // Draw colored circle under player's feet
+                const playerColor = this.getPlayerColor(parseInt(id));
+                ctx.fillStyle = playerColor;
+                ctx.globalAlpha = 0.6; // Subtle transparency
+                ctx.beginPath();
+                ctx.ellipse(p.pos.x, p.pos.y + 15, 20, 8, 0, 0, Math.PI * 2); // Oval shadow shape
+                ctx.fill();
+                ctx.globalAlpha = 1.0; // Reset alpha
+
                 ctx.save(); // Start player rendering group
 
                 ctx.translate(p.pos.x, p.pos.y);
@@ -1224,13 +1226,26 @@ export class ShinobiSurvivalGame extends Game {
                 ctx.translate(proj.pos.x, proj.pos.y);
                 ctx.rotate(proj.angle);
 
-                if (proj.type === 'rotating_slash') {
+                if (proj.type === 'rotating_slash' || proj.type === 'rotating_slash_lightning' || proj.type === 'sword_slash_chidori') {
                     // Draw slash arc
-                    ctx.fillStyle = 'rgba(200, 200, 255, 0.5)';
+                    const isLightning = proj.type === 'rotating_slash_lightning' || proj.type === 'sword_slash_chidori';
+                    ctx.fillStyle = isLightning ? 'rgba(100, 200, 255, 0.6)' : 'rgba(200, 200, 255, 0.5)';
+                    ctx.strokeStyle = isLightning ? 'cyan' : 'white';
+                    ctx.lineWidth = isLightning ? 3 : 2;
+
                     ctx.beginPath();
                     ctx.arc(0, 0, 80, -Math.PI / 4, Math.PI / 4); // Arc shape
                     ctx.lineTo(0, 0);
                     ctx.fill();
+                    ctx.stroke();
+                } else if (proj.type === 'shadow_clone') {
+                    // Draw shadow clone as semi-transparent Naruto sprite
+                    const cloneSprite = SPRITES.naruto;
+                    if (cloneSprite) {
+                        ctx.globalAlpha = 0.6;
+                        ctx.drawImage(cloneSprite, -cloneSprite.width / 2, -cloneSprite.height / 2);
+                        ctx.globalAlpha = 1.0;
+                    }
                 } else if (proj.type === 'clone_punch') {
                     // Draw Clone (Naruto Sprite)
                     const cloneSprite = SPRITES.naruto;
@@ -1256,6 +1271,33 @@ export class ShinobiSurvivalGame extends Game {
                     // Draw Fire Trail (if sprite missing)
                     ctx.fillStyle = 'rgba(255, 69, 0, 0.6)';
                     ctx.beginPath(); ctx.arc(0, 0, proj.size, 0, Math.PI * 2); ctx.fill();
+                } else if (proj.type === 'lightning_chain' || proj.type === 'lightning') {
+                    // Draw lightning bolt effect
+                    ctx.strokeStyle = 'cyan';
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = 'cyan';
+                    ctx.lineWidth = 3;
+                    ctx.globalAlpha = 0.8;
+
+                    // Draw jagged lightning line
+                    ctx.beginPath();
+                    ctx.moveTo(-proj.size, 0);
+                    const segments = 5;
+                    for (let i = 1; i <= segments; i++) {
+                        const x = (-proj.size) + (i / segments) * (proj.size * 2);
+                        const y = (Math.random() - 0.5) * proj.size;
+                        ctx.lineTo(x, y);
+                    }
+                    ctx.stroke();
+
+                    // Draw glow
+                    ctx.fillStyle = 'rgba(0, 255, 255, 0.3)';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, proj.size, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.shadowBlur = 0;
+                    ctx.globalAlpha = 1.0;
                 } else {
                     ctx.fillStyle = 'yellow'; ctx.fillRect(-proj.size, -proj.size, proj.size * 2, proj.size * 2);
                 }
@@ -1349,11 +1391,32 @@ export class ShinobiSurvivalGame extends Game {
                 ctx.font = '20px Arial';
                 ctx.fillText("Select an upgrade (1, 2, or 3)", canvas.width / 2, 140);
 
-                // Show waiting status
-                let y = 200;
+                // Show local player's upgrades
+                if (localPlayer && localPlayer.offeredUpgrades.length > 0) {
+                    ctx.font = '24px Arial';
+                    let upgradeY = 200;
+                    for (let i = 0; i < localPlayer.offeredUpgrades.length; i++) {
+                        const upgrade = localPlayer.offeredUpgrades[i];
+                        const selected = localPlayer.selectedUpgrade === i;
+
+                        ctx.fillStyle = selected ? 'gold' : 'white';
+                        ctx.fillText(`${i + 1}. ${upgrade.name}`, canvas.width / 2, upgradeY);
+                        ctx.font = '16px Arial';
+                        ctx.fillStyle = selected ? 'yellow' : '#ccc';
+                        ctx.fillText(upgrade.description, canvas.width / 2, upgradeY + 25);
+                        ctx.font = '24px Arial';
+                        upgradeY += 80;
+                    }
+                }
+
+                // Show waiting status for other players
+                ctx.font = '18px Arial';
+                let y = 500;
                 for (let id in this.players) {
                     const p = this.players[id];
+                    if (parseInt(id) === localPlayerId) continue;
                     const status = p.selectedUpgrade !== null ? "SELECTED" : "CHOOSING...";
+                    ctx.fillStyle = 'white';
                     ctx.fillText(`${p.name}: ${status}`, canvas.width / 2, y);
                     y += 30;
                 }

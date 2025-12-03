@@ -19,3 +19,7 @@ export interface SkillLogic {
     // Called during rendering
     draw(ctx: CanvasRenderingContext2D, state: SkillState, player: PlayerState, game: ShinobiSurvivalGame): void;
 }
+
+export interface WeaponLogic {
+    fire(player: PlayerState, game: ShinobiSurvivalGame): void;
+}

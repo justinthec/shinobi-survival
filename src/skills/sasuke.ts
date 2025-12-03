@@ -1,8 +1,65 @@
-import { SkillLogic, SkillState } from "./types";
+import { SkillLogic, SkillState, WeaponLogic } from "./types";
 import { PlayerState } from "../types";
 import type { ShinobiSurvivalGame } from "../multiplayer-game";
 import { Vec2 } from "netplayjs";
 import { SPRITES } from "../sprites";
+
+export class SasukeWeapon implements WeaponLogic {
+    fire(player: PlayerState, game: ShinobiSurvivalGame): void {
+        // Find nearest enemy for targeting
+        let closestE = null;
+        let minDist = Infinity;
+        for (const e of game.enemies) {
+            const d = Math.sqrt((player.pos.x - e.pos.x) ** 2 + (player.pos.y - e.pos.y) ** 2);
+            if (d < minDist) { minDist = d; closestE = e; }
+        }
+
+        const angle = closestE ? Math.atan2(closestE.pos.y - player.pos.y, closestE.pos.x - player.pos.x) : (player.direction === 1 ? 0 : Math.PI);
+        let dmg = 10 * player.stats.damageMult;
+        if (game.random() < player.stats.critChance) dmg *= 2;
+
+        const level = player.weaponLevel;
+        const isEvolved = level >= 5;
+
+        // Level 1: Rotating Slash
+        // Level 2: Increased damage + lightning color (visual)
+        // Level 3: Chidori Blade (Lightning chain) + same slash
+        // Level 4: Increased range/damage + same slash
+        // Level 5: Evolution (Chidori Sharp Spear - Piercing beam)
+
+        if (isEvolved) {
+            // Level 5: Chidori Sharp Spear - Long piercing beam
+            const spearDmg = dmg * 4;
+            const spearSpeed = 800;
+            game.spawnProjectile(player.id, player.pos, angle, spearSpeed, spearDmg, 'chidori_spear', 4 + player.stats.knockback, 999, 30);
+        } else {
+            // All non-evolved levels use rotating slash
+            const slashDmg = level >= 4 ? dmg * 2.5 : level >= 2 ? dmg * 1.5 : dmg;
+            const slashType = level >= 2 ? 'rotating_slash_lightning' : 'rotating_slash';
+
+            game.spawnProjectile(player.id, player.pos, angle, 0, slashDmg, slashType, 5 + player.stats.knockback, 99, 30);
+
+            // Set projectile life to create swing animation
+            const slashProj = game.projectiles[game.projectiles.length - 1];
+            if (slashProj) slashProj.life = 0.3;
+
+            // Level 3+: Add chain lightning effect
+            if (level >= 3) {
+                // Find enemies in range for chaining
+                for (const e of game.enemies) {
+                    const dist = Math.sqrt((player.pos.x - e.pos.x) ** 2 + (player.pos.y - e.pos.y) ** 2);
+                    if (dist < 150) { // Chain range
+                        // Spawn lightning projectile to this enemy
+                        const lightningAngle = Math.atan2(e.pos.y - player.pos.y, e.pos.x - player.pos.x);
+                        const lightningDmg = dmg * 0.5; // Chain does half damage
+                        game.spawnProjectile(player.id, player.pos, lightningAngle, 1200, lightningDmg, 'lightning_chain', 2, 1, 15);
+                        break; // Only chain to 1 enemy
+                    }
+                }
+            }
+        }
+    }
+}
 
 export class FireballSkill implements SkillLogic {
     update(state: SkillState, player: PlayerState, game: ShinobiSurvivalGame, dt: number): void {
