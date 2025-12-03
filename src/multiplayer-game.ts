@@ -536,7 +536,7 @@ export class ShinobiSurvivalGame extends Game {
             }
 
             // Rotating Slash Logic
-            if (proj.type === 'rotating_slash') {
+            if (proj.type === 'rotating_slash' || proj.type === 'rotating_slash_lightning' || proj.type === 'sword_slash_chidori') {
                 const owner = this.players[proj.ownerId];
                 if (owner) {
                     // Swing Arc Logic
@@ -550,28 +550,25 @@ export class ShinobiSurvivalGame extends Game {
                     // Let's assume we spawn it with life = 0.3.
                     const progress = 1 - (proj.life / 0.3); // 0 to 1
 
-                    // Arc: -35 to +35 degrees relative to aimAngle?
-                    // Or start from one side and swing to other.
-                    // Let's swing from -35 to +35.
-                    const swingRange = 70 * (Math.PI / 180);
-                    const startAngle = -swingRange / 2;
+                    const swingRange = 1.6; // 1.6 rad ~= 90 degrees
+                    const startAngle = -swingRange / 2; // windup
                     const currentSwing = startAngle + (swingRange * progress);
 
                     // Attach to owner aim
                     // Use targetAngle if available (fixed direction), else follow player aim
                     const baseAngle = proj.targetAngle !== undefined ? proj.targetAngle : owner.aimAngle;
-                    proj.angle = baseAngle + currentSwing;
+                    // proj.angle is the center of the arc
+                    proj.angle = baseAngle + currentSwing; // currentSwing includes the windup startAngle
 
-                    const radius = 30; // Closer to body (was 40)
-                    proj.pos.x = owner.pos.x + Math.cos(proj.angle) * radius;
-                    proj.pos.y = owner.pos.y + Math.sin(proj.angle) * radius;
+                    proj.pos.x = owner.pos.x + Math.cos(proj.angle);
+                    proj.pos.y = owner.pos.y + Math.sin(proj.angle);
                 }
             } else if (proj.type === 'fireball') {
                 // Grow over time
                 proj.size += 20 * dt;
 
                 // Spawn fire trail (Hazard)
-                if (this.random() < 0.2) { // 20% chance per tick
+                if (this.random() < 0.1) { // 10% chance per tick
                     // Use hazard instead of projectile
                     this.hazards.push({
                         id: this.nextEntityId++,
@@ -595,12 +592,12 @@ export class ShinobiSurvivalGame extends Game {
                 if (proj.hitList.includes(e.id)) continue;
 
                 let hit = false;
-                if (proj.type === 'rotating_slash') {
+                if (proj.type === 'rotating_slash' || proj.type === 'rotating_slash_lightning' || proj.type === 'sword_slash_chidori') {
                     // Sector Collision
                     const owner = this.players[proj.ownerId];
                     if (owner) {
                         const distToOwner = Math.sqrt((e.pos.x - owner.pos.x) ** 2 + (e.pos.y - owner.pos.y) ** 2);
-                        if (distToOwner < 80) { // Sword Range
+                        if (distToOwner < proj.size) { // Sword Range
                             // Check angle
                             const angleToEnemy = Math.atan2(e.pos.y - owner.pos.y, e.pos.x - owner.pos.x);
                             // Normalize angle diff
@@ -608,7 +605,7 @@ export class ShinobiSurvivalGame extends Game {
                             while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
                             while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
 
-                            if (Math.abs(angleDiff) < 0.8) { // ~45 degrees tolerance (total 90? or match visual 70)
+                            if (Math.abs(angleDiff) < 0.8) { // ~45 degrees tolerance (total 90)
                                 hit = true;
                             }
                         }
@@ -622,6 +619,12 @@ export class ShinobiSurvivalGame extends Game {
                     const owner = this.players[proj.ownerId];
                     if (owner) {
                         this.damageEnemy(e, proj.dmg, owner);
+
+                        // Chain Lightning Trigger (Level 3+ Sasuke)
+                        if (proj.type === 'sword_slash_chidori') {
+                            // Bounce to 3 targets, 300 range, half damage
+                            this.chainLightning(owner, e.pos, proj.dmg * 0.5, 3, 300, [e.id]);
+                        }
                     } else {
                         // Fallback if owner disconnected
                         e.hp -= proj.dmg;
@@ -872,6 +875,54 @@ export class ShinobiSurvivalGame extends Game {
 
     // useSkill removed, logic moved to SkillLogic classes
 
+    chainLightning(sourcePlayer: PlayerState, startPos: Vec2, damage: number, bounces: number, range: number, excludeIds: number[]) {
+        if (bounces <= 0) return;
+
+        // Find nearest enemy excluding excludeIds
+        let closestE = null;
+        let minDist = range;
+
+        for (const e of this.enemies) {
+            if (e.dead || excludeIds.includes(e.id)) continue;
+            const d = Math.sqrt((startPos.x - e.pos.x) ** 2 + (startPos.y - e.pos.y) ** 2);
+            if (d < minDist) {
+                minDist = d;
+                closestE = e;
+            }
+        }
+
+        if (closestE) {
+            // Apply Damage
+            this.damageEnemy(closestE, damage, sourcePlayer);
+
+            // Visual Beam
+            const angle = Math.atan2(closestE.pos.y - startPos.y, closestE.pos.x - startPos.x);
+            // Spawn visual projectile with 0 speed, short life
+            // Size = distance
+            this.projectiles.push({
+                id: this.nextEntityId++,
+                type: 'lightning_chain',
+                pos: new Vec2(startPos.x, startPos.y),
+                vel: new Vec2(0, 0),
+                dmg: 0,
+                knock: 0,
+                pierce: 999,
+                life: 0.2, // Short flash
+                angle: angle,
+                targetAngle: angle,
+                ownerId: sourcePlayer.id,
+                hitList: [],
+                size: minDist
+            });
+
+            // Recurse
+            excludeIds.push(closestE.id);
+            // Delay next bounce slightly? Or instant?
+            // Instant is easier.
+            this.chainLightning(sourcePlayer, closestE.pos, damage * 0.8, bounces - 1, range, excludeIds);
+        }
+    }
+
     generateUpgrades(player: PlayerState): UpgradeOption[] {
         const upgrades: UpgradeOption[] = [];
 
@@ -945,6 +996,7 @@ export class ShinobiSurvivalGame extends Game {
         switch (upgrade.id) {
             case 'weapon_level':
                 player.weaponLevel = Math.min(player.weaponLevel + 1, 5);
+                if (player.weaponLevel >= 5) player.isEvolved = true;
                 this.spawnFloatingText(player.pos, `Weapon Level ${player.weaponLevel}!`, 'gold');
                 break;
             case 'damage':
@@ -1147,6 +1199,31 @@ export class ShinobiSurvivalGame extends Game {
                 const ultLogic = getSkill(p.character || '', 'ult');
                 if (ultLogic) ultLogic.draw(ctx, p.skills.ult, p, this);
 
+                // Draw Shadow Clones (Visual Only)
+                if (p.character === 'naruto' && p.weaponLevel >= 3 && !p.dead) {
+                    const cloneSprite = SPRITES.naruto;
+                    if (cloneSprite) {
+                        ctx.save();
+                        ctx.globalAlpha = 0.6;
+
+                        // Clone 1: Fixed offset (Left side)
+                        // "Staying by my side" -> Fixed relative to player position, not aim.
+                        // Let's place them at x - 40 and x + 40 relative to player.
+                        const x1 = p.pos.x - 40;
+                        const y1 = p.pos.y;
+                        ctx.drawImage(cloneSprite, x1 - cloneSprite.width / 2, y1 - cloneSprite.height / 2);
+
+                        // Clone 2 (Level 4+): Fixed offset (Right side)
+                        if (p.weaponLevel >= 4) {
+                            const x2 = p.pos.x + 40;
+                            const y2 = p.pos.y;
+                            ctx.drawImage(cloneSprite, x2 - cloneSprite.width / 2, y2 - cloneSprite.height / 2);
+                        }
+
+                        ctx.restore();
+                    }
+                }
+
                 // Draw colored circle under player's feet
                 const playerColor = this.getPlayerColor(parseInt(id));
                 ctx.fillStyle = playerColor;
@@ -1234,7 +1311,7 @@ export class ShinobiSurvivalGame extends Game {
                     ctx.lineWidth = isLightning ? 3 : 2;
 
                     ctx.beginPath();
-                    ctx.arc(0, 0, 80, -Math.PI / 4, Math.PI / 4); // Arc shape
+                    ctx.arc(0, 0, proj.size, -0.8, 0.8); // Arc shape matches hitbox (0.8 rad)
                     ctx.lineTo(0, 0);
                     ctx.fill();
                     ctx.stroke();
@@ -1271,8 +1348,8 @@ export class ShinobiSurvivalGame extends Game {
                     // Draw Fire Trail (if sprite missing)
                     ctx.fillStyle = 'rgba(255, 69, 0, 0.6)';
                     ctx.beginPath(); ctx.arc(0, 0, proj.size, 0, Math.PI * 2); ctx.fill();
-                } else if (proj.type === 'lightning_chain' || proj.type === 'lightning') {
-                    // Draw lightning bolt effect
+                } else if (proj.type === 'lightning_chain') {
+                    // Draw lightning bolt from (0,0) to (size, 0)
                     ctx.strokeStyle = 'cyan';
                     ctx.shadowBlur = 15;
                     ctx.shadowColor = 'cyan';
@@ -1281,20 +1358,15 @@ export class ShinobiSurvivalGame extends Game {
 
                     // Draw jagged lightning line
                     ctx.beginPath();
-                    ctx.moveTo(-proj.size, 0);
-                    const segments = 5;
+                    ctx.moveTo(0, 0);
+                    const segments = 8;
+                    const dist = proj.size; // Size is used as distance
                     for (let i = 1; i <= segments; i++) {
-                        const x = (-proj.size) + (i / segments) * (proj.size * 2);
-                        const y = (Math.random() - 0.5) * proj.size;
+                        const x = (i / segments) * dist;
+                        const y = (Math.random() - 0.5) * 20; // Random jitter
                         ctx.lineTo(x, y);
                     }
                     ctx.stroke();
-
-                    // Draw glow
-                    ctx.fillStyle = 'rgba(0, 255, 255, 0.3)';
-                    ctx.beginPath();
-                    ctx.arc(0, 0, proj.size, 0, Math.PI * 2);
-                    ctx.fill();
 
                     ctx.shadowBlur = 0;
                     ctx.globalAlpha = 1.0;

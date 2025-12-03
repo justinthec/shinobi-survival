@@ -34,29 +34,21 @@ export class SasukeWeapon implements WeaponLogic {
             game.spawnProjectile(player.id, player.pos, angle, spearSpeed, spearDmg, 'chidori_spear', 4 + player.stats.knockback, 999, 30);
         } else {
             // All non-evolved levels use rotating slash
-            const slashDmg = level >= 4 ? dmg * 2.5 : level >= 2 ? dmg * 1.5 : dmg;
-            const slashType = level >= 2 ? 'rotating_slash_lightning' : 'rotating_slash';
+            let slashType = 'rotating_slash';
+            if (level >= 3) slashType = 'sword_slash_chidori';
+            else if (level >= 2) slashType = 'rotating_slash_lightning';
 
-            game.spawnProjectile(player.id, player.pos, angle, 0, slashDmg, slashType, 5 + player.stats.knockback, 99, 30);
+            const slashDmg = level >= 4 ? dmg * 2.5 : level >= 2 ? dmg * 1.5 : dmg;
+            const slashRadius = level >= 4 ? 150 : level >= 2 ? 100 : 80;
+
+            game.spawnProjectile(player.id, player.pos, angle, 0, slashDmg, slashType, 5 + player.stats.knockback, 99, slashRadius);
 
             // Set projectile life to create swing animation
             const slashProj = game.projectiles[game.projectiles.length - 1];
             if (slashProj) slashProj.life = 0.3;
 
-            // Level 3+: Add chain lightning effect
-            if (level >= 3) {
-                // Find enemies in range for chaining
-                for (const e of game.enemies) {
-                    const dist = Math.sqrt((player.pos.x - e.pos.x) ** 2 + (player.pos.y - e.pos.y) ** 2);
-                    if (dist < 150) { // Chain range
-                        // Spawn lightning projectile to this enemy
-                        const lightningAngle = Math.atan2(e.pos.y - player.pos.y, e.pos.x - player.pos.x);
-                        const lightningDmg = dmg * 0.5; // Chain does half damage
-                        game.spawnProjectile(player.id, player.pos, lightningAngle, 1200, lightningDmg, 'lightning_chain', 2, 1, 15);
-                        break; // Only chain to 1 enemy
-                    }
-                }
-            }
+            // Level 3+: Add chain lightning effect (Handled in multiplayer-game.ts on hit)
+            // We just ensure the projectile type is correct (sword_slash_chidori) which we did above.
         }
     }
 }

@@ -50,14 +50,12 @@ export class NarutoWeapon implements WeaponLogic {
             player.burstCount = 1;
         }
 
-        // Level 3+: Shadow Clone 1 (visible as semi-transparent sprite)
+        // Level 3+: Shadow Clone 1 (Visual handled in draw, firing handled here)
         if (level >= 3) {
             const c1Pos = new Vec2(
-                player.pos.x + Math.cos(angle + Math.PI / 2) * 30,
-                player.pos.y + Math.sin(angle + Math.PI / 2) * 30
+                player.pos.x - 40, // Left side
+                player.pos.y
             );
-            // Spawn visual clone projectile
-            game.spawnProjectile(player.id, c1Pos, angle, 50, 0, 'shadow_clone', 0, 99, 30);
             // Spawn actual shuriken from clone position
             game.spawnProjectile(player.id, c1Pos, angle, pSpeed, pDmg, projType, player.stats.knockback + 2, pPierce, pSize);
         }
@@ -65,11 +63,9 @@ export class NarutoWeapon implements WeaponLogic {
         // Level 4+: Shadow Clone 2
         if (level >= 4) {
             const c2Pos = new Vec2(
-                player.pos.x + Math.cos(angle - Math.PI / 2) * 30,
-                player.pos.y + Math.sin(angle - Math.PI / 2) * 30
+                player.pos.x + 40, // Right side
+                player.pos.y
             );
-            // Spawn visual clone projectile
-            game.spawnProjectile(player.id, c2Pos, angle, 50, 0, 'shadow_clone', 0, 99, 30);
             // Spawn actual shuriken from clone position
             game.spawnProjectile(player.id, c2Pos, angle, pSpeed, pDmg, projType, player.stats.knockback + 2, pPierce, pSize);
         }
