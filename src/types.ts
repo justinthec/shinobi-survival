@@ -156,6 +156,7 @@ export interface ParticleState {
     maxLife: number;
     color: string;
     size: number;
+    angle?: number; // For particles that need orientation
 }
 
 export interface HazardZoneState {

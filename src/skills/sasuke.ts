@@ -1,6 +1,7 @@
-import { CharacterLogic } from "./types";
-import { PlayerState } from "../types";
+import { PlayerState, SkillState } from "../types";
 import { ShinobiSurvivalGame } from "../multiplayer-game";
+import { CharacterLogic } from "./types";
+import { SkillLogic } from "./skill-logic";
 
 export class SasukeLogic implements CharacterLogic {
     update(player: PlayerState, game: ShinobiSurvivalGame, dt: number): void {

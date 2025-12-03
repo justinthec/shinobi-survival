@@ -5,7 +5,7 @@ import {
     Vec2,
 } from "netplayjs";
 import { initSprites, SPRITES } from "./sprites";
-import { getSkill, getWeapon } from "./skills";
+import { getSkill, getWeapon, getCharacterLogic } from "./skills";
 import {
     updatePlayers,
     updateEnemies,
@@ -270,11 +270,6 @@ export class ShinobiSurvivalGame extends Game {
 
     }
 
-
-
-
-
-
     fireWeapon(p: PlayerState) {
         const weapon = getWeapon(p.character || '');
         if (weapon) {
@@ -300,7 +295,49 @@ export class ShinobiSurvivalGame extends Game {
         });
     }
 
-    // useSkill removed, logic moved to SkillLogic classes
+    chainLightning(sourcePlayer: PlayerState, startPos: Vec2, damage: number, bounces: number, range: number, excludeIds: number[]) {
+        if (bounces <= 0) return;
+
+        // Find nearest enemy excluding excludeIds
+        let closestE = null;
+        let minDist = range;
+
+        for (const e of this.enemies) {
+            if (e.dead || excludeIds.includes(e.id)) continue;
+            const d = Math.sqrt((startPos.x - e.pos.x) ** 2 + (startPos.y - e.pos.y) ** 2);
+            if (d < minDist) {
+                minDist = d;
+                closestE = e;
+            }
+        }
+
+        if (closestE) {
+            // Apply Damage
+            this.damageEnemy(closestE, damage, sourcePlayer);
+
+            // Visual Beam (Particle)
+            const angle = Math.atan2(closestE.pos.y - startPos.y, closestE.pos.x - startPos.x);
+
+            // Spawn visual particle
+            this.particles.push({
+                id: this.nextEntityId++,
+                type: 'lightning_bolt',
+                pos: new Vec2(startPos.x, startPos.y),
+                vel: new Vec2(0, 0), // Stationary
+                life: 0.2, // Short flash
+                maxLife: 0.2,
+                color: 'cyan',
+                size: minDist,
+                angle: angle
+            });
+
+            // Recurse
+            excludeIds.push(closestE.id);
+            // Delay next bounce slightly? Or instant?
+            // Instant is easier.
+            this.chainLightning(sourcePlayer, closestE.pos, damage * 0.8, bounces - 1, range, excludeIds);
+        }
+    }
 
     generateUpgrades(player: PlayerState): UpgradeOption[] {
         const upgrades: UpgradeOption[] = [];
@@ -375,6 +412,7 @@ export class ShinobiSurvivalGame extends Game {
         switch (upgrade.id) {
             case 'weapon_level':
                 player.weaponLevel = Math.min(player.weaponLevel + 1, 5);
+                if (player.weaponLevel >= 5) player.isEvolved = true;
                 this.spawnFloatingText(player.pos, `Weapon Level ${player.weaponLevel}!`, 'gold');
                 break;
             case 'damage':
@@ -577,6 +615,31 @@ export class ShinobiSurvivalGame extends Game {
                 const ultLogic = getSkill(p.character || '', 'ult');
                 if (ultLogic) ultLogic.draw(ctx, p.skills.ult, p, this);
 
+                // Draw Shadow Clones (Visual Only)
+                if (p.character === 'naruto' && p.weaponLevel >= 3 && !p.dead) {
+                    const cloneSprite = SPRITES.naruto;
+                    if (cloneSprite) {
+                        ctx.save();
+                        ctx.globalAlpha = 0.6;
+
+                        // Clone 1: Fixed offset (Left side)
+                        // "Staying by my side" -> Fixed relative to player position, not aim.
+                        // Let's place them at x - 40 and x + 40 relative to player.
+                        const x1 = p.pos.x - 40;
+                        const y1 = p.pos.y;
+                        ctx.drawImage(cloneSprite, x1 - cloneSprite.width / 2, y1 - cloneSprite.height / 2);
+
+                        // Clone 2 (Level 4+): Fixed offset (Right side)
+                        if (p.weaponLevel >= 4) {
+                            const x2 = p.pos.x + 40;
+                            const y2 = p.pos.y;
+                            ctx.drawImage(cloneSprite, x2 - cloneSprite.width / 2, y2 - cloneSprite.height / 2);
+                        }
+
+                        ctx.restore();
+                    }
+                }
+
                 // Draw colored circle under player's feet
                 const playerColor = this.getPlayerColor(parseInt(id));
                 ctx.fillStyle = playerColor;
@@ -634,7 +697,7 @@ export class ShinobiSurvivalGame extends Game {
                 }
             }
 
-            // Draw Particles (Craters)
+            // Draw Particles (Craters & Lightning)
             for (const part of this.particles) {
                 if (part.type === 'crater') {
                     ctx.save();
@@ -645,6 +708,32 @@ export class ShinobiSurvivalGame extends Game {
                         ctx.fillStyle = 'rgba(0,0,0,0.5)';
                         ctx.beginPath(); ctx.ellipse(0, 0, 40, 20, 0, 0, Math.PI * 2); ctx.fill();
                     }
+                    ctx.restore();
+                } else if (part.type === 'lightning_bolt') {
+                    ctx.save();
+                    ctx.translate(part.pos.x, part.pos.y);
+                    if (part.angle !== undefined) {
+                        ctx.rotate(part.angle);
+                    }
+
+                    // Draw lightning bolt from (0,0) to (size, 0)
+                    ctx.strokeStyle = 'cyan';
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = 'cyan';
+                    ctx.lineWidth = 3;
+                    ctx.globalAlpha = 0.8;
+
+                    // Draw jagged lightning line
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    const segments = 8;
+                    const dist = part.size;
+                    for (let i = 1; i <= segments; i++) {
+                        const x = (i / segments) * dist;
+                        const y = (Math.random() - 0.5) * 20; // Random jitter
+                        ctx.lineTo(x, y);
+                    }
+                    ctx.stroke();
                     ctx.restore();
                 }
             }
@@ -664,7 +753,7 @@ export class ShinobiSurvivalGame extends Game {
                     ctx.lineWidth = isLightning ? 3 : 2;
 
                     ctx.beginPath();
-                    ctx.arc(0, 0, 80, -Math.PI / 4, Math.PI / 4); // Arc shape
+                    ctx.arc(0, 0, proj.size, -0.8, 0.8); // Arc shape matches hitbox (0.8 rad)
                     ctx.lineTo(0, 0);
                     ctx.fill();
                     ctx.stroke();
@@ -701,33 +790,6 @@ export class ShinobiSurvivalGame extends Game {
                     // Draw Fire Trail (if sprite missing)
                     ctx.fillStyle = 'rgba(255, 69, 0, 0.6)';
                     ctx.beginPath(); ctx.arc(0, 0, proj.size, 0, Math.PI * 2); ctx.fill();
-                } else if (proj.type === 'lightning_chain' || proj.type === 'lightning') {
-                    // Draw lightning bolt effect
-                    ctx.strokeStyle = 'cyan';
-                    ctx.shadowBlur = 15;
-                    ctx.shadowColor = 'cyan';
-                    ctx.lineWidth = 3;
-                    ctx.globalAlpha = 0.8;
-
-                    // Draw jagged lightning line
-                    ctx.beginPath();
-                    ctx.moveTo(-proj.size, 0);
-                    const segments = 5;
-                    for (let i = 1; i <= segments; i++) {
-                        const x = (-proj.size) + (i / segments) * (proj.size * 2);
-                        const y = (Math.random() - 0.5) * proj.size;
-                        ctx.lineTo(x, y);
-                    }
-                    ctx.stroke();
-
-                    // Draw glow
-                    ctx.fillStyle = 'rgba(0, 255, 255, 0.3)';
-                    ctx.beginPath();
-                    ctx.arc(0, 0, proj.size, 0, Math.PI * 2);
-                    ctx.fill();
-
-                    ctx.shadowBlur = 0;
-                    ctx.globalAlpha = 1.0;
                 } else {
                     ctx.fillStyle = 'yellow'; ctx.fillRect(-proj.size, -proj.size, proj.size * 2, proj.size * 2);
                 }
