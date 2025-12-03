@@ -29,23 +29,38 @@ Deployment happens automatically from the `main` branch using GitHub Pages and c
 
 ## TODOs
 
+### Meta
 - Migrate TODOs to GitHub Issues.
-- Implement death / revive system.
-- Implement upgrade system
-  - Come up with upgrades
-  - Weapon levels (already brainstormed some of these)
+
+### Mechanics / Core Bugs
+- Add throttling so that Fireball and Sakura Ult doesn't cause fps drops.
 - Figure out gametime issue
 - Add a timer to the game
+
+### Gameplay Features
+- Expand the map
+- Add drops to the map
+- Implement death / revive system.
+- Flesh out upgrade system
+  - Come up with more upgrades and combinations
+  - Weapon levels (already brainstormed some of these)
 - Refactor Spawning logic to be cleaner and wave based.
 - Make enemies more interesting
+
+### Aesthetic Improvements
 - Create a way for us to draw new sprites underneath other sprites (Z-axis system)
   - Need this for Naruto crater and Sasuke Rinnegan portal fx.
 - Add player damage floating text
 - Sound effects for skills?
 - Add some floating text for all skills when used.
+
+### Characters
+- Naruto
+  - The Level 5 attack shouldn't die when it hits enemies.
 - Sasuke
   - Rinnegan Swap floating text should be purple
   - Fire trail should be a hazard not a projectile
+  - Level 5 unimplemented.
 - Sakura Polish
   - Heal doesn't show the radius or have any VFX
 - Gaara Polish

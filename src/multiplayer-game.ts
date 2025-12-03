@@ -895,24 +895,20 @@ export class ShinobiSurvivalGame extends Game {
             // Apply Damage
             this.damageEnemy(closestE, damage, sourcePlayer);
 
-            // Visual Beam
+            // Visual Beam (Particle)
             const angle = Math.atan2(closestE.pos.y - startPos.y, closestE.pos.x - startPos.x);
-            // Spawn visual projectile with 0 speed, short life
-            // Size = distance
-            this.projectiles.push({
+
+            // Spawn visual particle
+            this.particles.push({
                 id: this.nextEntityId++,
-                type: 'lightning_chain',
+                type: 'lightning_bolt',
                 pos: new Vec2(startPos.x, startPos.y),
-                vel: new Vec2(0, 0),
-                dmg: 0,
-                knock: 0,
-                pierce: 999,
+                vel: new Vec2(0, 0), // Stationary
                 life: 0.2, // Short flash
-                angle: angle,
-                targetAngle: angle,
-                ownerId: sourcePlayer.id,
-                hitList: [],
-                size: minDist
+                maxLife: 0.2,
+                color: 'cyan',
+                size: minDist,
+                angle: angle
             });
 
             // Recurse
@@ -1281,7 +1277,7 @@ export class ShinobiSurvivalGame extends Game {
                 }
             }
 
-            // Draw Particles (Craters)
+            // Draw Particles (Craters & Lightning)
             for (const part of this.particles) {
                 if (part.type === 'crater') {
                     ctx.save();
@@ -1292,6 +1288,32 @@ export class ShinobiSurvivalGame extends Game {
                         ctx.fillStyle = 'rgba(0,0,0,0.5)';
                         ctx.beginPath(); ctx.ellipse(0, 0, 40, 20, 0, 0, Math.PI * 2); ctx.fill();
                     }
+                    ctx.restore();
+                } else if (part.type === 'lightning_bolt') {
+                    ctx.save();
+                    ctx.translate(part.pos.x, part.pos.y);
+                    if (part.angle !== undefined) {
+                        ctx.rotate(part.angle);
+                    }
+
+                    // Draw lightning bolt from (0,0) to (size, 0)
+                    ctx.strokeStyle = 'cyan';
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = 'cyan';
+                    ctx.lineWidth = 3;
+                    ctx.globalAlpha = 0.8;
+
+                    // Draw jagged lightning line
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    const segments = 8;
+                    const dist = part.size;
+                    for (let i = 1; i <= segments; i++) {
+                        const x = (i / segments) * dist;
+                        const y = (Math.random() - 0.5) * 20; // Random jitter
+                        ctx.lineTo(x, y);
+                    }
+                    ctx.stroke();
                     ctx.restore();
                 }
             }
@@ -1348,28 +1370,6 @@ export class ShinobiSurvivalGame extends Game {
                     // Draw Fire Trail (if sprite missing)
                     ctx.fillStyle = 'rgba(255, 69, 0, 0.6)';
                     ctx.beginPath(); ctx.arc(0, 0, proj.size, 0, Math.PI * 2); ctx.fill();
-                } else if (proj.type === 'lightning_chain') {
-                    // Draw lightning bolt from (0,0) to (size, 0)
-                    ctx.strokeStyle = 'cyan';
-                    ctx.shadowBlur = 15;
-                    ctx.shadowColor = 'cyan';
-                    ctx.lineWidth = 3;
-                    ctx.globalAlpha = 0.8;
-
-                    // Draw jagged lightning line
-                    ctx.beginPath();
-                    ctx.moveTo(0, 0);
-                    const segments = 8;
-                    const dist = proj.size; // Size is used as distance
-                    for (let i = 1; i <= segments; i++) {
-                        const x = (i / segments) * dist;
-                        const y = (Math.random() - 0.5) * 20; // Random jitter
-                        ctx.lineTo(x, y);
-                    }
-                    ctx.stroke();
-
-                    ctx.shadowBlur = 0;
-                    ctx.globalAlpha = 1.0;
                 } else {
                     ctx.fillStyle = 'yellow'; ctx.fillRect(-proj.size, -proj.size, proj.size * 2, proj.size * 2);
                 }
