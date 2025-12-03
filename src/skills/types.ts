@@ -19,7 +19,3 @@ export interface SkillLogic {
     onRelease(skill: SkillState, player: PlayerState, game: ShinobiSurvivalGame): void;
     draw(ctx: CanvasRenderingContext2D, skill: SkillState, player: PlayerState, game: ShinobiSurvivalGame): void;
 }
-
-export interface WeaponLogic {
-    fire(player: PlayerState, game: ShinobiSurvivalGame): void;
-}
