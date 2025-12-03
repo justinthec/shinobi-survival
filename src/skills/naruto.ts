@@ -144,7 +144,7 @@ export class RasenganSkill implements SkillLogic {
 
             // Impact circle ghost
             ctx.beginPath();
-            ctx.arc(dist, 0, size * 50 * 0.4, 0, Math.PI * 2); // Anticipated hit radius
+            ctx.arc(dist, 0, size * 50 * 0.4 / 2, 0, Math.PI * 2); // Anticipated hit radius
             ctx.fillStyle = 'rgba(0, 210, 255, 0.3)';
             ctx.fill();
             ctx.restore();
