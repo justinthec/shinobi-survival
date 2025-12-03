@@ -1,34 +1,35 @@
-import { SkillLogic } from "./types";
-import { RasenganSkill, KuramaModeSkill } from "./naruto";
-import { FireballSkill, RinneganSwapSkill, KirinSkill } from "./sasuke";
-import { DesertQuicksandSkill, SphereOfSandSkill, GrandSandMausoleumSkill } from "./gaara";
-import { ChakraScalpelSkill, HealSkill, KatsuyuSkill } from "./sakura";
+import { NarutoLogic } from './naruto';
+import { SasukeLogic } from './sasuke';
+import { CharacterLogic } from './types';
+import { GaaraWeapon } from './gaara-weapon';
+import { SakuraWeapon } from './sakura-weapon';
+import { WeaponLogic } from './weapon-logic';
+import { NarutoWeapon } from './naruto-weapon';
+import { SasukeWeapon } from './sasuke-weapon';
+import { GaaraLogic } from './gaara';
+import { SakuraLogic } from './sakura';
+import { SkillLogic, getSkill } from './skill-logic';
 
-export const SKILL_REGISTRY: Record<string, Record<string, SkillLogic>> = {
-    'naruto': {
-        'skill1': new RasenganSkill(),
-        'ult': new KuramaModeSkill()
-    },
-    'sasuke': {
-        'skill1': new FireballSkill(),
-        'skill2': new RinneganSwapSkill(),
-        'ult': new KirinSkill()
-    },
-    'gaara': {
-        'skill1': new DesertQuicksandSkill(),
-        'skill2': new SphereOfSandSkill(),
-        'ult': new GrandSandMausoleumSkill()
-    },
-    'sakura': {
-        'skill1': new ChakraScalpelSkill(),
-        'skill2': new HealSkill(),
-        'ult': new KatsuyuSkill()
-    }
+const characterLogics: { [key: string]: CharacterLogic } = {
+    naruto: new NarutoLogic(),
+    sasuke: new SasukeLogic(),
+    gaara: new GaaraLogic(),
+    sakura: new SakuraLogic(),
 };
 
-export function getSkill(character: string, slot: string): SkillLogic | null {
-    if (!character) return null;
-    const charSkills = SKILL_REGISTRY[character];
-    if (!charSkills) return null;
-    return charSkills[slot] || null;
+export function getCharacterLogic(character: string): CharacterLogic | null {
+    return characterLogics[character] || null;
 }
+
+const weaponLogics: { [key: string]: WeaponLogic } = {
+    naruto: new NarutoWeapon(),
+    sasuke: new SasukeWeapon(),
+    gaara: new GaaraWeapon(),
+    sakura: new SakuraWeapon(),
+};
+
+export function getWeapon(character: string): WeaponLogic | null {
+    return weaponLogics[character] || null;
+}
+
+export { SkillLogic, getSkill };

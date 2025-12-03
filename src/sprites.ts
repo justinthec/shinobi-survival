@@ -176,6 +176,21 @@ export function initSprites() {
         ctx.fillStyle = '#0984e3'; ctx.beginPath(); ctx.arc(cx, cy - 70, 5, 0, Math.PI * 2); ctx.fill();
         ctx.beginPath(); ctx.arc(cx - 20, cy, 10, 0, Math.PI * 2); ctx.fill();
     });
+
+    SPRITES.rinnegan_effect = makeSprite(50, 50, (ctx, cx, cy) => {
+        ctx.strokeStyle = '#8A2BE2'; ctx.lineWidth = 3;
+        for (let i = 1; i <= 4; i++) {
+            ctx.beginPath(); ctx.arc(cx, cy, i * 5, 0, Math.PI * 2); ctx.stroke();
+        }
+        ctx.fillStyle = 'rgba(138, 43, 226, 0.5)'; ctx.beginPath(); ctx.arc(cx, cy, 20, 0, Math.PI * 2); ctx.fill();
+    });
+
+    SPRITES.fire_trail = makeSprite(64, 64, (ctx, cx, cy) => {
+        ctx.fillStyle = 'rgba(255, 69, 0, 0.6)';
+        ctx.beginPath(); ctx.arc(cx, cy, 20, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255, 140, 0, 0.8)';
+        ctx.beginPath(); ctx.arc(cx, cy, 12, 0, Math.PI * 2); ctx.fill();
+    });
 }
 
 function drawSpikyHair(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, color: string) {

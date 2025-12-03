@@ -5,7 +5,17 @@ import {
     Vec2,
 } from "netplayjs";
 import { initSprites, SPRITES } from "./sprites";
-import { getSkill } from "./skills";
+import { getSkill, getWeapon } from "./skills";
+import {
+    updatePlayers,
+    updateEnemies,
+    updateProjectiles,
+    updateHazards,
+    updateXpOrbs,
+    updateParticles,
+    updateFloatingTexts,
+    spawnEnemies
+} from "./game-loop";
 
 import {
     GamePhase,
@@ -22,6 +32,7 @@ import {
     FloatingText
 } from "./types";
 
+const MAX_ENEMIES = 50;
 export class ShinobiSurvivalGame extends Game {
     static timestep = 1000 / 60;
     static canvasSize = { width: 640, height: 360 };
@@ -53,6 +64,12 @@ export class ShinobiSurvivalGame extends Game {
         return this.rngSeed / 4294967296;
     }
 
+    // Get unique color for each player
+    getPlayerColor(playerId: number): string {
+        const colors = ['#00d2ff', '#ff4444', '#ffd700', '#00ff88']; // Blue, Red, Yellow, Green
+        return colors[playerId % colors.length];
+    }
+
     // For rendering
     netplayPlayers: Array<NetplayPlayer>;
 
@@ -81,7 +98,8 @@ export class ShinobiSurvivalGame extends Game {
                 maxHp: 100,
                 character: null,
                 skills: {
-                    skill1: { cooldown: 0, chargeTime: 0, isCharging: false, activeTime: 0 },
+                    skillQ: { cooldown: 0, chargeTime: 0, isCharging: false, activeTime: 0 },
+                    skillE: { cooldown: 0, chargeTime: 0, isCharging: false, activeTime: 0 },
                     ult: { cooldown: 0, chargeTime: 0, isCharging: false, activeTime: 0 }
                 },
                 weaponLevel: 1,
@@ -187,535 +205,26 @@ export class ShinobiSurvivalGame extends Game {
         const dt = ShinobiSurvivalGame.timestep / 1000;
         this.gameTime += dt;
 
-        // Player Updates
-        for (const [player, input] of playerInputs.entries()) {
-            const id = player.id;
-            const p = this.players[id];
-            if (p.dead) continue;
-
-            // Movement
-            this.updateCharacterPassives(p, dt);
-
-            // Root Check
-            if (p.rooted) {
-                // Cannot move
-            } else if (p.dashTime > 0) {
-                // Dash Logic
-                p.pos.x += p.dashVec.x * dt;
-                p.pos.y += p.dashVec.y * dt;
-                p.dashTime -= dt;
-
-                // Dash Collision
-                for (const e of this.enemies) {
-                    if (!p.dashHitList.includes(e.id)) {
-                        const dist = Math.sqrt((p.pos.x - e.pos.x) ** 2 + (p.pos.y - e.pos.y) ** 2);
-                        if (dist < 100) { // Increased radius
-                            p.dashHitList.push(e.id);
-                            p.dashHitList.push(e.id);
-                            const dmg = 50 * p.stats.damageMult;
-                            this.damageEnemy(e, dmg, p);
-                        }
-                    }
-                }
-
-                // End of dash safety burst
-                if (p.dashTime <= 0) {
-                    p.dashTime = 0;
-
-                    // Rasengan Blast Effect
-                    if (p.character === 'naruto') {
-                        // Crater Visual
-                        this.particles.push({
-                            id: this.nextEntityId++,
-                            type: 'crater',
-                            pos: new Vec2(p.pos.x, p.pos.y),
-                            vel: new Vec2(0, 0),
-                            life: 2.0, // Shorter life
-                            maxLife: 2.0,
-                            color: '',
-                            size: 1
-                        });
-
-                        // Blast Damage & Knockback
-                        for (const e of this.enemies) {
-                            const dist = Math.sqrt((p.pos.x - e.pos.x) ** 2 + (p.pos.y - e.pos.y) ** 2);
-                            if (dist < 150) {
-                                const dmg = 50 * p.stats.damageMult;
-                                this.damageEnemy(e, dmg, p);
-
-                                // Knockback
-                                const angle = Math.atan2(e.pos.y - p.pos.y, e.pos.x - p.pos.x);
-                                e.push.x += Math.cos(angle) * 650; // Much stronger knockback
-                                e.push.y += Math.sin(angle) * 650;
-                            }
-                        }
-                    } else {
-                        // Generic Dash End (if any other char dashes)
-                        for (const e of this.enemies) {
-                            const dist = Math.sqrt((p.pos.x - e.pos.x) ** 2 + (p.pos.y - e.pos.y) ** 2);
-                            if (dist < 150) {
-                                this.damageEnemy(e, 50 * p.stats.damageMult, p);
-                            }
-                        }
-                    }
-                }
-            } else {
-                // Normal Movement
-                let moveSpeed = 120; // Base speed
-                if (p.skillCharging) moveSpeed = 0; // Immobile while charging
-                if (p.character === 'naruto' && p.ultActiveTime > 0) moveSpeed = 0; // Immobile during Ult
-
-                let dx = 0; let dy = 0;
-                if (input.keysHeld['a']) dx -= 1;
-                if (input.keysHeld['d']) dx += 1;
-                if (input.keysHeld['w']) dy -= 1;
-                if (input.keysHeld['s']) dy += 1;
-
-                if (dx !== 0 || dy !== 0) {
-                    const len = Math.sqrt(dx * dx + dy * dy);
-                    p.pos.x += (dx / len) * moveSpeed * dt;
-                    p.pos.y += (dy / len) * moveSpeed * dt;
-
-                    if (dx !== 0) p.direction = Math.sign(dx);
-                }
-            }
-
-            // Map Boundaries
-            const MAP_WIDTH = 1400;
-            const LANE_WIDTH = MAP_WIDTH / 2;
-            if (p.pos.x < -LANE_WIDTH + 20) p.pos.x = -LANE_WIDTH + 20;
-            if (p.pos.x > LANE_WIDTH - 20) p.pos.x = LANE_WIDTH - 20;
-            // Y is infinite? Original code didn't clamp Y, but let's check index.html.
-            // index.html only clamps X: if (this.x < -LANE_WIDTH + 20) ...
-            // So we only clamp X.
-
-            // Mouse Aiming
-            if (input.mousePosition) {
-                // Assuming camera is centered on player, mouse pos relative to center is aim direction
-                const mx = input.mousePosition.x - ShinobiSurvivalGame.canvasSize.width / 2;
-                const my = input.mousePosition.y - ShinobiSurvivalGame.canvasSize.height / 2;
-                p.aimAngle = Math.atan2(my, mx);
-
-                // Calculate World Target Position
-                // Camera is at p.pos (roughly, actually it's interpolated but for logic p.pos is fine)
-                // Wait, camera logic in draw() translates by -player.pos + center.
-                // So screen center IS player position.
-                // So input.mousePosition relative to center IS relative to player.
-                // So world target = player.pos + (mousePos - center)
-                p.targetPos.x = p.pos.x + mx;
-                p.targetPos.y = p.pos.y + my;
-            }
-
-            // Cooldowns
-            for (let key in p.skills) {
-                const skill = p.skills[key];
-                if (skill.cooldown > 0) skill.cooldown -= dt;
-            }
-
-            // Skills
-            const skill1Logic = getSkill(p.character || '', 'skill1');
-            const ultLogic = getSkill(p.character || '', 'ult');
-
-            // Update Skills
-            if (skill1Logic) skill1Logic.update(p.skills.skill1, p, this, dt);
-            if (ultLogic) ultLogic.update(p.skills.ult, p, this, dt);
-
-            // Input Handling
-            // Skill 1 (E)
-            if (input.keysHeld['e']) {
-                if (skill1Logic) skill1Logic.onHold(p.skills.skill1, p, this, dt);
-                // For press detection, we might need a better way if we want single frame press
-                // But keysPressed is available
-            }
-
-            if (input.keysPressed['e']) {
-                if (skill1Logic) skill1Logic.onPress(p.skills.skill1, p, this);
-            }
-
-            // Detect release (if needed, simplified)
-            // Ideally we track previous key state, but for now we can check if not held
-            // Actually, we need to know if it WAS held. 
-            // For Naruto's charge, we rely on `skillCharging` state or similar.
-            // Let's rely on the logic class to handle state transitions if possible, 
-            // but we need to signal release.
-            // A simple way: if we were charging and now key is not held.
-            if (!input.keysHeld['e'] && p.skills.skill1.isCharging) {
-                if (skill1Logic) skill1Logic.onRelease(p.skills.skill1, p, this);
-            }
-
-            // Ult (R)
-            if (input.keysPressed['r']) {
-                if (ultLogic) ultLogic.onPress(p.skills.ult, p, this);
-            }
-
-            // Detect Ult Release
-            if (!input.keysHeld['r'] && p.skills.ult.isCharging) {
-                if (ultLogic) ultLogic.onRelease(p.skills.ult, p, this);
-            }
-
-            // Ultimate Active Logic (Moved to later block to avoid duplication)
-            // Lines 408-437 removed to prevent double counting time and damage
-
-
-            // Basic Attack (Auto-fire)
-            p.fireTimer += dt;
-            const fireRate = (p.character === 'sasuke' ? 1.0 : 1.5) * p.stats.cooldownMult; // Base rates from index.html
-
-            if (p.fireTimer >= fireRate) {
-                this.fireWeapon(p);
-                p.fireTimer = 0;
-                if (p.character === 'naruto' && p.weaponLevel >= 2 && !p.isEvolved) {
-                    p.burstTimer = 0.1;
-                    p.burstCount = 1;
-                }
-            }
-
-            if (p.burstCount > 0) {
-                p.burstTimer -= dt;
-                if (p.burstTimer <= 0) {
-                    this.fireWeapon(p);
-                    p.burstCount--;
-                    if (p.burstCount > 0) p.burstTimer = 0.1;
-                }
-            }
-        }
-
-        // Bleed Logic (Enemy Update Loop handles movement, let's add DoT there or here)
-        // Let's add it to the Enemy Update Loop (line 418+) or a separate loop?
-        // We can add it to the existing enemy loop to save iterations.
-
-        // Hazards Update
-        for (let i = this.hazards.length - 1; i >= 0; i--) {
-            const h = this.hazards[i];
-            h.duration -= dt;
-            if (h.duration <= 0) {
-                this.hazards.splice(i, 1);
-                continue;
-            }
-            // Damage enemies
-            for (const e of this.enemies) {
-                const d = Math.sqrt((h.pos.x - e.pos.x) ** 2 + (h.pos.y - e.pos.y) ** 2);
-                if (d < h.radius) {
-                    if (h.type === 'quicksand') {
-                        e.speedMult *= 0.5; // 50% slow
-                    }
-                    const dmg = h.damage * dt;
-                    e.hp -= dmg;
-                    if (Math.random() < 0.1) this.spawnFloatingText(e.pos, Math.ceil(h.damage).toString(), 'white');
-                }
-            }
-        }
-
-        // Enemy Spawning
-        this.spawnTimer += dt;
-
-        // Wave Logic
-        let spawnRate = 1.0;
-        let waveMultiplier = 1;
-
-        if (this.gameTime < 60) {
-            spawnRate = 1.0; // Slow start
-            waveMultiplier = 1;
-        } else if (this.gameTime < 120) {
-            spawnRate = 0.8; // Medium
-            waveMultiplier = 2;
-        } else {
-            spawnRate = 0.4; // Fast
-            waveMultiplier = 3;
-        }
-
-        if (this.spawnTimer > spawnRate) {
-            this.spawnEnemy();
-            // Chance for extra spawns based on wave
-            if (waveMultiplier >= 2 && this.random() < 0.4) this.spawnEnemy();
-            if (waveMultiplier >= 3 && this.random() < 0.6) this.spawnEnemy();
-
-            this.spawnTimer = 0;
-        }
-
-        // Enemy Updates
-        for (const e of this.enemies) {
-            // Find closest player
-            let closestP: PlayerState | null = null;
-            let minDist = Infinity;
-            for (let id in this.players) {
-                const p = this.players[id];
-                if (p.dead) continue;
-                const d = Math.sqrt((p.pos.x - e.pos.x) ** 2 + (p.pos.y - e.pos.y) ** 2);
-                if (d < minDist) { minDist = d; closestP = p; }
-            }
-
-            if (closestP) {
-                const angle = Math.atan2(closestP.pos.y - e.pos.y, closestP.pos.x - e.pos.x);
-                // We need to apply hazards BEFORE movement to affect speedMult?
-                // Currently hazards update is BEFORE enemy update?
-                // No, hazards update is at line 371. Enemy update is at 418.
-                // So hazards run first.
-                // So Hazards set speedMult.
-                // Then Enemy Update uses it.
-                // But we need to reset it somewhere.
-                // If we reset it inside Enemy Update (line 418), we overwrite Hazard effects!
-                // So we must reset it BEFORE Hazards Update.
-                // Where is Hazards Update? Line 371.
-                // So we need to iterate enemies and reset speedMult BEFORE 371.
-                // Or just reset it at the end of Enemy Update?
-                // If we reset at end, then next frame Hazards run and modify it.
-                // Yes.
-
-                if (e.rooted) e.speedMult = 0;
-
-                const speed = 50 * e.speedMult;
-                // Apply Push
-                e.pos.x += (Math.cos(angle) * speed + e.push.x) * dt;
-                e.pos.y += (Math.sin(angle) * speed + e.push.y) * dt;
-
-                // Decay Push
-                e.push.x *= 0.95;
-                e.push.y *= 0.95;
-
-                // Bleed Damage
-                if (e.bleedStacks > 0) {
-                    e.dotTimer -= dt;
-                    if (e.dotTimer <= 0) {
-                        e.dotTimer = 1.0; // Tick every second
-                        const bleedDmg = e.bleedStacks * 5; // 5 damage per stack
-                        e.hp -= bleedDmg;
-                        this.spawnFloatingText(e.pos, bleedDmg.toString(), "red");
-                        // Bleed stacks decay? Or permanent until death?
-                        // Usually stacks decay or have duration.
-                        // Let's say they decay by 1 every tick? Or separate duration?
-                        // For simplicity, permanent for now, or decay 1 stack per tick.
-                        // Let's decay 1 stack per tick to prevent infinite scaling.
-                        // e.bleedStacks = Math.max(0, e.bleedStacks - 1);
-                        // Actually, let's keep them permanent for "Chakra Scalpel" feel, or maybe duration based.
-                        // Design doc says "Apply Bleed".
-                        // Let's keep it simple: Permanent until death.
-                    }
-                }
-
-                // Collision with Player (Damage)
-                if (closestP) {
-                    const d = Math.sqrt((closestP.pos.x - e.pos.x) ** 2 + (closestP.pos.y - e.pos.y) ** 2);
-                    if (d < 30) { // Touch radius
-                        const dmg = 10 * dt * e.damageDebuff; // DPS * Debuff
-                        this.damagePlayer(closestP, dmg);
-                    }
-                }
-            }
-
-            // Reset speedMult for next frame (so hazards can re-apply it)
-            e.speedMult = 1.0;
-        }
-
-        // Remove dead enemies
-        for (let i = this.enemies.length - 1; i >= 0; i--) {
-            if (this.enemies[i].dead) {
-                this.enemies.splice(i, 1);
-            }
-        }
-
-        // Projectile Updates
-        for (let i = this.projectiles.length - 1; i >= 0; i--) {
-            const proj = this.projectiles[i];
-            proj.life -= dt;
-            if (proj.life <= 0) {
-                this.projectiles.splice(i, 1);
-                continue;
-            }
-
-            // Rotating Slash Logic
-            if (proj.type === 'rotating_slash') {
-                const owner = this.players[proj.ownerId];
-                if (owner) {
-                    // Swing Arc Logic
-                    // We want a 70 degree arc swing.
-                    // Let's map life to angle.
-                    // Life starts at 0.5 (we need to set this in spawnProjectile or assume)
-                    // Let's assume maxLife is 0.3 for a quick swipe.
-                    const maxLife = 0.3;
-                    // If life > maxLife, we clamp or just use ratio.
-                    // Actually, we can use a custom property or just calculate based on life.
-                    // Let's assume we spawn it with life = 0.3.
-                    const progress = 1 - (proj.life / 0.3); // 0 to 1
-
-                    // Arc: -35 to +35 degrees relative to aimAngle?
-                    // Or start from one side and swing to other.
-                    // Let's swing from -35 to +35.
-                    const swingRange = 70 * (Math.PI / 180);
-                    const startAngle = -swingRange / 2;
-                    const currentSwing = startAngle + (swingRange * progress);
-
-                    // Attach to owner aim
-                    // We need to lock the aimAngle at start of swing? 
-                    // Or follow player aim? User said "attached to his body".
-                    // Usually this means it follows the player's facing.
-                    // Let's follow current aimAngle.
-                    proj.angle = owner.aimAngle + currentSwing;
-
-                    const radius = 30; // Closer to body (was 40)
-                    proj.pos.x = owner.pos.x + Math.cos(proj.angle) * radius;
-                    proj.pos.y = owner.pos.y + Math.sin(proj.angle) * radius;
-                }
-            } else {
-                proj.pos.x += proj.vel.x * dt;
-                proj.pos.y += proj.vel.y * dt;
-            }
-
-            // Collision with Enemies
-            for (let j = this.enemies.length - 1; j >= 0; j--) {
-                const e = this.enemies[j];
-                if (proj.hitList.includes(e.id)) continue;
-
-                let hit = false;
-                if (proj.type === 'rotating_slash') {
-                    // Sector Collision
-                    const owner = this.players[proj.ownerId];
-                    if (owner) {
-                        const distToOwner = Math.sqrt((e.pos.x - owner.pos.x) ** 2 + (e.pos.y - owner.pos.y) ** 2);
-                        if (distToOwner < 80) { // Sword Range
-                            // Check angle
-                            const angleToEnemy = Math.atan2(e.pos.y - owner.pos.y, e.pos.x - owner.pos.x);
-                            // Normalize angle diff
-                            let angleDiff = angleToEnemy - proj.angle;
-                            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-                            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-
-                            if (Math.abs(angleDiff) < 0.8) { // ~45 degrees tolerance (total 90? or match visual 70)
-                                hit = true;
-                            }
-                        }
-                    }
-                } else {
-                    const dist = Math.sqrt((proj.pos.x - e.pos.x) ** 2 + (proj.pos.y - e.pos.y) ** 2);
-                    if (dist < 30) hit = true;
-                }
-
-                if (hit) {
-                    const owner = this.players[proj.ownerId];
-                    if (owner) {
-                        this.damageEnemy(e, proj.dmg, owner);
-                    } else {
-                        // Fallback if owner disconnected
-                        e.hp -= proj.dmg;
-                    }
-
-                    proj.hitList.push(e.id);
-                    if (proj.pierce > 0) {
-                        proj.pierce--;
-                    } else {
-                        this.projectiles.splice(i, 1);
-                        break; // Projectile destroyed
-                    }
-
-                    if (e.hp <= 0) {
-                        this.enemies.splice(j, 1);
-                        // Drop XP
-                        this.xpOrbs.push({
-                            id: this.nextEntityId++,
-                            pos: new Vec2(e.pos.x, e.pos.y),
-                            val: 10,
-                            dead: false
-                        });
-                    }
-                }
-            }
-        }
-
-        // XP Collection
-        for (let id in this.players) {
-            const p = this.players[id];
-            if (p.dead) continue;
-
-            for (let i = this.xpOrbs.length - 1; i >= 0; i--) {
-                const orb = this.xpOrbs[i];
-                const dist = Math.sqrt((p.pos.x - orb.pos.x) ** 2 + (p.pos.y - orb.pos.y) ** 2);
-                if (dist < 50) { // Magnet range
-                    // Move orb towards player
-                    const angle = Math.atan2(p.pos.y - orb.pos.y, p.pos.x - orb.pos.x);
-                    orb.pos.x += Math.cos(angle) * 300 * dt;
-                    orb.pos.y += Math.sin(angle) * 300 * dt;
-
-                    if (dist < 20) { // Collect
-                        this.teamXP += orb.val;
-                        this.xpOrbs.splice(i, 1);
-                        if (this.teamXP >= this.xpToNextLevel) {
-                            this.teamXP = 0; // Reset XP for next level
-                            this.teamLevel++;
-                            this.xpToNextLevel *= 1.2;
-                            this.gamePhase = 'levelUp';
-                            // Generate upgrades (mock)
-                            for (let pid in this.players) {
-                                this.players[pid].selectedUpgrade = null;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Particle Update
-        for (let i = this.particles.length - 1; i >= 0; i--) {
-            const part = this.particles[i];
-            part.life -= dt;
-            if (part.life <= 0) {
-                this.particles.splice(i, 1);
-                continue;
-            }
-            part.pos.x += part.vel.x * dt;
-            part.pos.y += part.vel.y * dt;
-        }
-
-        // Floating Text Update
-        for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
-            const ft = this.floatingTexts[i];
-            ft.life -= dt;
-            ft.pos.y -= 20 * dt; // Float up
-            if (ft.life <= 0) {
-                this.floatingTexts.splice(i, 1);
-            }
-        }
+        updatePlayers(this, dt, playerInputs);
+        updateHazards(this, dt);
+        spawnEnemies(this, dt);
+        updateEnemies(this, dt);
+        updateProjectiles(this, dt);
+        updateXpOrbs(this, dt);
+        updateParticles(this, dt);
+        updateFloatingTexts(this, dt);
     }
 
     damagePlayer(p: PlayerState, amount: number) {
         if (p.invincible || p.dead) return;
 
-        // Sharingan Dodge
-        if (p.character === 'sasuke' && p.charState && 'sharinganCooldown' in p.charState) {
-            if (p.charState.sharinganCooldown <= 0) {
-                if (this.random() < 0.15) {
-                    // Dodge!
-                    p.charState.sharinganCooldown = 5.0; // Set cooldown
-                    this.spawnFloatingText(p.pos, "Dodge!", "cyan");
-
-                    // Grant Crit Buff
-                    if ('dodgeBuffTimer' in p.charState) {
-                        p.charState.dodgeBuffTimer = 2.0;
-                    }
-                    return; // No damage taken
-                }
-            }
+        const characterLogic = getCharacterLogic(p.character || '');
+        if (characterLogic) {
+            amount = characterLogic.onDamage(p, this, amount);
         }
 
-        // Gaara Passive: Shield
-        if (p.character === 'gaara' && p.charState && 'shieldHp' in p.charState) {
-            const shield = p.charState.shieldHp;
-            if (shield > 0) {
-                const absorb = Math.min(shield, amount);
-                p.charState.shieldHp -= absorb;
-                amount -= absorb;
-                p.charState.shieldRegenTimer = 0; // Reset regen timer
-                if (amount <= 0) return; // Fully absorbed
-            } else {
-                p.charState.shieldRegenTimer = 0;
-            }
-        }
+        if (amount <= 0) return;
 
-        // Sakura Passive: Charge Meter
-        if (p.character === 'sakura' && p.charState && 'meter' in p.charState) {
-            p.charState.meter = Math.min(p.charState.meter + 10, 100);
-        }
-
-        // Apply Damage
         p.hp -= amount;
         p.flash = 0.1;
     }
@@ -723,33 +232,23 @@ export class ShinobiSurvivalGame extends Game {
     damageEnemy(e: EnemyState, amount: number, sourcePlayer: PlayerState) {
         if (e.dead) return;
 
-        // Apply Debuffs from Enemy
-        // (None currently reduce incoming damage, but if we had armor, here)
-
-        // Apply Player Stats
         let finalDamage = amount;
 
         // Crit
         let isCrit = false;
         let critChance = sourcePlayer.stats.critChance;
-
-        // Sasuke Dodge Buff
         if (sourcePlayer.character === 'sasuke' && sourcePlayer.charState && 'dodgeBuffTimer' in sourcePlayer.charState) {
-            if (sourcePlayer.charState.dodgeBuffTimer > 0) critChance += 0.5; // Massive crit boost after dodge
+            if (sourcePlayer.charState.dodgeBuffTimer > 0) critChance += 0.5;
         }
-
         if (this.random() < critChance) {
             finalDamage *= 2;
             isCrit = true;
         }
 
-        // Sakura Passive: 5x Damage if meter full
-        if (sourcePlayer.character === 'sakura' && sourcePlayer.charState && 'meter' in sourcePlayer.charState) {
-            if (sourcePlayer.charState.meter >= 100) {
-                finalDamage *= 5;
-                sourcePlayer.charState.meter = 0; // Consume
-                this.spawnFloatingText(sourcePlayer.pos, "SMASH!", "pink");
-            }
+        // Character-specific damage modifications
+        const characterLogic = getCharacterLogic(sourcePlayer.character || '');
+        if (characterLogic) {
+            finalDamage = characterLogic.onDealDamage(sourcePlayer, this, finalDamage);
         }
 
         e.hp -= finalDamage;
@@ -773,128 +272,17 @@ export class ShinobiSurvivalGame extends Game {
 
 
 
-    updateCharacterPassives(p: PlayerState, dt: number) {
-        if (p.dead) return;
-
-        // Naruto: Regen
-        if (p.character === 'naruto' && p.charState && 'regenTimer' in p.charState) {
-            p.charState.regenTimer += dt;
-            if (p.charState.regenTimer >= 1.0) {
-                p.charState.regenTimer = 0;
-                let regen = p.maxHp * 0.01;
-                if (p.hp < p.maxHp * 0.3) regen *= 2;
-                p.hp = Math.min(p.hp + regen, p.maxHp);
-            }
-        }
-
-        // Gaara: Shield Regen
-        if (p.character === 'gaara' && p.charState && 'shieldHp' in p.charState) {
-            p.charState.shieldRegenTimer += dt;
-            if (p.charState.shieldRegenTimer >= 8.0) {
-                // Regenerate shield
-                if (p.charState.shieldHp < 50) { // Max shield 50? Or based on HP?
-                    p.charState.shieldHp += 10 * dt; // Slowly regen
-                    if (p.charState.shieldHp > 50) p.charState.shieldHp = 50;
-                }
-            }
-        }
-
-        // Sasuke: Dodge Buff Timer
-        if (p.character === 'sasuke' && p.charState && 'dodgeBuffTimer' in p.charState) {
-            if (p.charState.dodgeBuffTimer > 0) {
-                p.charState.dodgeBuffTimer -= dt;
-                p.stats.critChance = 0.5; // 50% crit chance
-            } else {
-                p.stats.critChance = 0.05; // Reset
-            }
-
-            if (p.charState.sharinganCooldown > 0) {
-                p.charState.sharinganCooldown -= dt;
-            }
-        }
-    }
 
 
 
     fireWeapon(p: PlayerState) {
-        // Find nearest enemy
-        let closestE: EnemyState | null = null;
-        let minDist = Infinity;
-        for (const e of this.enemies) {
-            const d = Math.sqrt((p.pos.x - e.pos.x) ** 2 + (p.pos.y - e.pos.y) ** 2);
-            if (d < minDist) { minDist = d; closestE = e; }
-        }
-
-        const angle = closestE ? Math.atan2(closestE.pos.y - p.pos.y, closestE.pos.x - p.pos.x) : (p.direction === 1 ? 0 : Math.PI);
-        let dmg = 10 * p.stats.damageMult;
-        if (this.random() < p.stats.critChance) dmg *= 2;
-
-        if (p.character === 'naruto') {
-            if (p.ultActiveTime > 0) { return; } // Ult handles its own damage
-            const projType = p.isEvolved ? 'rasenshuriken' : 'shuriken';
-            const pDmg = p.isEvolved ? dmg * 3 : dmg;
-            const pPierce = p.isEvolved ? 5 : (1 + p.stats.piercing);
-            const pSpeed = p.isEvolved ? 480 : 600;
-
-            this.spawnProjectile(p.id, p.pos, angle, pSpeed, pDmg, projType, p.stats.knockback + 2, pPierce);
-
-            // Level 3: Shadow Clone Barrage (Triples projectiles)
-            if (p.weaponLevel >= 3 && !p.isEvolved) {
-                // Clone 1
-                const c1Pos = new Vec2(p.pos.x + Math.cos(angle + Math.PI / 2) * 30, p.pos.y + Math.sin(angle + Math.PI / 2) * 30);
-                this.spawnProjectile(p.id, c1Pos, angle, pSpeed, pDmg, projType, p.stats.knockback + 2, pPierce);
-                // Clone 2
-                const c2Pos = new Vec2(p.pos.x + Math.cos(angle - Math.PI / 2) * 30, p.pos.y + Math.sin(angle - Math.PI / 2) * 30);
-                this.spawnProjectile(p.id, c2Pos, angle, pSpeed, pDmg, projType, p.stats.knockback + 2, pPierce);
-            }
-        } else if (p.character === 'sasuke') {
-            // Level 3: Chidori Blade (Increased range/speed)
-            const isChidori = p.weaponLevel >= 3;
-
-            if (isChidori) {
-                const slashSpeed = 180;
-                this.spawnProjectile(p.id, p.pos, angle, slashSpeed, dmg * 2, 'sword_slash', 10, 99);
-
-                // Lightning / Chidori
-                const lightningDmg = dmg * 1.5;
-                const lightningPierce = p.isEvolved ? 999 : 3;
-                const lightningType = p.isEvolved ? 'chidori_spear' : 'lightning';
-
-                this.spawnProjectile(p.id, p.pos, angle, 720, lightningDmg, lightningType, 4 + p.stats.knockback, lightningPierce);
-            } else {
-                // Level 1: Rotating Slash
-                // Spawn with short life for swing
-                this.spawnProjectile(p.id, p.pos, angle, 0, dmg, 'rotating_slash', 5 + p.stats.knockback, 99);
-                // We need to set life to 0.3 manually? spawnProjectile sets it to 2.0 default.
-                // We can find the projectile we just spawned.
-                const proj = this.projectiles[this.projectiles.length - 1];
-                if (proj) proj.life = 0.3;
-            }
-        } else if (p.character === 'gaara') {
-            // Level 3: Sand Tsunami (Wave)
-            if (p.weaponLevel >= 3) {
-                // Spawn 3 sand projectiles in a cone
-                this.spawnProjectile(p.id, p.pos, angle, 210, dmg * 1.8, 'sand', 10 + p.stats.knockback, 999);
-                this.spawnProjectile(p.id, p.pos, angle + 0.3, 210, dmg * 1.8, 'sand', 10 + p.stats.knockback, 999);
-                this.spawnProjectile(p.id, p.pos, angle - 0.3, 210, dmg * 1.8, 'sand', 10 + p.stats.knockback, 999);
-            } else {
-                this.spawnProjectile(p.id, p.pos, angle, 210, dmg * 1.8, 'sand', 5 + p.stats.knockback, 999);
-            }
-        } else if (p.character === 'sakura') {
-            // Level 3: Chakra Punch (Area Impact)
-            // We use a short range projectile that hits multiple times or has large area
-            const punchRange = p.weaponLevel >= 3 ? 1.5 : 1.0;
-            const punchDmg = p.weaponLevel >= 3 ? dmg * 3 : dmg * 2;
-            const punchSize = p.weaponLevel >= 3 ? 40 : 20;
-
-            // We spawn a "rock_wave" or "punch" projectile
-            this.spawnProjectile(p.id, p.pos, angle, 300, punchDmg, 'rock_wave', 20 + p.stats.knockback, 999);
-            // Note: rock_wave logic in update might need to handle size/range if we want it to be distinct.
-            // For now, just using damage/knockback scaling.
+        const weapon = getWeapon(p.character || '');
+        if (weapon) {
+            weapon.fire(p, this);
         }
     }
 
-    spawnProjectile(ownerId: number, pos: Vec2, angle: number, speed: number, dmg: number, type: string, knock: number, pierce: number) {
+    spawnProjectile(ownerId: number, pos: Vec2, angle: number, speed: number, dmg: number, type: string, knock: number, pierce: number, size: number) {
         this.projectiles.push({
             id: this.nextEntityId++,
             type: type,
@@ -905,12 +293,52 @@ export class ShinobiSurvivalGame extends Game {
             pierce: pierce,
             life: 2.0,
             angle: angle,
+            targetAngle: angle, // Store initial angle
             ownerId: ownerId,
-            hitList: []
+            hitList: [],
+            size: size
         });
     }
 
     // useSkill removed, logic moved to SkillLogic classes
+
+    generateUpgrades(player: PlayerState): UpgradeOption[] {
+        const upgrades: UpgradeOption[] = [];
+
+        // Always offer weapon level up if not maxed
+        if (player.weaponLevel < 5) {
+            const levelText = player.weaponLevel === 4 ? "Evolution" : `Level ${player.weaponLevel + 1}`;
+            upgrades.push({
+                id: 'weapon_level',
+                name: `Increase Weapon Level (${levelText})`,
+                description: `Upgrade your main weapon to the next level`,
+                type: 'weapon'
+            });
+        }
+
+        // Add placeholder stat upgrades
+        upgrades.push({
+            id: 'damage',
+            name: 'Increase Damage (+20%)',
+            description: 'Increase all damage dealt',
+            type: 'stat'
+        });
+
+        upgrades.push({
+            id: 'cooldown',
+            name: 'Reduce Cooldown (-15%)',
+            description: 'Reduce all skill cooldowns',
+            type: 'stat'
+        });
+
+        // Return 3 random upgrades (shuffle and take 3)
+        for (let i = upgrades.length - 1; i > 0; i--) {
+            const j = Math.floor(this.random() * (i + 1));
+            [upgrades[i], upgrades[j]] = [upgrades[j], upgrades[i]];
+        }
+
+        return upgrades.slice(0, 3);
+    }
 
     tickLevelUp(playerInputs: Map<NetplayPlayer, DefaultInput>) {
         // Wait for all players to select upgrades
@@ -930,11 +358,33 @@ export class ShinobiSurvivalGame extends Game {
             // Apply upgrades
             for (let id in this.players) {
                 const p = this.players[id];
-                // Apply logic based on p.offeredUpgrades[p.selectedUpgrade]
+                const upgrade = p.offeredUpgrades[p.selectedUpgrade!];
+
+                if (upgrade) {
+                    this.applyUpgrade(p, upgrade);
+                }
+
                 p.selectedUpgrade = null;
                 p.offeredUpgrades = [];
             }
             this.gamePhase = 'playing';
+        }
+    }
+
+    applyUpgrade(player: PlayerState, upgrade: UpgradeOption) {
+        switch (upgrade.id) {
+            case 'weapon_level':
+                player.weaponLevel = Math.min(player.weaponLevel + 1, 5);
+                this.spawnFloatingText(player.pos, `Weapon Level ${player.weaponLevel}!`, 'gold');
+                break;
+            case 'damage':
+                player.stats.damageMult *= 1.2;
+                this.spawnFloatingText(player.pos, '+20% Damage!', 'red');
+                break;
+            case 'cooldown':
+                player.stats.cooldownMult *= 0.85;
+                this.spawnFloatingText(player.pos, '-15% Cooldown!', 'cyan');
+                break;
         }
     }
 
@@ -1071,12 +521,30 @@ export class ShinobiSurvivalGame extends Game {
 
             // Draw Hazards
             for (const h of this.hazards) {
-                ctx.globalAlpha = 0.4;
-                if (h.type === 'acid') ctx.fillStyle = '#2ecc71';
-                else ctx.fillStyle = 'black'; // Amaterasu is black fire
+                ctx.globalAlpha = 0.6;
+                if (h.type === 'acid') {
+                    ctx.fillStyle = '#2ecc71';
+                    ctx.beginPath(); ctx.arc(h.pos.x, h.pos.y, h.radius, 0, Math.PI * 2); ctx.fill();
+                    ctx.strokeStyle = '#555'; ctx.lineWidth = 2; ctx.stroke();
+                } else if (h.type === 'fire') {
+                    // Flame effect
+                    const flicker = 1 + Math.sin(this.gameTime * 20 + h.id) * 0.1;
+                    const r = h.radius * flicker;
 
-                ctx.beginPath(); ctx.arc(h.pos.x, h.pos.y, h.radius, 0, Math.PI * 2); ctx.fill();
-                ctx.strokeStyle = '#555'; ctx.lineWidth = 2; ctx.stroke(); ctx.globalAlpha = 1.0;
+                    // Outer glow
+                    const grd = ctx.createRadialGradient(h.pos.x, h.pos.y, r * 0.2, h.pos.x, h.pos.y, r);
+                    grd.addColorStop(0, "rgba(255, 255, 0, 0.8)"); // Yellow core
+                    grd.addColorStop(0.6, "rgba(255, 69, 0, 0.6)"); // OrangeRed
+                    grd.addColorStop(1, "rgba(255, 0, 0, 0)"); // Fade out
+
+                    ctx.fillStyle = grd;
+                    ctx.beginPath(); ctx.arc(h.pos.x, h.pos.y, r, 0, Math.PI * 2); ctx.fill();
+                } else {
+                    ctx.fillStyle = 'black'; // Amaterasu is black fire
+                    ctx.beginPath(); ctx.arc(h.pos.x, h.pos.y, h.radius, 0, Math.PI * 2); ctx.fill();
+                    ctx.strokeStyle = '#555'; ctx.lineWidth = 2; ctx.stroke();
+                }
+                ctx.globalAlpha = 1.0;
             }
 
             // Draw XP Orbs
@@ -1109,6 +577,15 @@ export class ShinobiSurvivalGame extends Game {
                 const ultLogic = getSkill(p.character || '', 'ult');
                 if (ultLogic) ultLogic.draw(ctx, p.skills.ult, p, this);
 
+                // Draw colored circle under player's feet
+                const playerColor = this.getPlayerColor(parseInt(id));
+                ctx.fillStyle = playerColor;
+                ctx.globalAlpha = 0.6; // Subtle transparency
+                ctx.beginPath();
+                ctx.ellipse(p.pos.x, p.pos.y + 15, 20, 8, 0, 0, Math.PI * 2); // Oval shadow shape
+                ctx.fill();
+                ctx.globalAlpha = 1.0; // Reset alpha
+
                 ctx.save(); // Start player rendering group
 
                 ctx.translate(p.pos.x, p.pos.y);
@@ -1122,17 +599,27 @@ export class ShinobiSurvivalGame extends Game {
                 ctx.restore(); // End Player Sprite Transform (Scale/Flip)
 
                 // Rasengan Charging Visuals (Delegated)
-                const skill1Logic = getSkill(p.character || '', 'skill1');
-                if (skill1Logic) skill1Logic.draw(ctx, p.skills.skill1, p, this);
+                const skillQLogic = getSkill(p.character || '', 'skillQ');
+                if (skillQLogic) skillQLogic.draw(ctx, p.skills.skillQ, p, this);
+
+                const skillELogic = getSkill(p.character || '', 'skillE');
+                if (skillELogic) skillELogic.draw(ctx, p.skills.skillE, p, this);
 
                 // Rasengan Dash Visuals
                 if (p.character === 'naruto' && p.dashTime > 0) {
-                    const size = 2.5;
+                    let size = 2.5;
+                    if (p.charState && 'rasenganSize' in p.charState && p.charState.rasenganSize) {
+                        size = p.charState.rasenganSize;
+                    }
                     ctx.save();
                     ctx.translate(p.pos.x, p.pos.y);
                     const angle = Math.atan2(p.dashVec.y, p.dashVec.x);
                     ctx.rotate(angle);
-                    if (SPRITES.rasengan) ctx.drawImage(SPRITES.rasengan, 0, -50, 100, 100);
+                    // Scale based on size (default 2.5 was hardcoded, now dynamic)
+                    // Base size 1.0 -> 40px? 2.5 -> 100px.
+                    // So scale = size * 40.
+                    const drawSize = size * 40;
+                    if (SPRITES.rasengan) ctx.drawImage(SPRITES.rasengan, 0, -drawSize / 2, drawSize, drawSize);
                     ctx.restore();
                 }
 
@@ -1169,23 +656,80 @@ export class ShinobiSurvivalGame extends Game {
                 ctx.translate(proj.pos.x, proj.pos.y);
                 ctx.rotate(proj.angle);
 
-                if (proj.type === 'rotating_slash') {
+                if (proj.type === 'rotating_slash' || proj.type === 'rotating_slash_lightning' || proj.type === 'sword_slash_chidori') {
                     // Draw slash arc
-                    ctx.fillStyle = 'rgba(200, 200, 255, 0.5)';
+                    const isLightning = proj.type === 'rotating_slash_lightning' || proj.type === 'sword_slash_chidori';
+                    ctx.fillStyle = isLightning ? 'rgba(100, 200, 255, 0.6)' : 'rgba(200, 200, 255, 0.5)';
+                    ctx.strokeStyle = isLightning ? 'cyan' : 'white';
+                    ctx.lineWidth = isLightning ? 3 : 2;
+
                     ctx.beginPath();
                     ctx.arc(0, 0, 80, -Math.PI / 4, Math.PI / 4); // Arc shape
                     ctx.lineTo(0, 0);
                     ctx.fill();
+                    ctx.stroke();
+                } else if (proj.type === 'shadow_clone') {
+                    // Draw shadow clone as semi-transparent Naruto sprite
+                    const cloneSprite = SPRITES.naruto;
+                    if (cloneSprite) {
+                        ctx.globalAlpha = 0.6;
+                        ctx.drawImage(cloneSprite, -cloneSprite.width / 2, -cloneSprite.height / 2);
+                        ctx.globalAlpha = 1.0;
+                    }
+                } else if (proj.type === 'clone_punch') {
+                    // Draw Clone (Naruto Sprite)
+                    const cloneSprite = SPRITES.naruto;
+                    if (cloneSprite) {
+                        ctx.globalAlpha = 0.7; // Slightly transparent
+                        ctx.drawImage(cloneSprite, -cloneSprite.width / 2, -cloneSprite.height / 2);
+                        ctx.globalAlpha = 1.0;
+                    }
                 } else if (sprite) {
-                    ctx.drawImage(sprite, -sprite.width / 2, -sprite.height / 2);
+                    if (proj.type === 'shuriken' || proj.type === 'rasenshuriken') {
+                        ctx.rotate(this.gameTime * 20); // Spin
+                    }
+                    ctx.drawImage(sprite, -proj.size, -proj.size, proj.size * 2, proj.size * 2);
                 } else if (proj.type === 'fireball') {
                     // Fallback Fireball Draw
-                    ctx.fillStyle = 'orange';
-                    ctx.beginPath(); ctx.arc(0, 0, 20, 0, Math.PI * 2); ctx.fill();
-                    ctx.fillStyle = 'red';
-                    ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = 'orange'; ctx.beginPath(); ctx.arc(0, 0, proj.size, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = 'yellow'; ctx.beginPath(); ctx.arc(0, 0, proj.size * 0.75, 0, Math.PI * 2); ctx.fill();
+                } else if (proj.type === 'rinnegan_effect') {
+                    // Draw Rinnegan Effect (if sprite missing)
+                    ctx.strokeStyle = '#8A2BE2'; ctx.lineWidth = 3;
+                    ctx.beginPath(); ctx.arc(0, 0, proj.size, 0, Math.PI * 2); ctx.stroke();
+                } else if (proj.type === 'fire_trail') {
+                    // Draw Fire Trail (if sprite missing)
+                    ctx.fillStyle = 'rgba(255, 69, 0, 0.6)';
+                    ctx.beginPath(); ctx.arc(0, 0, proj.size, 0, Math.PI * 2); ctx.fill();
+                } else if (proj.type === 'lightning_chain' || proj.type === 'lightning') {
+                    // Draw lightning bolt effect
+                    ctx.strokeStyle = 'cyan';
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = 'cyan';
+                    ctx.lineWidth = 3;
+                    ctx.globalAlpha = 0.8;
+
+                    // Draw jagged lightning line
+                    ctx.beginPath();
+                    ctx.moveTo(-proj.size, 0);
+                    const segments = 5;
+                    for (let i = 1; i <= segments; i++) {
+                        const x = (-proj.size) + (i / segments) * (proj.size * 2);
+                        const y = (Math.random() - 0.5) * proj.size;
+                        ctx.lineTo(x, y);
+                    }
+                    ctx.stroke();
+
+                    // Draw glow
+                    ctx.fillStyle = 'rgba(0, 255, 255, 0.3)';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, proj.size, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.shadowBlur = 0;
+                    ctx.globalAlpha = 1.0;
                 } else {
-                    ctx.fillStyle = 'yellow'; ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = 'yellow'; ctx.fillRect(-proj.size, -proj.size, proj.size * 2, proj.size * 2);
                 }
                 ctx.restore();
             }
@@ -1244,7 +788,8 @@ export class ShinobiSurvivalGame extends Game {
                         }
                     };
 
-                    drawSkill(240, 'skill1', 'E');
+                    drawSkill(180, 'skillQ', 'Q');
+                    drawSkill(240, 'skillE', 'E');
                     drawSkill(300, 'ult', 'R');
 
                     this.drawCharacterHUD(ctx, localPlayer);
@@ -1276,11 +821,32 @@ export class ShinobiSurvivalGame extends Game {
                 ctx.font = '20px Arial';
                 ctx.fillText("Select an upgrade (1, 2, or 3)", canvas.width / 2, 140);
 
-                // Show waiting status
-                let y = 200;
+                // Show local player's upgrades
+                if (localPlayer && localPlayer.offeredUpgrades.length > 0) {
+                    ctx.font = '24px Arial';
+                    let upgradeY = 200;
+                    for (let i = 0; i < localPlayer.offeredUpgrades.length; i++) {
+                        const upgrade = localPlayer.offeredUpgrades[i];
+                        const selected = localPlayer.selectedUpgrade === i;
+
+                        ctx.fillStyle = selected ? 'gold' : 'white';
+                        ctx.fillText(`${i + 1}. ${upgrade.name}`, canvas.width / 2, upgradeY);
+                        ctx.font = '16px Arial';
+                        ctx.fillStyle = selected ? 'yellow' : '#ccc';
+                        ctx.fillText(upgrade.description, canvas.width / 2, upgradeY + 25);
+                        ctx.font = '24px Arial';
+                        upgradeY += 80;
+                    }
+                }
+
+                // Show waiting status for other players
+                ctx.font = '18px Arial';
+                let y = 500;
                 for (let id in this.players) {
                     const p = this.players[id];
+                    if (parseInt(id) === localPlayerId) continue;
                     const status = p.selectedUpgrade !== null ? "SELECTED" : "CHOOSING...";
+                    ctx.fillStyle = 'white';
                     ctx.fillText(`${p.name}: ${status}`, canvas.width / 2, y);
                     y += 30;
                 }
