@@ -105,6 +105,8 @@ web_modules/
 
 # Output of 'npm pack'
 *.tgz
+# But include specific.log
+!netplayjs-*.tgz
 
 # Yarn Integrity file
 .yarn-integrity
