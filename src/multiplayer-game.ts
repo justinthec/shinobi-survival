@@ -561,9 +561,21 @@ export class ShinobiSurvivalGame extends Game {
                     proj.pos.y = owner.pos.y + Math.sin(proj.angle) * radius;
                 }
             } else if (proj.type === 'fireball') {
-                // Spawn fire trail
+                // Grow over time
+                proj.size += 20 * dt;
+
+                // Spawn fire trail (Hazard)
                 if (this.random() < 0.2) { // 20% chance per tick
-                    this.spawnProjectile(proj.ownerId, proj.pos, 0, 0, 5, 'fire_trail', 0, 99);
+                    // Use hazard instead of projectile
+                    this.hazards.push({
+                        id: this.nextEntityId++,
+                        pos: new Vec2(proj.pos.x, proj.pos.y),
+                        radius: proj.size * 0.8, // 80% of fireball size
+                        duration: 2.0,
+                        damage: 5,
+                        type: 'fire',
+                        ownerId: proj.ownerId
+                    });
                 }
             }
 
@@ -597,7 +609,7 @@ export class ShinobiSurvivalGame extends Game {
                     }
                 } else {
                     const dist = Math.sqrt((proj.pos.x - e.pos.x) ** 2 + (proj.pos.y - e.pos.y) ** 2);
-                    if (dist < 30) hit = true;
+                    if (dist < proj.size) hit = true;
                 }
 
                 if (hit) {
@@ -849,16 +861,16 @@ export class ShinobiSurvivalGame extends Game {
             const pPierce = p.isEvolved ? 5 : (p.stats.piercing);
             const pSpeed = p.isEvolved ? 100 : 200;
 
-            this.spawnProjectile(p.id, p.pos, angle, pSpeed, pDmg, projType, p.stats.knockback + 2, pPierce);
+            this.spawnProjectile(p.id, p.pos, angle, pSpeed, pDmg, projType, p.stats.knockback + 2, pPierce, p.isEvolved ? 60 : 20);
 
             // Level 3: Shadow Clone Barrage (Triples projectiles)
             if (p.weaponLevel >= 3 && !p.isEvolved) {
                 // Clone 1
                 const c1Pos = new Vec2(p.pos.x + Math.cos(angle + Math.PI / 2) * 30, p.pos.y + Math.sin(angle + Math.PI / 2) * 30);
-                this.spawnProjectile(p.id, c1Pos, angle, pSpeed, pDmg, projType, p.stats.knockback + 2, pPierce);
+                this.spawnProjectile(p.id, c1Pos, angle, pSpeed, pDmg, projType, p.stats.knockback + 2, pPierce, p.isEvolved ? 60 : 20);
                 // Clone 2
                 const c2Pos = new Vec2(p.pos.x + Math.cos(angle - Math.PI / 2) * 30, p.pos.y + Math.sin(angle - Math.PI / 2) * 30);
-                this.spawnProjectile(p.id, c2Pos, angle, pSpeed, pDmg, projType, p.stats.knockback + 2, pPierce);
+                this.spawnProjectile(p.id, c2Pos, angle, pSpeed, pDmg, projType, p.stats.knockback + 2, pPierce, p.isEvolved ? 60 : 20);
             }
         } else if (p.character === 'sasuke') {
             // Level 3: Chidori Blade (Increased range/speed)
@@ -866,18 +878,18 @@ export class ShinobiSurvivalGame extends Game {
 
             if (isChidori) {
                 const slashSpeed = 180;
-                this.spawnProjectile(p.id, p.pos, angle, slashSpeed, dmg * 2, 'sword_slash', 10, 99);
+                this.spawnProjectile(p.id, p.pos, angle, slashSpeed, dmg * 2, 'sword_slash', 10, 99, 30);
 
                 // Lightning / Chidori
                 const lightningDmg = dmg * 1.5;
                 const lightningPierce = p.isEvolved ? 999 : 3;
                 const lightningType = p.isEvolved ? 'chidori_spear' : 'lightning';
 
-                this.spawnProjectile(p.id, p.pos, angle, 720, lightningDmg, lightningType, 4 + p.stats.knockback, lightningPierce);
+                this.spawnProjectile(p.id, p.pos, angle, 720, lightningDmg, lightningType, 4 + p.stats.knockback, lightningPierce, 30);
             } else {
                 // Level 1: Rotating Slash
                 // Spawn with short life for swing
-                this.spawnProjectile(p.id, p.pos, angle, 0, dmg, 'rotating_slash', 5 + p.stats.knockback, 99);
+                this.spawnProjectile(p.id, p.pos, angle, 0, dmg, 'rotating_slash', 5 + p.stats.knockback, 99, 30);
                 // We need to set life to 0.3 manually? spawnProjectile sets it to 2.0 default.
                 // We can find the projectile we just spawned.
                 const proj = this.projectiles[this.projectiles.length - 1];
@@ -887,11 +899,11 @@ export class ShinobiSurvivalGame extends Game {
             // Level 3: Sand Tsunami (Wave)
             if (p.weaponLevel >= 3) {
                 // Spawn 3 sand projectiles in a cone
-                this.spawnProjectile(p.id, p.pos, angle, 210, dmg * 1.8, 'sand', 10 + p.stats.knockback, 999);
-                this.spawnProjectile(p.id, p.pos, angle + 0.3, 210, dmg * 1.8, 'sand', 10 + p.stats.knockback, 999);
-                this.spawnProjectile(p.id, p.pos, angle - 0.3, 210, dmg * 1.8, 'sand', 10 + p.stats.knockback, 999);
+                this.spawnProjectile(p.id, p.pos, angle, 210, dmg * 1.8, 'sand', 10 + p.stats.knockback, 999, 30);
+                this.spawnProjectile(p.id, p.pos, angle + 0.3, 210, dmg * 1.8, 'sand', 10 + p.stats.knockback, 999, 30);
+                this.spawnProjectile(p.id, p.pos, angle - 0.3, 210, dmg * 1.8, 'sand', 10 + p.stats.knockback, 999, 30);
             } else {
-                this.spawnProjectile(p.id, p.pos, angle, 210, dmg * 1.8, 'sand', 5 + p.stats.knockback, 999);
+                this.spawnProjectile(p.id, p.pos, angle, 210, dmg * 1.8, 'sand', 5 + p.stats.knockback, 999, 30);
             }
         } else if (p.character === 'sakura') {
             // Level 3: Chakra Punch (Area Impact)
@@ -901,13 +913,13 @@ export class ShinobiSurvivalGame extends Game {
             const punchSize = p.weaponLevel >= 3 ? 40 : 20;
 
             // We spawn a "rock_wave" or "punch" projectile
-            this.spawnProjectile(p.id, p.pos, angle, 300, punchDmg, 'rock_wave', 20 + p.stats.knockback, 999);
+            this.spawnProjectile(p.id, p.pos, angle, 300, punchDmg, 'rock_wave', 20 + p.stats.knockback, 999, 30);
             // Note: rock_wave logic in update might need to handle size/range if we want it to be distinct.
             // For now, just using damage/knockback scaling.
         }
     }
 
-    spawnProjectile(ownerId: number, pos: Vec2, angle: number, speed: number, dmg: number, type: string, knock: number, pierce: number) {
+    spawnProjectile(ownerId: number, pos: Vec2, angle: number, speed: number, dmg: number, type: string, knock: number, pierce: number, size: number) {
         this.projectiles.push({
             id: this.nextEntityId++,
             type: type,
@@ -920,7 +932,8 @@ export class ShinobiSurvivalGame extends Game {
             angle: angle,
             targetAngle: angle, // Store initial angle
             ownerId: ownerId,
-            hitList: []
+            hitList: [],
+            size: size
         });
     }
 
@@ -1085,12 +1098,30 @@ export class ShinobiSurvivalGame extends Game {
 
             // Draw Hazards
             for (const h of this.hazards) {
-                ctx.globalAlpha = 0.4;
-                if (h.type === 'acid') ctx.fillStyle = '#2ecc71';
-                else ctx.fillStyle = 'black'; // Amaterasu is black fire
+                ctx.globalAlpha = 0.6;
+                if (h.type === 'acid') {
+                    ctx.fillStyle = '#2ecc71';
+                    ctx.beginPath(); ctx.arc(h.pos.x, h.pos.y, h.radius, 0, Math.PI * 2); ctx.fill();
+                    ctx.strokeStyle = '#555'; ctx.lineWidth = 2; ctx.stroke();
+                } else if (h.type === 'fire') {
+                    // Flame effect
+                    const flicker = 1 + Math.sin(this.gameTime * 20 + h.id) * 0.1;
+                    const r = h.radius * flicker;
 
-                ctx.beginPath(); ctx.arc(h.pos.x, h.pos.y, h.radius, 0, Math.PI * 2); ctx.fill();
-                ctx.strokeStyle = '#555'; ctx.lineWidth = 2; ctx.stroke(); ctx.globalAlpha = 1.0;
+                    // Outer glow
+                    const grd = ctx.createRadialGradient(h.pos.x, h.pos.y, r * 0.2, h.pos.x, h.pos.y, r);
+                    grd.addColorStop(0, "rgba(255, 255, 0, 0.8)"); // Yellow core
+                    grd.addColorStop(0.6, "rgba(255, 69, 0, 0.6)"); // OrangeRed
+                    grd.addColorStop(1, "rgba(255, 0, 0, 0)"); // Fade out
+
+                    ctx.fillStyle = grd;
+                    ctx.beginPath(); ctx.arc(h.pos.x, h.pos.y, r, 0, Math.PI * 2); ctx.fill();
+                } else {
+                    ctx.fillStyle = 'black'; // Amaterasu is black fire
+                    ctx.beginPath(); ctx.arc(h.pos.x, h.pos.y, h.radius, 0, Math.PI * 2); ctx.fill();
+                    ctx.strokeStyle = '#555'; ctx.lineWidth = 2; ctx.stroke();
+                }
+                ctx.globalAlpha = 1.0;
             }
 
             // Draw XP Orbs
@@ -1144,12 +1175,19 @@ export class ShinobiSurvivalGame extends Game {
 
                 // Rasengan Dash Visuals
                 if (p.character === 'naruto' && p.dashTime > 0) {
-                    const size = 2.5;
+                    let size = 2.5;
+                    if (p.charState && 'rasenganSize' in p.charState && p.charState.rasenganSize) {
+                        size = p.charState.rasenganSize;
+                    }
                     ctx.save();
                     ctx.translate(p.pos.x, p.pos.y);
                     const angle = Math.atan2(p.dashVec.y, p.dashVec.x);
                     ctx.rotate(angle);
-                    if (SPRITES.rasengan) ctx.drawImage(SPRITES.rasengan, 0, -50, 100, 100);
+                    // Scale based on size (default 2.5 was hardcoded, now dynamic)
+                    // Base size 1.0 -> 40px? 2.5 -> 100px.
+                    // So scale = size * 40.
+                    const drawSize = size * 40;
+                    if (SPRITES.rasengan) ctx.drawImage(SPRITES.rasengan, 0, -drawSize / 2, drawSize, drawSize);
                     ctx.restore();
                 }
 
@@ -1205,21 +1243,21 @@ export class ShinobiSurvivalGame extends Game {
                     if (proj.type === 'shuriken' || proj.type === 'rasenshuriken') {
                         ctx.rotate(this.gameTime * 20); // Spin
                     }
-                    ctx.drawImage(sprite, -sprite.width / 2, -sprite.height / 2);
+                    ctx.drawImage(sprite, -proj.size, -proj.size, proj.size * 2, proj.size * 2);
                 } else if (proj.type === 'fireball') {
                     // Fallback Fireball Draw
-                    ctx.fillStyle = 'orange'; ctx.beginPath(); ctx.arc(0, 0, 20, 0, Math.PI * 2); ctx.fill();
-                    ctx.fillStyle = 'yellow'; ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = 'orange'; ctx.beginPath(); ctx.arc(0, 0, proj.size, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = 'yellow'; ctx.beginPath(); ctx.arc(0, 0, proj.size * 0.75, 0, Math.PI * 2); ctx.fill();
                 } else if (proj.type === 'rinnegan_effect') {
                     // Draw Rinnegan Effect (if sprite missing)
                     ctx.strokeStyle = '#8A2BE2'; ctx.lineWidth = 3;
-                    ctx.beginPath(); ctx.arc(0, 0, 30, 0, Math.PI * 2); ctx.stroke();
+                    ctx.beginPath(); ctx.arc(0, 0, proj.size, 0, Math.PI * 2); ctx.stroke();
                 } else if (proj.type === 'fire_trail') {
                     // Draw Fire Trail (if sprite missing)
                     ctx.fillStyle = 'rgba(255, 69, 0, 0.6)';
-                    ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(0, 0, proj.size, 0, Math.PI * 2); ctx.fill();
                 } else {
-                    ctx.fillStyle = 'yellow'; ctx.fillRect(-5, -5, 10, 10);
+                    ctx.fillStyle = 'yellow'; ctx.fillRect(-proj.size, -proj.size, proj.size * 2, proj.size * 2);
                 }
                 ctx.restore();
             }

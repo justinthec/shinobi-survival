@@ -24,9 +24,9 @@ export class FireballSkill implements SkillLogic {
             // But we need pushback and burn.
             // damageEnemy handles damage.
             // Fireball: Big, slow, fire trail
-            const speed = 200; // Was 600
+            const speed = 100; // Was 200, originally 600
             const dmg = 40 * player.stats.damageMult;
-            game.spawnProjectile(player.id, player.pos, player.aimAngle, speed, dmg, 'fireball', 50 + player.stats.knockback, 100 + player.stats.piercing);
+            game.spawnProjectile(player.id, player.pos, player.aimAngle, speed, dmg, 'fireball', 50 + player.stats.knockback, 100 + player.stats.piercing, 30);
 
             state.cooldown = 6.0 * player.stats.cooldownMult;
         }
@@ -80,7 +80,7 @@ export class RinneganSwapSkill implements SkillLogic {
                 // Teleport
                 // Visual effect at old pos
                 game.spawnFloatingText(player.pos, "Swap!", "purple");
-                game.spawnProjectile(player.id, player.pos, 0, 0, 0, 'rinnegan_effect', 0, 99); // Effect at old pos
+                game.spawnProjectile(player.id, player.pos, 0, 0, 0, 'rinnegan_effect', 0, 99, 30); // Effect at old pos
 
                 // Swap Positions
                 const oldPos = { x: player.pos.x, y: player.pos.y };
@@ -90,7 +90,7 @@ export class RinneganSwapSkill implements SkillLogic {
                 targetEnemy.pos.y = oldPos.y;
 
                 // Effect at new pos (which is where player is now)
-                game.spawnProjectile(player.id, player.pos, 0, 0, 0, 'rinnegan_effect', 0, 99);
+                game.spawnProjectile(player.id, player.pos, 0, 0, 0, 'rinnegan_effect', 0, 99, 30);
 
                 // Invincibility
                 state.activeTime = 0.5;

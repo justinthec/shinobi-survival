@@ -35,6 +35,7 @@ export interface UpgradeOption {
 
 export interface NarutoState {
     regenTimer: number;
+    rasenganSize?: number;
 }
 
 export interface SasukeState {
@@ -136,6 +137,7 @@ export interface ProjectileState {
     targetAngle?: number; // For guided/fixed direction projectiles
     ownerId: number;
     hitList: number[]; // Enemy IDs hit
+    size: number;
 }
 
 export interface XpOrbState {

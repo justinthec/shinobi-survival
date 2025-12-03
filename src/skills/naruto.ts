@@ -25,7 +25,7 @@ export class UzumakiBarrageSkill implements SkillLogic {
                 // Visual: Spawn particle/clone
                 // Short range burst: slow speed, short lifetime
                 // Speed 50 (was 200), knockback high
-                game.spawnProjectile(player.id, pos, angle, 50, 20 * player.stats.damageMult, 'clone_punch', 50 + player.stats.knockback, 99);
+                game.spawnProjectile(player.id, pos, angle, 50, 20 * player.stats.damageMult, 'clone_punch', 50 + player.stats.knockback, 99, 30);
                 // Actually, design says "High kick outward".
                 // Let's spawn a "kick" projectile or just apply AoE damage/knockback immediately.
 
@@ -111,6 +111,11 @@ export class RasenganSkill implements SkillLogic {
             player.skillCharging = false;
             player.skillChargeTime = 0;
             player.invincible = true;
+
+            // Store size for dash visual
+            if (player.character === 'naruto' && player.charState) {
+                (player.charState as any).rasenganSize = 1 + (chargeRatio * 2); // 1 to 3 scale
+            }
         }
     }
 
@@ -134,17 +139,21 @@ export class RasenganSkill implements SkillLogic {
             ctx.fillStyle = 'rgba(0, 210, 255, 0.2)';
             ctx.fillRect(0, -2, dist, 4);
 
+            // Growing Ball
+            const size = 1 + (state.chargeTime / 1.5) * 2;
+
             // Impact circle ghost
             ctx.beginPath();
-            ctx.arc(dist, 0, 50, 0, Math.PI * 2); // Anticipated hit radius
+            ctx.arc(dist, 0, size * 50 * 0.4, 0, Math.PI * 2); // Anticipated hit radius
             ctx.fillStyle = 'rgba(0, 210, 255, 0.3)';
             ctx.fill();
             ctx.restore();
 
-            // Growing Ball
-            const size = 1 + (state.chargeTime / 1.5) * 2;
             ctx.save();
-            ctx.scale(size, size);
+            // Match dash visual scaling: dash uses size * 40. Sprite is 100px.
+            // So scale = (size * 40) / 100 = size * 0.4
+            const scale = size * 0.4;
+            ctx.scale(scale, scale);
             // Rotate ball itself
             ctx.rotate(game.gameTime * 10);
             if (SPRITES.rasengan) ctx.drawImage(SPRITES.rasengan, -50, -50);
