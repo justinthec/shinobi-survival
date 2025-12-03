@@ -1392,17 +1392,27 @@ export class ShinobiSurvivalGame extends Game {
 
             // HUD (Screen Space)
             if (this.gamePhase === 'playing' || this.gamePhase === 'levelUp') {
+                // Game Timer
+                const minutes = Math.floor(this.gameTime / 60).toString().padStart(2, '0');
+                const seconds = Math.floor(this.gameTime % 60).toString().padStart(2, '0');
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 24px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${minutes}:${seconds}`, canvas.width / 2, 30);
+
                 // Team XP Bar (Top Center)
+                const xpBarY = 40;
                 const xpPct = Math.min(this.teamXP / this.xpToNextLevel, 1);
-                const barW = 600; const barH = 20;
+                const barW = 400; const barH = 15;
                 const barX = (canvas.width - barW) / 2;
 
-                ctx.fillStyle = '#333'; ctx.fillRect(barX, 10, barW, barH);
-                ctx.fillStyle = '#00d2ff'; ctx.fillRect(barX, 10, barW * xpPct, barH);
-                ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(barX, 10, barW, barH);
+                ctx.fillStyle = '#333'; ctx.fillRect(barX, xpBarY, barW, barH);
+                ctx.fillStyle = '#00d2ff'; ctx.fillRect(barX, xpBarY, barW * xpPct, barH);
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(barX, xpBarY, barW, barH);
 
-                ctx.fillStyle = 'white'; ctx.font = 'bold 16px Arial'; ctx.textAlign = 'center';
-                ctx.fillText(`Team Level ${this.teamLevel}`, canvas.width / 2, 26);
+                ctx.fillStyle = 'white'; ctx.font = 'bold 14px Arial'; ctx.textAlign = 'center';
+                ctx.fillText(`Team Level ${this.teamLevel}`, canvas.width / 2, xpBarY + 12);
+
 
                 // Local Player HUD (Bottom Left)
                 if (localPlayer) {
