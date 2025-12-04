@@ -108,16 +108,29 @@ export class RinneganSwapSkill implements SkillLogic {
     onPress(state: SkillState, player: PlayerState, game: ShinobiSurvivalGame): void {
         if (state.cooldown <= 0) {
             // Find enemy under cursor (within radius)
-            const cursorWorldPos = player.targetPos; // This is updated in game loop from mouse input
+            const cursorWorldPos = player.targetPos;
             const searchRadius = 50;
 
             let targetEnemy = null;
             let maxHp = -1;
 
-            for (const e of game.enemies) {
+            // Use SpatialHash
+            // We need a temp collider for query
+            const queryCollider = {
+                pos: cursorWorldPos,
+                shape: { type: 'circle', radius: searchRadius } as any // Cast to avoid strict type issues if needed, or import Shape
+            };
+            // Actually we need to import Shape or just define it inline if TS allows.
+            // But we can just use the game.spatialHash.query method if we construct a valid object.
+            // We need to import Shape/Collider types in sasuke.ts?
+            // Or just rely on structural typing.
+
+            const candidates = game.spatialHash.query(queryCollider as any);
+            for (const item of candidates) {
+                const e = item as any; // Cast to EnemyState
+                if (e.dead) continue;
                 const dist = Math.sqrt((cursorWorldPos.x - e.pos.x) ** 2 + (cursorWorldPos.y - e.pos.y) ** 2);
                 if (dist < searchRadius) {
-                    // Prioritize highest HP
                     if (e.hp > maxHp) {
                         maxHp = e.hp;
                         targetEnemy = e;
@@ -128,7 +141,7 @@ export class RinneganSwapSkill implements SkillLogic {
             if (targetEnemy) {
                 // Teleport
                 // Visual effect at old pos
-                game.spawnFloatingText(player.pos, "Swap!", "purple");
+                game.spawnFloatingText(player.pos, "Swap!", "purple", player.id);
                 game.spawnProjectile(player.id, player.pos, 0, 0, 0, 'rinnegan_effect', 0, 99, 30); // Effect at old pos
 
                 // Swap Positions
@@ -154,7 +167,7 @@ export class RinneganSwapSkill implements SkillLogic {
                 state.cooldown = 12.0 * player.stats.cooldownMult;
             } else {
                 // No target found
-                game.spawnFloatingText(player.pos, "Need Target!", "gray");
+                game.spawnFloatingText(player.pos, "Need Target!", "gray", player.id);
                 // Do not trigger cooldown
             }
         }
@@ -221,7 +234,15 @@ export class KirinSkill implements SkillLogic {
             state.cooldown = 40.0 * player.stats.cooldownMult;
 
             // Apply Damage
-            for (const e of game.enemies) {
+            const queryCollider = {
+                pos: target,
+                shape: { type: 'circle', radius: radius } as any
+            };
+            const candidates = game.spatialHash.query(queryCollider as any);
+
+            for (const item of candidates) {
+                const e = item as any;
+                if (e.dead) continue;
                 const dist = Math.sqrt((target.x - e.pos.x) ** 2 + (target.y - e.pos.y) ** 2);
                 if (dist < radius) {
                     game.damageEnemy(e, dmg * player.stats.damageMult, player);

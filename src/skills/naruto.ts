@@ -101,7 +101,15 @@ export class UzumakiBarrageSkill implements SkillLogic {
             }
 
             // AoE Damage & Knockback
-            for (const e of game.enemies) {
+            const queryCollider = {
+                pos: player.pos,
+                shape: { type: 'circle', radius: 150 } as any
+            };
+            const candidates = game.spatialHash.query(queryCollider as any);
+
+            for (const item of candidates) {
+                const e = item as any;
+                if (e.dead) continue;
                 const dist = Math.sqrt((player.pos.x - e.pos.x) ** 2 + (player.pos.y - e.pos.y) ** 2);
                 if (dist < 150) { // Range
                     const dmg = 30 * player.stats.damageMult;
@@ -114,7 +122,7 @@ export class UzumakiBarrageSkill implements SkillLogic {
                 }
             }
 
-            game.spawnFloatingText(player.pos, "Uzumaki Barrage!", "orange");
+            game.spawnFloatingText(player.pos, "Uzumaki Barrage!", "orange", player.id);
             state.cooldown = 10.0 * player.stats.cooldownMult;
         }
     }
@@ -245,20 +253,22 @@ export class KuramaModeSkill implements SkillLogic {
 
             // Continuous Beam Damage
             const range = 2000;
-            const p1 = player.pos;
-            const p2 = { x: player.pos.x + Math.cos(player.aimAngle) * range, y: player.pos.y + Math.sin(player.aimAngle) * range };
+            const beamCapsule = {
+                pos: player.pos,
+                shape: {
+                    type: 'capsule',
+                    radius: 30,
+                    startOffset: new Vec2(0, 0),
+                    endOffset: new Vec2(Math.cos(player.aimAngle) * range, Math.sin(player.aimAngle) * range)
+                }
+            };
 
-            for (const e of game.enemies) {
-                // Distance from point to line segment
-                const l2 = (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2;
-                if (l2 == 0) continue;
-                let t = ((e.pos.x - p1.x) * (p2.x - p1.x) + (e.pos.y - p1.y) * (p2.y - p1.y)) / l2;
-                t = Math.max(0, Math.min(1, t));
-                const proj = { x: p1.x + t * (p2.x - p1.x), y: p1.y + t * (p2.y - p1.y) };
-                const dist = Math.sqrt((e.pos.x - proj.x) ** 2 + (e.pos.y - proj.y) ** 2);
+            const candidates = game.spatialHash.query(beamCapsule as any);
+            for (const item of candidates) {
+                const e = item as any;
+                if (e.dead) continue;
 
-                if (dist < 30) { // Beam width
-                    if (e.dead) continue;
+                if (game.spatialHash.checkCollision(beamCapsule as any, e)) {
                     const dmg = 5 * player.stats.damageMult;
                     // Use game.damageEnemy
                     game.damageEnemy(e, dmg, player);

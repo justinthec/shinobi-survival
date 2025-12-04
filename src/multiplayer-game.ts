@@ -19,8 +19,13 @@ import {
     XpOrbState,
     ParticleState,
     HazardZoneState,
-    FloatingText
+    FloatingText,
+    Shape,
+    Collider,
+    DOT_TICK_RATE
 } from "./types";
+import { SpatialHash } from "./spatial-hash";
+import { FloatingTextHelper } from "./managers/floating-text-manager";
 
 const MAX_ENEMIES = 50;
 export class ShinobiSurvivalGame extends Game {
@@ -28,6 +33,7 @@ export class ShinobiSurvivalGame extends Game {
     static canvasSize = { width: 640, height: 360 };
     static numPlayers = 2; // Default, can be overridden by wrapper
     static localPlayerId: number | null = null;
+    static debugMode: boolean = false; // Toggle with backtick key
 
     // Game State
     players: Record<number, PlayerState> = {};
@@ -36,6 +42,8 @@ export class ShinobiSurvivalGame extends Game {
     xpOrbs: XpOrbState[] = [];
     particles: ParticleState[] = [];
     hazards: HazardZoneState[] = [];
+
+    spatialHash: SpatialHash = new SpatialHash(200);
     floatingTexts: FloatingText[] = [];
 
     gamePhase: GamePhase = 'charSelect';
@@ -67,6 +75,14 @@ export class ShinobiSurvivalGame extends Game {
         super();
         this.netplayPlayers = players;
         initSprites();
+
+        // Debug mode toggle (backtick key)
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Backquote') {
+                ShinobiSurvivalGame.debugMode = !ShinobiSurvivalGame.debugMode;
+                console.log('Debug mode:', ShinobiSurvivalGame.debugMode ? 'ON' : 'OFF');
+            }
+        });
 
         // Capture local player ID from the initial players list
         // This list is correct at startup (P0 local on Host, P1 local on Client)
@@ -118,7 +134,8 @@ export class ShinobiSurvivalGame extends Game {
                 dashHitList: [],
                 charState: null,
                 invincible: false,
-                rooted: false
+                rooted: false,
+                shape: { type: 'circle', radius: 20 }
             };
         }
     }
@@ -195,6 +212,12 @@ export class ShinobiSurvivalGame extends Game {
         const dt = ShinobiSurvivalGame.timestep / 1000;
         this.gameTime += dt;
 
+        // Re-initialize Spatial Hash to prevent serialization issues
+        this.spatialHash = new SpatialHash(200);
+        for (const e of this.enemies) {
+            this.spatialHash.add(e);
+        }
+
         // Player Updates
         for (const [player, input] of playerInputs.entries()) {
             const id = player.id;
@@ -214,12 +237,13 @@ export class ShinobiSurvivalGame extends Game {
                 p.dashTime -= dt;
 
                 // Dash Collision
-                for (const e of this.enemies) {
+                const potentialCollisions = this.spatialHash.query(p);
+                for (const item of potentialCollisions) {
+                    const e = item as EnemyState;
                     if (!p.dashHitList.includes(e.id)) {
-                        const dist = Math.sqrt((p.pos.x - e.pos.x) ** 2 + (p.pos.y - e.pos.y) ** 2);
-                        if (dist < 100) { // Increased radius
+                        if (this.spatialHash.checkCollision(p, e)) {
                             p.dashHitList.push(e.id);
-                            p.dashHitList.push(e.id);
+                            // Double push removed, was bug
                             const dmg = 50 * p.stats.damageMult;
                             this.damageEnemy(e, dmg, p);
                         }
@@ -259,10 +283,16 @@ export class ShinobiSurvivalGame extends Game {
                         }
                     } else {
                         // Generic Dash End (if any other char dashes)
-                        for (const e of this.enemies) {
-                            const dist = Math.sqrt((p.pos.x - e.pos.x) ** 2 + (p.pos.y - e.pos.y) ** 2);
-                            if (dist < 150) {
-                                this.damageEnemy(e, 50 * p.stats.damageMult, p);
+                        const potentialCollisions = this.spatialHash.query(p);
+                        for (const item of potentialCollisions) {
+                            const e = item as EnemyState;
+                            if (this.spatialHash.checkCollision(p, e)) { // Check collision again for blast radius? Or use larger radius?
+                                // Original code used 150 radius. Player radius is 20.
+                                // Let's assume blast is larger.
+                                const dist = Math.sqrt((p.pos.x - e.pos.x) ** 2 + (p.pos.y - e.pos.y) ** 2);
+                                if (dist < 150) {
+                                    this.damageEnemy(e, 50 * p.stats.damageMult, p);
+                                }
                             }
                         }
                     }
@@ -405,15 +435,30 @@ export class ShinobiSurvivalGame extends Game {
                 continue;
             }
             // Damage enemies
-            for (const e of this.enemies) {
-                const d = Math.sqrt((h.pos.x - e.pos.x) ** 2 + (h.pos.y - e.pos.y) ** 2);
-                if (d < h.radius) {
-                    if (h.type === 'quicksand') {
-                        e.speedMult *= 0.5; // 50% slow
+            // Throttling logic
+            h.tickTimer += dt;
+            const TICK_INTERVAL = DOT_TICK_RATE * (1 / 60); // Convert frames to seconds
+            if (h.tickTimer >= TICK_INTERVAL) {
+                h.tickTimer = 0;
+                const potentialCollisions = this.spatialHash.query(h);
+                for (const item of potentialCollisions) {
+                    const e = item as EnemyState;
+                    if (this.spatialHash.checkCollision(h, e)) {
+                        if (h.type === 'quicksand') {
+                            e.speedMult *= 0.5; // 50% slow
+                        }
+                        // Damage is per tick now? Or per second?
+                        // Design said "DamagePerTick".
+                        // Existing hazards have "damage" property which was per second or per frame?
+                        // In gaara.ts: damage: 20 * mult (DPS)
+                        // In original code: e.hp -= h.damage * dt;
+                        // So h.damage was DPS.
+                        // Now we apply it every TICK_INTERVAL.
+                        // So damage per tick = h.damage * TICK_INTERVAL.
+                        const dmg = h.damage * TICK_INTERVAL;
+                        e.hp -= dmg;
+                        if (this.random() < 0.1) this.spawnFloatingText(e.pos, Math.ceil(dmg).toString(), 'white', e.id);
                     }
-                    const dmg = h.damage * dt;
-                    e.hp -= dmg;
-                    if (Math.random() < 0.1) this.spawnFloatingText(e.pos, Math.ceil(h.damage).toString(), 'white');
                 }
             }
         }
@@ -492,7 +537,7 @@ export class ShinobiSurvivalGame extends Game {
                         e.dotTimer = 1.0; // Tick every second
                         const bleedDmg = e.bleedStacks * 5; // 5 damage per stack
                         e.hp -= bleedDmg;
-                        this.spawnFloatingText(e.pos, bleedDmg.toString(), "red");
+                        this.spawnFloatingText(e.pos, bleedDmg.toString(), "red", e.id);
                         // Bleed stacks decay? Or permanent until death?
                         // Usually stacks decay or have duration.
                         // Let's say they decay by 1 every tick? Or separate duration?
@@ -567,18 +612,29 @@ export class ShinobiSurvivalGame extends Game {
                 // Grow over time
                 proj.size += 20 * dt;
 
-                // Spawn fire trail (Hazard)
-                if (this.random() < 0.1) { // 10% chance per tick
-                    // Use hazard instead of projectile
-                    this.hazards.push({
+                // Manage Trail
+                if (proj.trailId === undefined) {
+                    const trail: HazardZoneState = {
                         id: this.nextEntityId++,
                         pos: new Vec2(proj.pos.x, proj.pos.y),
-                        radius: proj.size * 0.8, // 80% of fireball size
+                        radius: proj.size * 0.8,
                         duration: 2.0,
                         damage: 5,
                         type: 'fire',
-                        ownerId: proj.ownerId
-                    });
+                        ownerId: proj.ownerId,
+                        shape: { type: 'capsule', radius: proj.size * 0.8, startOffset: new Vec2(0, 0), endOffset: new Vec2(0, 0) },
+                        tickTimer: 0
+                    };
+                    this.hazards.push(trail);
+                    proj.trailId = trail.id;
+                } else {
+                    const trail = this.hazards.find(h => h.id === proj.trailId);
+                    if (trail && trail.shape.type === 'capsule') {
+                        trail.shape.endOffset.x = proj.pos.x - trail.pos.x;
+                        trail.shape.endOffset.y = proj.pos.y - trail.pos.y;
+                        trail.shape.radius = proj.size * 0.8;
+                        trail.duration = 2.0; // Keep refreshing duration while fireball is alive
+                    }
                 }
             }
 
@@ -587,13 +643,15 @@ export class ShinobiSurvivalGame extends Game {
             proj.pos.y += proj.vel.y * dt;
 
             // Collision with Enemies
-            for (let j = this.enemies.length - 1; j >= 0; j--) {
-                const e = this.enemies[j];
+            const potentialCollisions = this.spatialHash.query(proj);
+            for (const item of potentialCollisions) {
+                const e = item as EnemyState;
                 if (proj.hitList.includes(e.id)) continue;
 
                 let hit = false;
                 if (proj.type === 'rotating_slash' || proj.type === 'rotating_slash_lightning' || proj.type === 'sword_slash_chidori') {
-                    // Sector Collision
+                    // Sector Collision (Special case, not fully handled by SpatialHash yet)
+                    // But we can use SpatialHash broadphase to get candidates.
                     const owner = this.players[proj.ownerId];
                     if (owner) {
                         const distToOwner = Math.sqrt((e.pos.x - owner.pos.x) ** 2 + (e.pos.y - owner.pos.y) ** 2);
@@ -611,8 +669,8 @@ export class ShinobiSurvivalGame extends Game {
                         }
                     }
                 } else {
-                    const dist = Math.sqrt((proj.pos.x - e.pos.x) ** 2 + (proj.pos.y - e.pos.y) ** 2);
-                    if (dist < proj.size) hit = true;
+                    // Standard Collision
+                    hit = this.spatialHash.checkCollision(proj, e);
                 }
 
                 if (hit) {
@@ -639,7 +697,8 @@ export class ShinobiSurvivalGame extends Game {
                     }
 
                     if (e.hp <= 0) {
-                        this.enemies.splice(j, 1);
+                        e.dead = true;
+                        // this.enemies.splice(j, 1); // Handled by cleanup loop
                         // Drop XP
                         this.xpOrbs.push({
                             id: this.nextEntityId++,
@@ -698,14 +757,7 @@ export class ShinobiSurvivalGame extends Game {
         }
 
         // Floating Text Update
-        for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
-            const ft = this.floatingTexts[i];
-            ft.life -= dt;
-            ft.pos.y -= 20 * dt; // Float up
-            if (ft.life <= 0) {
-                this.floatingTexts.splice(i, 1);
-            }
-        }
+        FloatingTextHelper.update(this.floatingTexts, dt);
     }
 
     damagePlayer(p: PlayerState, amount: number) {
@@ -717,7 +769,7 @@ export class ShinobiSurvivalGame extends Game {
                 if (this.random() < 0.15) {
                     // Dodge!
                     p.charState.sharinganCooldown = 5.0; // Set cooldown
-                    this.spawnFloatingText(p.pos, "Dodge!", "cyan");
+                    this.spawnFloatingText(p.pos, "Dodge!", "cyan", p.id);
 
                     // Grant Crit Buff
                     if ('dodgeBuffTimer' in p.charState) {
@@ -780,7 +832,7 @@ export class ShinobiSurvivalGame extends Game {
             if (sourcePlayer.charState.meter >= 100) {
                 finalDamage *= 5;
                 sourcePlayer.charState.meter = 0; // Consume
-                this.spawnFloatingText(sourcePlayer.pos, "SMASH!", "pink");
+                this.spawnFloatingText(sourcePlayer.pos, "SMASH!", "pink", sourcePlayer.id);
             }
         }
 
@@ -789,7 +841,7 @@ export class ShinobiSurvivalGame extends Game {
         // Visuals
         const color = isCrit ? 'yellow' : 'white';
         const text = Math.ceil(finalDamage).toString() + (isCrit ? "!" : "");
-        this.spawnFloatingText(e.pos, text, color);
+        this.spawnFloatingText(e.pos, text, color, e.id);
 
         if (e.hp <= 0) {
             e.dead = true;
@@ -869,7 +921,8 @@ export class ShinobiSurvivalGame extends Game {
             targetAngle: angle, // Store initial angle
             ownerId: ownerId,
             hitList: [],
-            size: size
+            size: size,
+            shape: { type: 'circle', radius: size }
         });
     }
 
@@ -1055,21 +1108,22 @@ export class ShinobiSurvivalGame extends Game {
             push: new Vec2(0, 0),
             rooted: false,
             damageDebuff: 1.0,
-            speedMult: 1.0
+            speedMult: 1.0,
+            shape: { type: 'circle', radius: 20 }
         });
     }
 
-    spawnFloatingText(pos: Vec2, text: string, color: string) {
-        this.floatingTexts.push({
-            id: this.nextEntityId++,
-            pos: new Vec2(pos.x, pos.y - 20),
-            vel: new Vec2(0, -20),
-            text: text,
-            color: color,
-            life: 1.0,
-            maxLife: 1.0,
-            size: 20
-        });
+    spawnFloatingText(pos: Vec2, text: string, color: string, targetId?: number) {
+        // Find target position if possible
+        let targetPos: Vec2 | undefined;
+        if (targetId !== undefined) {
+            const enemy = this.enemies.find(e => e.id === targetId);
+            if (enemy) targetPos = enemy.pos;
+            const player = this.players[targetId];
+            if (player) targetPos = player.pos;
+        }
+
+        this.nextEntityId = FloatingTextHelper.spawn(this.floatingTexts, this.nextEntityId, pos, text, color, targetId, targetPos);
     }
 
     draw(canvas: HTMLCanvasElement) {
@@ -1377,15 +1431,11 @@ export class ShinobiSurvivalGame extends Game {
             }
 
             // Draw Floating Texts
-            for (const ft of this.floatingTexts) {
-                ctx.save();
-                ctx.fillStyle = ft.color;
-                ctx.font = `bold ${ft.size}px Arial`;
-                ctx.textAlign = 'center';
-                ctx.shadowColor = 'black';
-                ctx.shadowBlur = 2;
-                ctx.fillText(ft.text, ft.pos.x, ft.pos.y);
-                ctx.restore();
+            FloatingTextHelper.draw(ctx, this.floatingTexts);
+
+            // Debug: Draw collision shapes
+            if (ShinobiSurvivalGame.debugMode) {
+                this.drawDebugShapes(ctx);
             }
 
             ctx.restore(); // End Camera Transform
@@ -1535,6 +1585,91 @@ export class ShinobiSurvivalGame extends Game {
                 ctx.fillStyle = 'white'; ctx.font = '10px Arial'; ctx.textAlign = 'center';
                 ctx.fillText("READY", x + 15, y + 40);
             }
+        }
+    }
+
+    drawDebugShapes(ctx: CanvasRenderingContext2D) {
+        ctx.globalAlpha = 0.5;
+        ctx.lineWidth = 2;
+
+        // Players (green)
+        ctx.strokeStyle = 'lime';
+        for (const id in this.players) {
+            const p = this.players[id];
+            if (p.dead || !p.shape) continue;
+            this.drawShape(ctx, p.pos, p.shape);
+        }
+
+        // Enemies (red)
+        ctx.strokeStyle = 'red';
+        for (const e of this.enemies) {
+            if (e.dead || !e.shape) continue;
+            this.drawShape(ctx, e.pos, e.shape);
+        }
+
+        // Projectiles (yellow)
+        ctx.strokeStyle = 'yellow';
+        for (const proj of this.projectiles) {
+            if (!proj.shape) continue;
+            this.drawShape(ctx, proj.pos, proj.shape);
+        }
+
+        // Hazards (orange)
+        ctx.strokeStyle = 'orange';
+        for (const h of this.hazards) {
+            if (!h.shape) continue;
+            this.drawShape(ctx, h.pos, h.shape);
+        }
+
+        ctx.globalAlpha = 1.0;
+    }
+
+    drawShape(ctx: CanvasRenderingContext2D, pos: Vec2, shape: Shape) {
+        if (shape.type === 'circle') {
+            ctx.beginPath();
+            ctx.arc(pos.x, pos.y, shape.radius, 0, Math.PI * 2);
+            ctx.stroke();
+        } else if (shape.type === 'capsule') {
+            // Draw capsule as two circles connected by tangent lines
+            const start = new Vec2(pos.x + shape.startOffset.x, pos.y + shape.startOffset.y);
+            const end = new Vec2(pos.x + shape.endOffset.x, pos.y + shape.endOffset.y);
+            const r = shape.radius;
+
+            // Calculate perpendicular direction
+            const dx = end.x - start.x;
+            const dy = end.y - start.y;
+            const len = Math.sqrt(dx * dx + dy * dy);
+            if (len > 0) {
+                const nx = -dy / len * r;
+                const ny = dx / len * r;
+
+                // Draw tangent lines
+                ctx.beginPath();
+                ctx.moveTo(start.x + nx, start.y + ny);
+                ctx.lineTo(end.x + nx, end.y + ny);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(start.x - nx, start.y - ny);
+                ctx.lineTo(end.x - nx, end.y - ny);
+                ctx.stroke();
+            }
+
+            // Draw end caps
+            ctx.beginPath();
+            ctx.arc(start.x, start.y, r, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(end.x, end.y, r, 0, Math.PI * 2);
+            ctx.stroke();
+        } else if (shape.type === 'aabb') {
+            ctx.strokeRect(
+                pos.x - shape.width / 2,
+                pos.y - shape.height / 2,
+                shape.width,
+                shape.height
+            );
         }
     }
 }

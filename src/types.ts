@@ -2,6 +2,34 @@ import { Vec2 } from "netplayjs";
 
 export type GamePhase = 'lobby' | 'charSelect' | 'playing' | 'levelUp' | 'gameOver';
 
+export const DOT_TICK_RATE = 10; // Global DoT tick rate (frames)
+
+export type ShapeType = 'circle' | 'capsule' | 'aabb';
+
+export interface Circle {
+    type: 'circle';
+    radius: number;
+}
+
+export interface Capsule {
+    type: 'capsule';
+    radius: number;
+    startOffset: Vec2;
+    endOffset: Vec2;
+}
+
+export interface AABB {
+    type: 'aabb';
+    width: number;
+    height: number;
+}
+
+export type Shape = Circle | Capsule | AABB;
+
+export interface Collider {
+    shape: Shape;
+}
+
 export interface SkillState {
     cooldown: number;
     chargeTime: number;
@@ -62,6 +90,7 @@ export interface PlayerState {
     maxHp: number;
     character: string | null; // 'naruto', 'sasuke', 'gaara', 'sakura'
     charState: CharacterState | null;
+    shape: Shape;
 
     // Generalized Ability State
     skills: {
@@ -112,6 +141,7 @@ export interface EnemyState {
     hp: number;
     maxHp: number;
     dead: boolean;
+    shape: Shape;
     // Status effects
     burnStacks: number;
     bleedStacks: number;
@@ -138,6 +168,8 @@ export interface ProjectileState {
     ownerId: number;
     hitList: number[]; // Enemy IDs hit
     size: number;
+    shape: Shape;
+    trailId?: number;
 }
 
 export interface XpOrbState {
@@ -167,6 +199,8 @@ export interface HazardZoneState {
     damage: number;
     type: string; // 'fire', 'acid', 'quicksand'
     ownerId: number;
+    shape: Shape;
+    tickTimer: number;
 }
 
 export interface FloatingText {
@@ -178,4 +212,6 @@ export interface FloatingText {
     life: number;
     maxLife: number;
     size: number;
+    targetId?: number;
+    accumulatedValue?: number;
 }

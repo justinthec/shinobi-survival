@@ -18,7 +18,7 @@ export class ChakraScalpelSkill implements SkillLogic {
         if (state.cooldown <= 0) {
             state.activeTime = 5.0; // 5s duration
             state.cooldown = 12.0 * player.stats.cooldownMult;
-            game.spawnFloatingText(player.pos, "Scalpel!", "pink");
+            game.spawnFloatingText(player.pos, "Scalpel!", "pink", player.id);
 
             // Dash forward
             const speed = 600;
@@ -58,7 +58,7 @@ export class HealSkill implements SkillLogic {
             // Heal Self
             const healAmount = 50;
             player.hp = Math.min(player.hp + healAmount, player.maxHp);
-            game.spawnFloatingText(player.pos, "+" + healAmount, "green");
+            game.spawnFloatingText(player.pos, "+" + healAmount, "green", player.id);
 
             // Heal Allies (AoE)
             for (let id in game.players) {
@@ -69,7 +69,7 @@ export class HealSkill implements SkillLogic {
                 const d = Math.sqrt((player.pos.x - p.pos.x) ** 2 + (player.pos.y - p.pos.y) ** 2);
                 if (d < 300) {
                     p.hp = Math.min(p.hp + healAmount, p.maxHp);
-                    game.spawnFloatingText(p.pos, "+" + healAmount, "green");
+                    game.spawnFloatingText(p.pos, "+" + healAmount, "green", p.id);
                 }
             }
 
@@ -90,29 +90,35 @@ export class KatsuyuSkill implements SkillLogic {
             state.activeTime -= dt;
             player.ultActiveTime = state.activeTime;
 
-            // Healing Zone logic
-            // Heal all players in range every second
-            // We can use a timer or just add small amount every frame
-            // Let's add small amount every frame for smoothness
-            const healRate = 20 * dt; // 20 HP/s
+            // Healing Zone logic (Tick based)
+            const DOT_TICK_RATE = 10; // Import or define? It's in types.ts but we can hardcode or import.
+            // Let's assume 10 frames = 10/60 seconds.
+            const tickInterval = 10 / 60;
+            const prevTime = state.activeTime + dt;
 
-            for (let id in game.players) {
-                const p = game.players[id];
-                if (p.dead) continue;
-                const d = Math.sqrt((player.pos.x - p.pos.x) ** 2 + (player.pos.y - p.pos.y) ** 2);
-                if (d < 300) {
-                    p.hp = Math.min(p.hp + healRate, p.maxHp);
+            if (Math.floor(prevTime / tickInterval) !== Math.floor(state.activeTime / tickInterval)) {
+                // Tick!
+                const healPerTick = 20 * tickInterval; // 20 HP/s
+
+                for (let id in game.players) {
+                    const p = game.players[id];
+                    if (p.dead) continue;
+                    const d = Math.sqrt((player.pos.x - p.pos.x) ** 2 + (player.pos.y - p.pos.y) ** 2);
+                    if (d < 300) {
+                        p.hp = Math.min(p.hp + healPerTick, p.maxHp);
+                        game.spawnFloatingText(p.pos, "+" + Math.ceil(healPerTick), "green", p.id);
+                    }
                 }
-            }
 
-            // Damage Enemies (Acid)
-            for (const e of game.enemies) {
-                const d = Math.sqrt((player.pos.x - e.pos.x) ** 2 + (player.pos.y - e.pos.y) ** 2);
-                if (d < 300) {
-                    const dmg = 20 * dt * player.stats.damageMult;
-                    game.damageEnemy(e, dmg, player);
-                    // Apply Slow
-                    e.speedMult = 0.5;
+                // Damage Enemies (Acid)
+                for (const e of game.enemies) {
+                    const d = Math.sqrt((player.pos.x - e.pos.x) ** 2 + (player.pos.y - e.pos.y) ** 2);
+                    if (d < 300) {
+                        const dmg = 20 * tickInterval * player.stats.damageMult;
+                        game.damageEnemy(e, dmg, player);
+                        // Apply Slow
+                        e.speedMult = 0.5;
+                    }
                 }
             }
         }

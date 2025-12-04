@@ -18,7 +18,9 @@ export class DesertQuicksandSkill implements SkillLogic {
                 duration: 5.0,
                 damage: 20 * player.stats.damageMult, // DPS
                 type: 'quicksand', // Slows enemies (handled in game loop)
-                ownerId: player.id
+                ownerId: player.id,
+                shape: { type: 'circle', radius: 200 },
+                tickTimer: 0
             });
             state.cooldown = 8.0 * player.stats.cooldownMult;
         }
