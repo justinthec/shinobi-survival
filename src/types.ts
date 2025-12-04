@@ -215,3 +215,22 @@ export interface FloatingText {
     targetId?: number;
     accumulatedValue?: number;
 }
+
+// Map Types
+export type TileTextureType = 'grass' | 'tree' | 'rock' | 'water';
+
+export interface MapTile {
+    textureType: TileTextureType;
+    blocksEnemyMovement: boolean;
+    blocksEnemyProjectiles: boolean;
+    blocksPlayerMovement: boolean;
+    blocksPlayerProjectiles: boolean;
+    enemySpawnPoint: boolean;
+}
+
+export interface MapState {
+    tiles: MapTile[][];  // tiles[y][x]
+    width: number;       // Number of tiles in X
+    height: number;      // Number of tiles in Y
+    tileSize: number;    // Pixels per tile
+}

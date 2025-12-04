@@ -22,18 +22,21 @@ import {
     FloatingText,
     Shape,
     Collider,
-    DOT_TICK_RATE
+    DOT_TICK_RATE,
+    MapState
 } from "./types";
+import { loadTestMap } from "./map-loader";
 import { SpatialHash } from "./spatial-hash";
 import { FloatingTextHelper } from "./managers/floating-text-manager";
 
 const MAX_ENEMIES = 50;
 export class ShinobiSurvivalGame extends Game {
     static timestep = 1000 / 60;
-    static canvasSize = { width: 640, height: 360 };
+    static canvasSize = { width: 1470, height: 900 };
     static numPlayers = 2; // Default, can be overridden by wrapper
     static localPlayerId: number | null = null;
     static debugMode: boolean = false; // Toggle with backtick key
+    static map: MapState = loadTestMap(); // Static map - not serialized by NetplayJS
 
     // Game State
     players: Record<number, PlayerState> = {};
@@ -178,13 +181,23 @@ export class ShinobiSurvivalGame extends Game {
     }
 
     initializeGame() {
+        // Calculate map center for spawning
+        let spawnX = 0;
+        let spawnY = 0;
+        if (ShinobiSurvivalGame.map) {
+            spawnX = (ShinobiSurvivalGame.map.width * ShinobiSurvivalGame.map.tileSize) / 2;
+            spawnY = (ShinobiSurvivalGame.map.height * ShinobiSurvivalGame.map.tileSize) / 2;
+        }
+
         // Reset positions and stats based on character
-        const startX = -200;
-        const spacing = 100;
+        const spacing = 40;
+        const playerCount = Object.keys(this.players).length;
+        const startOffset = -((playerCount - 1) * spacing) / 2;
+
         let i = 0;
         for (let id in this.players) {
             const p = this.players[id];
-            p.pos = new Vec2(startX + i * spacing, 0);
+            p.pos = new Vec2(spawnX + startOffset + i * spacing, spawnY);
 
             // Apply character base stats
             if (p.character === 'naruto') {
@@ -318,14 +331,17 @@ export class ShinobiSurvivalGame extends Game {
                 }
             }
 
-            // Map Boundaries
-            const MAP_WIDTH = 1400;
-            const LANE_WIDTH = MAP_WIDTH / 2;
-            if (p.pos.x < -LANE_WIDTH + 20) p.pos.x = -LANE_WIDTH + 20;
-            if (p.pos.x > LANE_WIDTH - 20) p.pos.x = LANE_WIDTH - 20;
-            // Y is infinite? Original code didn't clamp Y, but let's check index.html.
-            // index.html only clamps X: if (this.x < -LANE_WIDTH + 20) ...
-            // So we only clamp X.
+            // Map Boundaries - constrain player to map
+            if (ShinobiSurvivalGame.map) {
+                const mapWidth = ShinobiSurvivalGame.map.width * ShinobiSurvivalGame.map.tileSize;
+                const mapHeight = ShinobiSurvivalGame.map.height * ShinobiSurvivalGame.map.tileSize;
+                const playerRadius = 20;
+
+                if (p.pos.x < playerRadius) p.pos.x = playerRadius;
+                if (p.pos.x > mapWidth - playerRadius) p.pos.x = mapWidth - playerRadius;
+                if (p.pos.y < playerRadius) p.pos.y = playerRadius;
+                if (p.pos.y > mapHeight - playerRadius) p.pos.y = mapHeight - playerRadius;
+            }
 
             // Mouse Aiming
             if (input.mousePosition) {
@@ -562,6 +578,18 @@ export class ShinobiSurvivalGame extends Game {
 
             // Reset speedMult for next frame (so hazards can re-apply it)
             e.speedMult = 1.0;
+
+            // Constrain enemy to map bounds
+            if (ShinobiSurvivalGame.map) {
+                const mapWidth = ShinobiSurvivalGame.map.width * ShinobiSurvivalGame.map.tileSize;
+                const mapHeight = ShinobiSurvivalGame.map.height * ShinobiSurvivalGame.map.tileSize;
+                const enemyRadius = 20;
+
+                if (e.pos.x < enemyRadius) e.pos.x = enemyRadius;
+                if (e.pos.x > mapWidth - enemyRadius) e.pos.x = mapWidth - enemyRadius;
+                if (e.pos.y < enemyRadius) e.pos.y = enemyRadius;
+                if (e.pos.y > mapHeight - enemyRadius) e.pos.y = mapHeight - enemyRadius;
+            }
         }
 
         // Remove dead enemies
@@ -1060,6 +1088,8 @@ export class ShinobiSurvivalGame extends Game {
     }
 
     spawnEnemy() {
+        if (!ShinobiSurvivalGame.map) return; // Need map to spawn enemies
+
         // Determine enemy type based on time
         let type = 'zetsu';
         const rand = this.random();
@@ -1075,14 +1105,33 @@ export class ShinobiSurvivalGame extends Game {
             type = rand < 0.4 ? 'zetsu' : (rand < 0.7 ? 'sound' : 'snake');
         }
 
-        const side = this.random() < 0.5 ? -1 : 1;
-        const MAP_WIDTH = 1400;
-        const pIds = Object.keys(this.players);
-        if (pIds.length === 0) return;
-        const p = this.players[parseInt(pIds[Math.floor(this.random() * pIds.length)])];
+        const mapWidth = ShinobiSurvivalGame.map.width * ShinobiSurvivalGame.map.tileSize;
+        const mapHeight = ShinobiSurvivalGame.map.height * ShinobiSurvivalGame.map.tileSize;
 
-        const startX = side === -1 ? -MAP_WIDTH / 2 - 50 : MAP_WIDTH / 2 + 50;
-        const startY = p.pos.y + (this.random() - 0.5) * 800;
+        // Spawn from edges of the map
+        let startX: number;
+        let startY: number;
+        const edge = Math.floor(this.random() * 4); // 0=top, 1=right, 2=bottom, 3=left
+
+        switch (edge) {
+            case 0: // Top edge
+                startX = this.random() * mapWidth;
+                startY = -20;
+                break;
+            case 1: // Right edge
+                startX = mapWidth + 20;
+                startY = this.random() * mapHeight;
+                break;
+            case 2: // Bottom edge
+                startX = this.random() * mapWidth;
+                startY = mapHeight + 20;
+                break;
+            case 3: // Left edge
+            default:
+                startX = -20;
+                startY = this.random() * mapHeight;
+                break;
+        }
 
         // HP Scaling
         const timeScale = 1 + (this.gameTime / 60); // +100% HP every minute
@@ -1151,42 +1200,73 @@ export class ShinobiSurvivalGame extends Game {
 
             ctx.translate(-cx, -cy);
 
-            // Draw Grid/Trees
-            const gridY = 100;
-            const startY = Math.floor((cy - 200) / gridY) * gridY;
-            const endY = cy + canvas.height + 200;
-            const forestLeft = -700;
-            const forestRight = 700;
+            // Draw Map Tiles
+            if (ShinobiSurvivalGame.map) {
+                const tileSize = ShinobiSurvivalGame.map.tileSize;
+                // Calculate visible tile range
+                const startTileX = Math.max(0, Math.floor(cx / tileSize));
+                const startTileY = Math.max(0, Math.floor(cy / tileSize));
+                const endTileX = Math.min(ShinobiSurvivalGame.map.width, Math.ceil((cx + canvas.width) / tileSize) + 1);
+                const endTileY = Math.min(ShinobiSurvivalGame.map.height, Math.ceil((cy + canvas.height) / tileSize) + 1);
 
-            // Draw tiled grass floor
-            if (SPRITES.grass && SPRITES.grass instanceof HTMLImageElement && SPRITES.grass.complete) {
-                const tileSize = 64; // Adjust based on your grass.png dimensions
-                const grassStartX = Math.floor((cx - 200) / tileSize) * tileSize;
-                const grassStartY = Math.floor((cy - 200) / tileSize) * tileSize;
-                const grassEndX = cx + canvas.width + 200;
-                const grassEndY = cy + canvas.height + 200;
+                for (let ty = startTileY; ty < endTileY; ty++) {
+                    for (let tx = startTileX; tx < endTileX; tx++) {
+                        const tile = ShinobiSurvivalGame.map.tiles[ty][tx];
+                        const worldX = tx * tileSize;
+                        const worldY = ty * tileSize;
 
-                for (let y = grassStartY; y < grassEndY; y += tileSize) {
-                    for (let x = grassStartX; x < grassEndX; x += tileSize) {
-                        ctx.drawImage(SPRITES.grass, x, y, tileSize, tileSize);
+                        // Get the sprite for this tile type
+                        const spriteKey = `tile_${tile.textureType}`;
+                        const sprite = SPRITES[spriteKey];
+
+                        if (sprite) {
+                            ctx.drawImage(sprite, worldX, worldY, tileSize, tileSize);
+                        } else {
+                            // Fallback colors if sprite not available
+                            switch (tile.textureType) {
+                                case 'grass': ctx.fillStyle = '#2d5a27'; break;
+                                case 'tree': ctx.fillStyle = '#1b5e20'; break;
+                                case 'rock': ctx.fillStyle = '#6b6b6b'; break;
+                                case 'water': ctx.fillStyle = '#1a5276'; break;
+                                default: ctx.fillStyle = '#2d5a27';
+                            }
+                            ctx.fillRect(worldX, worldY, tileSize, tileSize);
+                        }
                     }
                 }
-            }
+            } else {
+                // Fallback: Draw old tiled grass floor if no map loaded
+                if (SPRITES.grass && SPRITES.grass instanceof HTMLImageElement && SPRITES.grass.complete) {
+                    const tileSize = 64;
+                    const grassStartX = Math.floor((cx - 200) / tileSize) * tileSize;
+                    const grassStartY = Math.floor((cy - 200) / tileSize) * tileSize;
+                    const grassEndX = cx + canvas.width + 200;
+                    const grassEndY = cy + canvas.height + 200;
 
-            // Draw forest borders
-            for (let y = startY; y < endY; y += gridY) {
-
-                if (cx < forestLeft + 200) {
-                    for (let x = forestLeft - 300; x < forestLeft; x += 80) {
-                        const offX = ((Math.abs(y * x)) % 20);
-                        // Draw tree sprite (placeholder rect if sprite not ready, but we have SPRITES.tree)
-                        if (SPRITES.tree) ctx.drawImage(SPRITES.tree, x, y);
+                    for (let y = grassStartY; y < grassEndY; y += tileSize) {
+                        for (let x = grassStartX; x < grassEndX; x += tileSize) {
+                            ctx.drawImage(SPRITES.grass, x, y, tileSize, tileSize);
+                        }
                     }
                 }
-                if (cx + canvas.width > forestRight - 200) {
-                    for (let x = forestRight; x < forestRight + 300; x += 80) {
-                        const offX = ((Math.abs(y * x)) % 15);
-                        if (SPRITES.tree) ctx.drawImage(SPRITES.tree, x - 60, y); // Shift left by half width to align trunk
+
+                // Draw forest borders (old system)
+                const gridY = 100;
+                const startY = Math.floor((cy - 200) / gridY) * gridY;
+                const endY = cy + canvas.height + 200;
+                const forestLeft = -700;
+                const forestRight = 700;
+
+                for (let y = startY; y < endY; y += gridY) {
+                    if (cx < forestLeft + 200) {
+                        for (let x = forestLeft - 300; x < forestLeft; x += 80) {
+                            if (SPRITES.tree) ctx.drawImage(SPRITES.tree, x, y);
+                        }
+                    }
+                    if (cx + canvas.width > forestRight - 200) {
+                        for (let x = forestRight; x < forestRight + 300; x += 80) {
+                            if (SPRITES.tree) ctx.drawImage(SPRITES.tree, x - 60, y);
+                        }
                     }
                 }
             }

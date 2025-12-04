@@ -1,0 +1,427 @@
+{
+    "width": 10,
+    "height": 10,
+    "tileSize": 32,
+    "tiles": [
+        [
+            {
+                "textureType": "tree",
+                "blocksPlayerMovement": true
+            },
+            {
+                "textureType": "tree",
+                "blocksPlayerMovement": true
+            },
+            {
+                "textureType": "tree",
+                "blocksPlayerMovement": true
+            },
+            {
+                "textureType": "tree",
+                "blocksPlayerMovement": true
+            },
+            {
+                "textureType": "tree",
+                "blocksPlayerMovement": true
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            }
+        ],
+        [
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            }
+        ],
+        [
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            }
+        ],
+        [
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "water",
+                "blocksPlayerMovement": true
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            }
+        ],
+        [
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "water",
+                "blocksPlayerMovement": true
+            },
+            {
+                "textureType": "water",
+                "blocksPlayerMovement": true
+            },
+            {
+                "textureType": "water",
+                "blocksPlayerMovement": true
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            }
+        ],
+        [
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "water",
+                "blocksPlayerMovement": true
+            },
+            {
+                "textureType": "water",
+                "blocksPlayerMovement": true
+            },
+            {
+                "textureType": "water",
+                "blocksPlayerMovement": true
+            },
+            {
+                "textureType": "water",
+                "blocksPlayerMovement": true
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            }
+        ],
+        [
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "water",
+                "blocksPlayerMovement": true
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            }
+        ],
+        [
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            }
+        ],
+        [
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            }
+        ],
+        [
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            },
+            {
+                "textureType": "grass",
+                "blocksPlayerMovement": false
+            }
+        ]
+    ]
+}

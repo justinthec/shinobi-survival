@@ -22,6 +22,76 @@ export function initSprites() {
         ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(cx, cy + 75, 40, 15, 0, 0, Math.PI * 2); ctx.fill();
     });
 
+    // Tile sprites for map rendering
+    SPRITES.tile_grass = makeSprite(32, 32, (ctx, cx, cy) => {
+        ctx.fillStyle = '#2d5a27';
+        ctx.fillRect(0, 0, 32, 32);
+        // Add some grass detail
+        ctx.fillStyle = '#3d7a37';
+        for (let i = 0; i < 8; i++) {
+            const x = (i * 17 + 5) % 30;
+            const y = (i * 11 + 3) % 30;
+            ctx.fillRect(x, y, 3, 2);
+        }
+    });
+
+    SPRITES.tile_tree = makeSprite(32, 32, (ctx, cx, cy) => {
+        // Ground
+        ctx.fillStyle = '#2d5a27';
+        ctx.fillRect(0, 0, 32, 32);
+        // Trunk
+        ctx.fillStyle = '#3e2723';
+        ctx.fillRect(cx - 3, cy + 4, 6, 12);
+        // Leaves
+        ctx.fillStyle = '#1b5e20';
+        ctx.beginPath();
+        ctx.arc(cx, cy - 2, 10, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#2d7a27';
+        ctx.beginPath();
+        ctx.arc(cx - 3, cy - 4, 6, 0, Math.PI * 2);
+        ctx.fill();
+    });
+
+    SPRITES.tile_rock = makeSprite(32, 32, (ctx, cx, cy) => {
+        // Ground
+        ctx.fillStyle = '#2d5a27';
+        ctx.fillRect(0, 0, 32, 32);
+        // Rock
+        ctx.fillStyle = '#6b6b6b';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + 4, 12, 8, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Highlight
+        ctx.fillStyle = '#8a8a8a';
+        ctx.beginPath();
+        ctx.ellipse(cx - 3, cy + 2, 6, 4, -0.3, 0, Math.PI * 2);
+        ctx.fill();
+        // Shadow
+        ctx.fillStyle = '#4a4a4a';
+        ctx.beginPath();
+        ctx.ellipse(cx + 4, cy + 6, 4, 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+    });
+
+    SPRITES.tile_water = makeSprite(32, 32, (ctx, cx, cy) => {
+        // Water base
+        ctx.fillStyle = '#1a5276';
+        ctx.fillRect(0, 0, 32, 32);
+        // Ripples
+        ctx.strokeStyle = '#2980b9';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(cx - 6, cy - 4, 4, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx + 8, cy + 6, 3, 0, Math.PI * 2);
+        ctx.stroke();
+        // Highlight
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.fillRect(cx - 8, cy - 8, 6, 3);
+    });
+
     SPRITES.naruto = makeSprite(64, 64, (ctx, cx, cy) => {
         ctx.fillStyle = '#ff6b00'; ctx.beginPath(); ctx.arc(cx, cy + 10, 15, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#f1c40f'; drawSpikyHair(ctx, cx, cy - 5, 18, '#f1c40f');

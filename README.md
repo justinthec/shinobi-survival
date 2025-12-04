@@ -1,6 +1,9 @@
-Shinobi Survival Multiplayer
+# Shinobi Survival Multiplayer
 
-Play: [https://www.jchan.me/shinobi-survival/dist/game.html](https://www.jchan.me/shinobi-survival/dist/game.html)
+## Quick links
+ - Play: https://www.jchan.me/shinobi-survival/dist/game.html
+ - Map Maker / Viewer: https://gemini.google.com/share/0f64b691c8fe
+ - Procedural Map Generator: https://gemini.google.com/share/326466148d96
 
 ## Contributing
 
@@ -35,41 +38,47 @@ Deployment happens automatically from the `main` branch using GitHub Pages and c
 ## TODOs
 
 ### Meta
-- Migrate TODOs to GitHub Issues.
+- [ ] Migrate TODOs to GitHub Issues.
 
 ### Mechanics / Core Bugs
-- Figure out gametime issue
-- Add a timer to the game
-- Performance:
+- [ ] Figure out gametime issue
+- [ ] Add a timer to the game
+- [ ] Performance:
   - Add Entity Counter to debug mode. From my testing, the game gets laggier with time (Ping increases steadily). This implies that we are accumulating some sort of state that is not being cleaned up. My bet right now is xp orbs (we should add a limiter for this) but there could be something else. Need to research.
 
 ### Gameplay Features
-- Expand the map
-- Add drops to the map
-- Implement death / revive system.
-- Flesh out upgrade system
-  - Come up with more upgrades and combinations
-  - Weapon levels (already brainstormed some of these)
-- Refactor Spawning logic to be cleaner and wave based.
-- Make enemies more interesting
+- [ ] Implement death / revive system.
+- [ ] Flesh out upgrade system
+  - [ ] Come up with more upgrades and combinations
+  - [ ] Weapon levels (already brainstormed some of these)
+- [ ] Refactor Spawning logic to be cleaner and wave based.
+- [ ] Make enemies more interesting
+
+### Map System
+- [x] Expand the map
+- [ ] Add drops to the map
+- [ ] **Handle Mutable Map State**: Currently `MapState` is static to avoid NetplayJS serialization issues. For future features like destructible walls or changing maps (boss arenas), we need a strategy:
+  - **Option A**: Implement custom serializer/deserializer for `MapState` so it can be part of the synced game state.
+  - **Option B**: Keep `MapState` as a stateless helper but store a raw `tiles` array (primitive data) in `gameState` that gets auto-serialized.
 
 ### Aesthetic Improvements
-- Create a way for us to draw new sprites underneath other sprites (Z-axis system)
+- [ ] Create a way for us to draw new sprites underneath other sprites (Z-axis system)
   - Need this for Naruto crater and Sasuke Rinnegan portal fx.
-- Add player damage floating text
-- Sound effects for skills?
-- Add some floating text for all skills when used.
+- [ ] Add player damage floating text
+- [ ] Sound effects for skills?
+- [ ] Add some floating text for all skills when used.
 
 ### Characters
-- Naruto
+- [ ] Naruto
   - The Level 5 attack shouldn't die when it hits enemies.
-- Sasuke
+  - Kuruma beam doesnt use a capsule shape for some reason. At least when viewed through debug mode.
+- [ ] Sasuke
   - Rinnegan Swap floating text should be purple
   - Fire trail should be a hazard not a projectile
      - Fix the shape of this and get this working again.
   - Level 5 unimplemented.
-- Sakura Polish
+- [ ] Sakura Polish
   - Heal doesn't show the radius or have any VFX
   - Find other ways to make her ultimate more performant.
-- Gaara Polish
+- [ ] Gaara Polish
   - Gaara Q doesn't freeze him in place
