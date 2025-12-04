@@ -179,3 +179,16 @@ export interface FloatingText {
     maxLife: number;
     size: number;
 }
+
+export type TextureType = "grass" | "tree" | "rock";
+
+export interface Tile {
+    blocksEnemyMovement: boolean;
+    blocksEnemyProjectiles: boolean;
+    blocksPlayerMovement: boolean;
+    blocksPlayerProjectiles: boolean;
+    textureType: TextureType;
+    enemySpawnPoint: boolean;
+}
+
+export type GameMap = Tile[][];

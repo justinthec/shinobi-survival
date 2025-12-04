@@ -22,6 +22,16 @@ export function initSprites() {
         ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(cx, cy + 75, 40, 15, 0, 0, Math.PI * 2); ctx.fill();
     });
 
+    SPRITES.rock = makeSprite(64, 64, (ctx, cx, cy) => {
+        ctx.fillStyle = '#8d8d8d';
+        ctx.beginPath();
+        ctx.moveTo(cx - 20, cy + 20);
+        ctx.lineTo(cx, cy - 20);
+        ctx.lineTo(cx + 20, cy + 20);
+        ctx.closePath();
+        ctx.fill();
+    });
+
     SPRITES.naruto = makeSprite(64, 64, (ctx, cx, cy) => {
         ctx.fillStyle = '#ff6b00'; ctx.beginPath(); ctx.arc(cx, cy + 10, 15, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#f1c40f'; drawSpikyHair(ctx, cx, cy - 5, 18, '#f1c40f');

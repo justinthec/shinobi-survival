@@ -1,0 +1,80 @@
+[
+  [
+    {
+      "blocksEnemyMovement": true,
+      "blocksEnemyProjectiles": true,
+      "blocksPlayerMovement": true,
+      "blocksPlayerProjectiles": true,
+      "textureType": "tree",
+      "enemySpawnPoint": false
+    },
+    {
+      "blocksEnemyMovement": true,
+      "blocksEnemyProjectiles": true,
+      "blocksPlayerMovement": true,
+      "blocksPlayerProjectiles": true,
+      "textureType": "tree",
+      "enemySpawnPoint": false
+    },
+    {
+      "blocksEnemyMovement": true,
+      "blocksEnemyProjectiles": true,
+      "blocksPlayerMovement": true,
+      "blocksPlayerProjectiles": true,
+      "textureType": "tree",
+      "enemySpawnPoint": false
+    }
+  ],
+  [
+    {
+      "blocksEnemyMovement": false,
+      "blocksEnemyProjectiles": false,
+      "blocksPlayerMovement": false,
+      "blocksPlayerProjectiles": false,
+      "textureType": "grass",
+      "enemySpawnPoint": false
+    },
+    {
+      "blocksEnemyMovement": false,
+      "blocksEnemyProjectiles": false,
+      "blocksPlayerMovement": false,
+      "blocksPlayerProjectiles": false,
+      "textureType": "grass",
+      "enemySpawnPoint": true
+    },
+    {
+      "blocksEnemyMovement": false,
+      "blocksEnemyProjectiles": false,
+      "blocksPlayerMovement": false,
+      "blocksPlayerProjectiles": false,
+      "textureType": "grass",
+      "enemySpawnPoint": false
+    }
+  ],
+  [
+    {
+      "blocksEnemyMovement": true,
+      "blocksEnemyProjectiles": true,
+      "blocksPlayerMovement": true,
+      "blocksPlayerProjectiles": true,
+      "textureType": "rock",
+      "enemySpawnPoint": false
+    },
+    {
+      "blocksEnemyMovement": false,
+      "blocksEnemyProjectiles": false,
+      "blocksPlayerMovement": false,
+      "blocksPlayerProjectiles": false,
+      "textureType": "grass",
+      "enemySpawnPoint": false
+    },
+    {
+      "blocksEnemyMovement": true,
+      "blocksEnemyProjectiles": true,
+      "blocksPlayerMovement": true,
+      "blocksPlayerProjectiles": true,
+      "textureType": "rock",
+      "enemySpawnPoint": false
+    }
+  ]
+]

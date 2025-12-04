@@ -19,10 +19,13 @@ import {
     XpOrbState,
     ParticleState,
     HazardZoneState,
-    FloatingText
+    FloatingText,
+    GameMap
 } from "./types";
 
 const MAX_ENEMIES = 50;
+const TILE_SIZE = 64;
+
 export class ShinobiSurvivalGame extends Game {
     static timestep = 1000 / 60;
     static canvasSize = { width: 640, height: 360 };
@@ -37,6 +40,8 @@ export class ShinobiSurvivalGame extends Game {
     particles: ParticleState[] = [];
     hazards: HazardZoneState[] = [];
     floatingTexts: FloatingText[] = [];
+    map: GameMap | null = null;
+    spawnPoints: Vec2[] = [];
 
     gamePhase: GamePhase = 'charSelect';
     teamXP: number = 0;
@@ -156,11 +161,37 @@ export class ShinobiSurvivalGame extends Game {
 
         if (allReady && Object.keys(this.players).length > 0) {
             this.gamePhase = 'playing';
-            this.initializeGame();
+            (async () => {
+                await this.initializeGame();
+            })();
         }
     }
 
-    initializeGame() {
+    async loadMap(url: string) {
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch map: ${response.statusText}`);
+            }
+            this.map = await response.json();
+        } catch (error) {
+            console.error('Error loading map:', error);
+        }
+    }
+
+    async initializeGame() {
+        await this.loadMap('assets/maps/sample-map.json');
+
+        if (this.map) {
+            for (let y = 0; y < this.map.length; y++) {
+                for (let x = 0; x < this.map[y].length; x++) {
+                    if (this.map[y][x].enemySpawnPoint) {
+                        this.spawnPoints.push(new Vec2(x * TILE_SIZE, y * TILE_SIZE));
+                    }
+                }
+            }
+        }
+
         // Reset positions and stats based on character
         const startX = -200;
         const spacing = 100;
@@ -1022,14 +1053,22 @@ export class ShinobiSurvivalGame extends Game {
             type = rand < 0.4 ? 'zetsu' : (rand < 0.7 ? 'sound' : 'snake');
         }
 
-        const side = this.random() < 0.5 ? -1 : 1;
-        const MAP_WIDTH = 1400;
-        const pIds = Object.keys(this.players);
-        if (pIds.length === 0) return;
-        const p = this.players[parseInt(pIds[Math.floor(this.random() * pIds.length)])];
+        let startX, startY;
+        if (this.spawnPoints.length > 0) {
+            const spawnPoint = this.spawnPoints[Math.floor(this.random() * this.spawnPoints.length)];
+            startX = spawnPoint.x;
+            startY = spawnPoint.y;
+        } else {
+            const side = this.random() < 0.5 ? -1 : 1;
+            const MAP_WIDTH = 1400;
+            const pIds = Object.keys(this.players);
+            if (pIds.length === 0) return;
+            const p = this.players[parseInt(pIds[Math.floor(this.random() * pIds.length)])];
 
-        const startX = side === -1 ? -MAP_WIDTH / 2 - 50 : MAP_WIDTH / 2 + 50;
-        const startY = p.pos.y + (this.random() - 0.5) * 800;
+            startX = side === -1 ? -MAP_WIDTH / 2 - 50 : MAP_WIDTH / 2 + 50;
+            startY = p.pos.y + (this.random() - 0.5) * 800;
+        }
+
 
         // HP Scaling
         const timeScale = 1 + (this.gameTime / 60); // +100% HP every minute
