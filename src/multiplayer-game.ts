@@ -28,6 +28,12 @@ import {
 import { loadTestMap } from "./map-loader";
 import { SpatialHash } from "./spatial-hash";
 import { FloatingTextHelper } from "./managers/floating-text-manager";
+import { CombatManager } from "./managers/combat-manager";
+import { XpManager } from "./managers/xp-manager";
+import { UpgradeManager } from "./managers/upgrade-manager";
+import { EnemyManager } from "./managers/enemy-manager";
+import { ParticleManager } from "./managers/particle-manager";
+import { HazardManager } from "./managers/hazard-manager";
 
 const MAX_ENEMIES = 50;
 export class ShinobiSurvivalGame extends Game {
@@ -1035,41 +1041,8 @@ export class ShinobiSurvivalGame extends Game {
     }
 
     generateUpgrades(player: PlayerState): UpgradeOption[] {
-        const upgrades: UpgradeOption[] = [];
-
-        // Always offer weapon level up if not maxed
-        if (player.weaponLevel < 5) {
-            const levelText = player.weaponLevel === 4 ? "Evolution" : `Level ${player.weaponLevel + 1}`;
-            upgrades.push({
-                id: 'weapon_level',
-                name: `Increase Weapon Level (${levelText})`,
-                description: `Upgrade your main weapon to the next level`,
-                type: 'weapon'
-            });
-        }
-
-        // Add placeholder stat upgrades
-        upgrades.push({
-            id: 'damage',
-            name: 'Increase Damage (+20%)',
-            description: 'Increase all damage dealt',
-            type: 'stat'
-        });
-
-        upgrades.push({
-            id: 'cooldown',
-            name: 'Reduce Cooldown (-15%)',
-            description: 'Reduce all skill cooldowns',
-            type: 'stat'
-        });
-
-        // Return 3 random upgrades (shuffle and take 3)
-        for (let i = upgrades.length - 1; i > 0; i--) {
-            const j = Math.floor(this.random() * (i + 1));
-            [upgrades[i], upgrades[j]] = [upgrades[j], upgrades[i]];
-        }
-
-        return upgrades.slice(0, 3);
+        // Delegate to UpgradeManager
+        return UpgradeManager.generate(player, this.random.bind(this));
     }
 
     tickLevelUp(playerInputs: Map<NetplayPlayer, DefaultInput>) {
@@ -1104,19 +1077,28 @@ export class ShinobiSurvivalGame extends Game {
     }
 
     applyUpgrade(player: PlayerState, upgrade: UpgradeOption) {
+        // Delegate to UpgradeManager for stat changes
+        UpgradeManager.apply(player, upgrade);
+
+        // Provide visual feedback
         switch (upgrade.id) {
             case 'weapon_level':
-                player.weaponLevel = Math.min(player.weaponLevel + 1, 5);
-                if (player.weaponLevel >= 5) player.isEvolved = true;
                 this.spawnFloatingText(player.pos, `Weapon Level ${player.weaponLevel}!`, 'gold');
                 break;
             case 'damage':
-                player.stats.damageMult *= 1.2;
                 this.spawnFloatingText(player.pos, '+20% Damage!', 'red');
                 break;
             case 'cooldown':
-                player.stats.cooldownMult *= 0.85;
                 this.spawnFloatingText(player.pos, '-15% Cooldown!', 'cyan');
+                break;
+            case 'crit':
+                this.spawnFloatingText(player.pos, '+5% Crit!', 'yellow');
+                break;
+            case 'area':
+                this.spawnFloatingText(player.pos, '+15% Area!', 'purple');
+                break;
+            case 'knockback':
+                this.spawnFloatingText(player.pos, '+20% Knockback!', 'orange');
                 break;
         }
     }
