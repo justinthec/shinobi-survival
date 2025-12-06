@@ -28,6 +28,12 @@ import {
 import { loadTestMap } from "./map-loader";
 import { SpatialHash } from "./spatial-hash";
 import { FloatingTextHelper } from "./managers/floating-text-manager";
+import { CombatManager } from "./managers/combat-manager";
+import { XpManager } from "./managers/xp-manager";
+import { UpgradeManager } from "./managers/upgrade-manager";
+import { EnemyManager } from "./managers/enemy-manager";
+import { ParticleManager } from "./managers/particle-manager";
+import { HazardManager } from "./managers/hazard-manager";
 
 const MAX_ENEMIES = 50;
 export class ShinobiSurvivalGame extends Game {
@@ -739,7 +745,41 @@ export class ShinobiSurvivalGame extends Game {
             }
         }
 
-        // XP Collection
+        // XP Collection & Management
+        // 1. Cap XP Orbs to 500
+        // const MAX_XP_ORBS = 500;
+        // if (this.xpOrbs.length > MAX_XP_ORBS) {
+        //     // Sort by age (ID) to find oldest? Or just assume index 0 is oldest (since we push).
+        //     // Yes, we push to end, so index 0 is oldest.
+        //     const oldestOrb = this.xpOrbs[0];
+
+        //     // Find nearest orb to merge into
+        //     let nearestOrb: XpOrbState | null = null;
+        //     let minDist = Infinity;
+
+        //     // Search a subset to avoid O(N^2) if we did this for many orbs, 
+        //     // but here we only do it for one orb per frame (or a few if we are way over limit).
+        //     // Let's just search all other orbs.
+        //     for (let i = 1; i < this.xpOrbs.length; i++) {
+        //         const other = this.xpOrbs[i];
+        //         const d = Math.sqrt((oldestOrb.pos.x - other.pos.x) ** 2 + (oldestOrb.pos.y - other.pos.y) ** 2);
+        //         if (d < minDist) {
+        //             minDist = d;
+        //             nearestOrb = other;
+        //         }
+        //     }
+
+        //     if (nearestOrb) {
+        //         nearestOrb.val += oldestOrb.val;
+        //         // Remove oldest
+        //         this.xpOrbs.shift();
+        //     } else {
+        //         // No other orbs? Should not happen if length > 500.
+        //         // Just remove it if we can't merge.
+        //         this.xpOrbs.shift();
+        //     }
+        // }
+
         for (let id in this.players) {
             const p = this.players[id];
             if (p.dead) continue;
@@ -1001,41 +1041,8 @@ export class ShinobiSurvivalGame extends Game {
     }
 
     generateUpgrades(player: PlayerState): UpgradeOption[] {
-        const upgrades: UpgradeOption[] = [];
-
-        // Always offer weapon level up if not maxed
-        if (player.weaponLevel < 5) {
-            const levelText = player.weaponLevel === 4 ? "Evolution" : `Level ${player.weaponLevel + 1}`;
-            upgrades.push({
-                id: 'weapon_level',
-                name: `Increase Weapon Level (${levelText})`,
-                description: `Upgrade your main weapon to the next level`,
-                type: 'weapon'
-            });
-        }
-
-        // Add placeholder stat upgrades
-        upgrades.push({
-            id: 'damage',
-            name: 'Increase Damage (+20%)',
-            description: 'Increase all damage dealt',
-            type: 'stat'
-        });
-
-        upgrades.push({
-            id: 'cooldown',
-            name: 'Reduce Cooldown (-15%)',
-            description: 'Reduce all skill cooldowns',
-            type: 'stat'
-        });
-
-        // Return 3 random upgrades (shuffle and take 3)
-        for (let i = upgrades.length - 1; i > 0; i--) {
-            const j = Math.floor(this.random() * (i + 1));
-            [upgrades[i], upgrades[j]] = [upgrades[j], upgrades[i]];
-        }
-
-        return upgrades.slice(0, 3);
+        // Delegate to UpgradeManager
+        return UpgradeManager.generate(player, this.random.bind(this));
     }
 
     tickLevelUp(playerInputs: Map<NetplayPlayer, DefaultInput>) {
@@ -1070,19 +1077,28 @@ export class ShinobiSurvivalGame extends Game {
     }
 
     applyUpgrade(player: PlayerState, upgrade: UpgradeOption) {
+        // Delegate to UpgradeManager for stat changes
+        UpgradeManager.apply(player, upgrade);
+
+        // Provide visual feedback
         switch (upgrade.id) {
             case 'weapon_level':
-                player.weaponLevel = Math.min(player.weaponLevel + 1, 5);
-                if (player.weaponLevel >= 5) player.isEvolved = true;
                 this.spawnFloatingText(player.pos, `Weapon Level ${player.weaponLevel}!`, 'gold');
                 break;
             case 'damage':
-                player.stats.damageMult *= 1.2;
                 this.spawnFloatingText(player.pos, '+20% Damage!', 'red');
                 break;
             case 'cooldown':
-                player.stats.cooldownMult *= 0.85;
                 this.spawnFloatingText(player.pos, '-15% Cooldown!', 'cyan');
+                break;
+            case 'crit':
+                this.spawnFloatingText(player.pos, '+5% Crit!', 'yellow');
+                break;
+            case 'area':
+                this.spawnFloatingText(player.pos, '+15% Area!', 'purple');
+                break;
+            case 'knockback':
+                this.spawnFloatingText(player.pos, '+20% Knockback!', 'orange');
                 break;
         }
     }
@@ -1301,9 +1317,15 @@ export class ShinobiSurvivalGame extends Game {
 
             // Draw XP Orbs
             for (const orb of this.xpOrbs) {
-                ctx.fillStyle = '#00d2ff';
+                // Color based on value
+                let color = '#00d2ff'; // Default Blue (< 50)
+                if (orb.val >= 500) color = '#ff00ff'; // Purple
+                else if (orb.val >= 100) color = '#ffd700'; // Gold
+                else if (orb.val >= 50) color = '#00ff00'; // Green
+
+                ctx.fillStyle = color;
                 ctx.beginPath(); ctx.arc(orb.pos.x, orb.pos.y, 4, 0, Math.PI * 2); ctx.fill();
-                ctx.shadowBlur = 5; ctx.shadowColor = '#00d2ff'; ctx.fill(); ctx.shadowBlur = 0;
+                ctx.shadowBlur = 5; ctx.shadowColor = color; ctx.fill(); ctx.shadowBlur = 0;
             }
 
             // Draw Enemies
@@ -1702,6 +1724,23 @@ export class ShinobiSurvivalGame extends Game {
         }
 
         ctx.globalAlpha = 1.0;
+
+        // Draw Entity Counters
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform to screen space
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(10, 100, 200, 120);
+        ctx.fillStyle = 'white';
+        ctx.font = '12px monospace';
+        ctx.textAlign = 'left';
+        let y = 120;
+        ctx.fillText(`Enemies: ${this.enemies.length}`, 20, y); y += 15;
+        ctx.fillText(`Projectiles: ${this.projectiles.length}`, 20, y); y += 15;
+        ctx.fillText(`XP Orbs: ${this.xpOrbs.length}`, 20, y); y += 15;
+        ctx.fillText(`Particles: ${this.particles.length}`, 20, y); y += 15;
+        ctx.fillText(`Floating Texts: ${this.floatingTexts.length}`, 20, y); y += 15;
+        ctx.fillText(`Hazards: ${this.hazards.length}`, 20, y); y += 15;
+        ctx.restore();
     }
 
     drawShape(ctx: CanvasRenderingContext2D, pos: Vec2, shape: Shape) {
