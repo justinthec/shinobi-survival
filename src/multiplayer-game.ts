@@ -747,38 +747,38 @@ export class ShinobiSurvivalGame extends Game {
 
         // XP Collection & Management
         // 1. Cap XP Orbs to 500
-        const MAX_XP_ORBS = 500;
-        if (this.xpOrbs.length > MAX_XP_ORBS) {
-            // Sort by age (ID) to find oldest? Or just assume index 0 is oldest (since we push).
-            // Yes, we push to end, so index 0 is oldest.
-            const oldestOrb = this.xpOrbs[0];
+        // const MAX_XP_ORBS = 500;
+        // if (this.xpOrbs.length > MAX_XP_ORBS) {
+        //     // Sort by age (ID) to find oldest? Or just assume index 0 is oldest (since we push).
+        //     // Yes, we push to end, so index 0 is oldest.
+        //     const oldestOrb = this.xpOrbs[0];
 
-            // Find nearest orb to merge into
-            let nearestOrb: XpOrbState | null = null;
-            let minDist = Infinity;
+        //     // Find nearest orb to merge into
+        //     let nearestOrb: XpOrbState | null = null;
+        //     let minDist = Infinity;
 
-            // Search a subset to avoid O(N^2) if we did this for many orbs, 
-            // but here we only do it for one orb per frame (or a few if we are way over limit).
-            // Let's just search all other orbs.
-            for (let i = 1; i < this.xpOrbs.length; i++) {
-                const other = this.xpOrbs[i];
-                const d = Math.sqrt((oldestOrb.pos.x - other.pos.x) ** 2 + (oldestOrb.pos.y - other.pos.y) ** 2);
-                if (d < minDist) {
-                    minDist = d;
-                    nearestOrb = other;
-                }
-            }
+        //     // Search a subset to avoid O(N^2) if we did this for many orbs, 
+        //     // but here we only do it for one orb per frame (or a few if we are way over limit).
+        //     // Let's just search all other orbs.
+        //     for (let i = 1; i < this.xpOrbs.length; i++) {
+        //         const other = this.xpOrbs[i];
+        //         const d = Math.sqrt((oldestOrb.pos.x - other.pos.x) ** 2 + (oldestOrb.pos.y - other.pos.y) ** 2);
+        //         if (d < minDist) {
+        //             minDist = d;
+        //             nearestOrb = other;
+        //         }
+        //     }
 
-            if (nearestOrb) {
-                nearestOrb.val += oldestOrb.val;
-                // Remove oldest
-                this.xpOrbs.shift();
-            } else {
-                // No other orbs? Should not happen if length > 500.
-                // Just remove it if we can't merge.
-                this.xpOrbs.shift();
-            }
-        }
+        //     if (nearestOrb) {
+        //         nearestOrb.val += oldestOrb.val;
+        //         // Remove oldest
+        //         this.xpOrbs.shift();
+        //     } else {
+        //         // No other orbs? Should not happen if length > 500.
+        //         // Just remove it if we can't merge.
+        //         this.xpOrbs.shift();
+        //     }
+        // }
 
         for (let id in this.players) {
             const p = this.players[id];

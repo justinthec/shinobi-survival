@@ -7,7 +7,8 @@
     "dev": "webpack serve --mode development",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "test:perf": "jest --testPathPatterns=performance --verbose"
   },
   "dependencies": {
     "netplayjs": "file:bundled_modules/netplayjs-1.0.0.tgz"

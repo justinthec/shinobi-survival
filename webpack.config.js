@@ -5,6 +5,7 @@ module.exports = {
     entry: {
         local: './src/local-testing.ts',
         game: './src/client.ts',
+        profiler: './src/profiler.ts',
     },
     module: {
         rules: [
@@ -33,6 +34,7 @@ module.exports = {
             patterns: [
                 { from: "local-testing.html", to: "." },
                 { from: "game.html", to: "." },
+                { from: "profiler.html", to: "." },
                 { from: "grass.png", to: "." },
             ],
         }),

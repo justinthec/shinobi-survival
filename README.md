@@ -29,6 +29,43 @@
 Press the backtick key to toggle debug mode. This will show you the following:
 - Entity hitboxes (shapes)
 
+### Testing
+
+Run the test suite with:
+
+```bash
+# Run all tests
+npm run test
+
+# Run only performance tests
+npm run test:perf
+
+# Watch mode (re-run on file changes)
+npm run test:watch
+```
+
+Performance tests include:
+- **Tick Performance** - Measures game logic bottlenecks (spatial hash, enemy updates, projectiles, etc.)
+- **Serialization** - Measures state size and serialize/deserialize times for NetplayJS sync
+
+### Performance Profiler
+
+A browser-based profiler is available for real-time performance analysis:
+
+1. Start the dev server: `npm run dev`
+2. Open [`http://localhost:9000/profiler.html`](http://localhost:9000/profiler.html)
+3. Configure entity counts with sliders (enemies up to 1000, projectiles up to 300)
+4. Toggle **Stress Mode** to fire all skills and spawn entities continuously
+5. Click **Run Profiler** to start
+
+**Features:**
+- **Live Stats** - FPS, frame time, budget usage, state size
+- **Timing Breakdown** - Tick, Draw, and Serialize times with visual bars
+- **Session History** - Full session chart that compacts over time
+- **Drift Detection** - Tracks if frame time increases over the session (e.g., `8.2ms → 12.1ms (+3.9ms)`)
+- **Spike Analysis** - Detects frames >2.5x average and correlates with actions
+- **Report Generation** - Click "Generate Report" for a markdown summary you can copy
+
 ### Submitting Changes
 
 Before pushing your code, please run `npm run build` to create the production build in the `dist/` directory.
