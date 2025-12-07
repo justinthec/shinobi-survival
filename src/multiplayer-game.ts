@@ -72,10 +72,23 @@ export class ShinobiSurvivalGame extends Game {
     nextEntityId: number = 0;
     rngSeed: number = 12345; // Initial seed
 
-    // Simple LCG RNG
+    // Simple LCG RNG using the gameTime
     random(): number {
-        this.rngSeed = (this.rngSeed * 1664525 + 1013904223) % 4294967296;
-        return this.rngSeed / 4294967296;
+        // 1. Combine the gameTime with your global seed using XOR.
+        // This ensures that even at gameTime 0, the result depends on the world seed.
+        let h = (this.gameTime ^ this.rngSeed);
+
+        // 2. Apply "Avalanche" mixing.
+        // These specific hex constants and shifts scramble the bits thoroughly.
+        // We use Math.imul() for 32-bit integer multiplication to be safe in JS.
+        h ^= h >>> 16;
+        h = Math.imul(h, 0x85ebca6b);
+        h ^= h >>> 13;
+        h = Math.imul(h, 0xc2b2ae35);
+        h ^= h >>> 16;
+
+        // 3. Convert to Unsigned 32-bit integer and divide to get 0..1 float
+        return (h >>> 0) / 4294967296;
     }
 
     // Get unique color for each player
@@ -1394,11 +1407,14 @@ export class ShinobiSurvivalGame extends Game {
             // Mostly Zetsu
             type = rand < 0.9 ? 'zetsu' : 'sound';
         } else if (this.gameTime < 120) {
+            // Add puppets
+            type = rand < 0.6 ? 'zetsu' : (rand < 0.8 ? 'sound' : 'puppet');
+        } else if (this.gameTime < 180) {
             // Mix
-            type = rand < 0.6 ? 'zetsu' : (rand < 0.9 ? 'sound' : 'snake');
+            type = rand < 0.4 ? 'zetsu' : (rand < 0.6 ? 'sound' : (rand < 0.8 ? 'puppet' : 'snake'));
         } else {
             // Harder mix
-            type = rand < 0.4 ? 'zetsu' : (rand < 0.7 ? 'sound' : 'snake');
+            type = rand < 0.1 ? 'zetsu' : (rand < 0.2 ? 'sound' : (rand < 0.5 ? 'puppet' : 'snake'));
         }
 
         const mapWidth = ShinobiSurvivalGame.map.width * ShinobiSurvivalGame.map.tileSize;
@@ -1581,9 +1597,15 @@ export class ShinobiSurvivalGame extends Game {
                 ctx.shadowBlur = 5; ctx.shadowColor = color; ctx.fill(); ctx.shadowBlur = 0;
             }
 
+            // Draw Items
+            for (const item of this.items) {
+                const sprite = SPRITES[item.type] || SPRITES.placeholder;
+                ctx.drawImage(sprite, item.pos.x - sprite.width / 2, item.pos.y - sprite.height / 2);
+            }
+
             // Draw Enemies
             for (const e of this.enemies) {
-                const sprite = SPRITES[e.type] || SPRITES.zetsu;
+                const sprite = SPRITES[e.type] || SPRITES.placeholder;
                 ctx.drawImage(sprite, e.pos.x - sprite.width / 2, e.pos.y - sprite.height / 2);
 
                 // Enemy HP Bar

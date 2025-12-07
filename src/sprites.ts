@@ -14,6 +14,26 @@ export function initSprites() {
         return c;
     };
 
+    SPRITES.placeholder = makeSprite(32, 32, (ctx, cx, cy) => {
+        // Dark background box
+        ctx.fillStyle = '#222222';
+        ctx.fillRect(0, 0, 32, 32);
+
+        // Bright magenta border (common color for missing textures)
+        ctx.strokeStyle = '#ff00ff';
+        ctx.lineWidth = 2;
+        // Stroke slightly inside so the border doesn't get cut off
+        ctx.strokeRect(1, 1, 30, 30);
+
+        // White Question Mark text
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 20px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        // Offset y slightly because text baseline middle can sometimes feel low
+        ctx.fillText('?', cx, cy + 1);
+    });
+
     SPRITES.tree = makeSprite(120, 160, (ctx, cx, cy) => {
         ctx.fillStyle = '#3e2723'; ctx.fillRect(cx - 15, cy, 30, 80);
         ctx.fillStyle = '#1b5e20';
@@ -154,6 +174,94 @@ export function initSprites() {
     SPRITES.snake = makeSprite(128, 128, (ctx, cx, cy) => {
         ctx.fillStyle = '#5e35b1'; ctx.beginPath(); ctx.ellipse(cx, cy, 30, 50, 0, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#yellow'; ctx.beginPath(); ctx.arc(cx - 10, cy - 30, 5, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(cx + 10, cy - 30, 5, 0, Math.PI * 2); ctx.fill();
+    });
+
+    // Items
+    SPRITES.health = makeSprite(32, 32, (ctx, cx, cy) => {
+        // A thick green cross
+        ctx.fillStyle = '#2ecc71'; // Bright green
+        const thickness = 8;
+        const length = 24;
+
+        // Horizontal bar (centered)
+        ctx.fillRect(cx - length / 2, cy - thickness / 2, length, thickness);
+        // Vertical bar (centered)
+        ctx.fillRect(cx - thickness / 2, cy - length / 2, thickness, length);
+
+        // Optional: A subtle white outline to make it pop
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(cx - length / 2, cy - thickness / 2, length, thickness);
+        ctx.strokeRect(cx - thickness / 2, cy - length / 2, thickness, length);
+    });
+
+    SPRITES.chest = makeSprite(40, 40, (ctx, cx, cy) => {
+        const woodDark = '#5d4037';
+        const woodLight = '#8d6e63';
+        const gold = '#ffd700';
+
+        // Bottom part of the chest
+        ctx.fillStyle = woodDark;
+        // Slightly offset down so the lid sits on top
+        ctx.fillRect(cx - 16, cy + 2, 32, 14);
+
+        // Lid (curved top)
+        ctx.fillStyle = woodLight;
+        ctx.beginPath();
+        ctx.moveTo(cx - 16, cy + 2);
+        // Draw a curve from left to right over the top
+        ctx.quadraticCurveTo(cx, cy - 15, cx + 16, cy + 2);
+        ctx.closePath();
+        ctx.fill();
+
+        // Gold Bands (straps)
+        ctx.fillStyle = gold;
+        ctx.fillRect(cx - 12, cy - 5, 4, 21); // Left strap
+        ctx.fillRect(cx + 8, cy - 5, 4, 21);  // Right strap
+
+        // Lock mechanism
+        ctx.fillStyle = gold;
+        ctx.fillRect(cx - 5, cy + 4, 10, 8);
+        ctx.strokeStyle = '#e6c200'; // Darker gold for outline
+        ctx.lineWidth = 1;
+        ctx.strokeRect(cx - 5, cy + 4, 10, 8);
+        // Keyhole
+        ctx.fillStyle = '#3e2723';
+        ctx.beginPath(); ctx.arc(cx, cy + 7, 2, 0, Math.PI * 2); ctx.fill();
+        ctx.fillRect(cx - 1, cy + 7, 2, 3);
+    });
+
+    SPRITES.magnet = makeSprite(40, 40, (ctx, cx, cy) => {
+        const radius = 12;
+        const legLength = 14;
+        ctx.lineWidth = 8;
+        ctx.lineCap = 'butt'; // Flat ends for the tips
+
+        // 1. Draw the grey curve part (top half)
+        ctx.strokeStyle = '#bdc3c7'; // Silver/grey
+        ctx.beginPath();
+        // Arc from 180 degrees (PI) to 0 degrees
+        ctx.arc(cx, cy - 2, radius, Math.PI, 0);
+        ctx.stroke();
+
+        // 2. Draw the red tips (bottom legs)
+        ctx.strokeStyle = '#c0392b'; // Red
+        ctx.beginPath();
+        // Left leg
+        ctx.moveTo(cx - radius, cy - 2);
+        ctx.lineTo(cx - radius, cy - 2 + legLength);
+        // Right leg
+        ctx.moveTo(cx + radius, cy - 2);
+        ctx.lineTo(cx + radius, cy - 2 + legLength);
+        ctx.stroke();
+
+        // Optional: Add N and S letters
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 10px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('N', cx - radius, cy + 5);
+        ctx.fillText('S', cx + radius, cy + 5);
     });
 
     // VFX & Weapons
