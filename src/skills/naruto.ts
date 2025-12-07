@@ -282,7 +282,13 @@ export class KuramaModeSkill implements SkillLogic {
     }
 
     onPress(state: SkillState, player: PlayerState, game: ShinobiSurvivalGame): void {
-        if (state.cooldown <= 0) {
+        if (state.activeTime > 0) {
+            // Cancel the ultimate if already active
+            state.activeTime = 0;
+            player.ultActiveTime = 0;
+            player.invincible = false;
+        } else if (state.cooldown <= 0) {
+            // Activate the ultimate
             state.activeTime = 6.0;
             state.cooldown = 25.0 * player.stats.cooldownMult;
             player.ultActiveTime = 6.0;
