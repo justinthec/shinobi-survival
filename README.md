@@ -81,10 +81,11 @@ Deployment happens automatically from the `main` branch using GitHub Pages and c
 - [ ] Figure out gametime issue
 - [ ] Add a timer to the game
 - [ ] Performance:
-  - Add Entity Counter to debug mode. From my testing, the game gets laggier with time (Ping increases steadily). This implies that we are accumulating some sort of state that is not being cleaned up. My bet right now is xp orbs (we should add a limiter for this) but there could be something else. Need to research.
+  - [x] Add Entity Counter to debug mode. From my testing, the game gets laggier with time (Ping increases steadily). This implies that we are accumulating some sort of state that is not being cleaned up. My bet right now is xp orbs (we should add a limiter for this) but there could be something else. Need to research.
+  - [ ] Debug multiplayer performance by making the profiler multiplayer. Simulate network throttling. Verify the hypothesis that state payload is too big / serialization takes too long.
 
 ### Gameplay Features
-- [ ] Implement death / revive system.
+- [x] Implement death / revive system.
 - [ ] Flesh out upgrade system
   - [ ] Come up with more upgrades and combinations
   - [ ] Weapon levels (already brainstormed some of these)
@@ -93,7 +94,7 @@ Deployment happens automatically from the `main` branch using GitHub Pages and c
 
 ### Map System
 - [x] Expand the map
-- [ ] Add drops to the map
+- [x] Add drops to the map
 - [ ] **Handle Mutable Map State**: Currently `MapState` is static to avoid NetplayJS serialization issues. For future features like destructible walls or changing maps (boss arenas), we need a strategy:
   - **Option A**: Implement custom serializer/deserializer for `MapState` so it can be part of the synced game state.
   - **Option B**: Keep `MapState` as a stateless helper but store a raw `tiles` array (primitive data) in `gameState` that gets auto-serialized.
@@ -114,8 +115,8 @@ Deployment happens automatically from the `main` branch using GitHub Pages and c
   - Fire trail should be a hazard not a projectile
      - Fix the shape of this and get this working again.
   - Level 5 unimplemented.
-- [ ] Sakura Polish
+- [ ] Sakura
   - Heal doesn't show the radius or have any VFX
   - Find other ways to make her ultimate more performant.
-- [ ] Gaara Polish
+- [ ] Gaara
   - Gaara Q doesn't freeze him in place
