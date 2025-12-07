@@ -6,23 +6,38 @@
         [
             {
                 "textureType": "tree",
-                "blocksPlayerMovement": true
+                "blocksPlayerMovement": true,
+                "blocksEnemyMovement": true,
+                "blocksPlayerProjectiles": true,
+                "blocksEnemyProjectiles": true
             },
             {
                 "textureType": "tree",
-                "blocksPlayerMovement": true
+                "blocksPlayerMovement": true,
+                "blocksEnemyMovement": true,
+                "blocksPlayerProjectiles": true,
+                "blocksEnemyProjectiles": true
             },
             {
                 "textureType": "tree",
-                "blocksPlayerMovement": true
+                "blocksPlayerMovement": true,
+                "blocksEnemyMovement": true,
+                "blocksPlayerProjectiles": true,
+                "blocksEnemyProjectiles": true
             },
             {
                 "textureType": "tree",
-                "blocksPlayerMovement": true
+                "blocksPlayerMovement": true,
+                "blocksEnemyMovement": true,
+                "blocksPlayerProjectiles": true,
+                "blocksEnemyProjectiles": true
             },
             {
                 "textureType": "tree",
-                "blocksPlayerMovement": true
+                "blocksPlayerMovement": true,
+                "blocksEnemyMovement": true,
+                "blocksPlayerProjectiles": true,
+                "blocksEnemyProjectiles": true
             },
             {
                 "textureType": "grass",
@@ -152,7 +167,10 @@
             },
             {
                 "textureType": "water",
-                "blocksPlayerMovement": true
+                "blocksPlayerMovement": true,
+                "blocksEnemyMovement": true,
+                "blocksPlayerProjectiles": true,
+                "blocksEnemyProjectiles": true
             },
             {
                 "textureType": "grass",
@@ -190,15 +208,24 @@
             },
             {
                 "textureType": "water",
-                "blocksPlayerMovement": true
+                "blocksPlayerMovement": true,
+                "blocksEnemyMovement": true,
+                "blocksPlayerProjectiles": true,
+                "blocksEnemyProjectiles": true
             },
             {
                 "textureType": "water",
-                "blocksPlayerMovement": true
+                "blocksPlayerMovement": true,
+                "blocksEnemyMovement": true,
+                "blocksPlayerProjectiles": true,
+                "blocksEnemyProjectiles": true
             },
             {
                 "textureType": "water",
-                "blocksPlayerMovement": true
+                "blocksPlayerMovement": true,
+                "blocksEnemyMovement": true,
+                "blocksPlayerProjectiles": true,
+                "blocksEnemyProjectiles": true
             },
             {
                 "textureType": "grass",
@@ -228,19 +255,31 @@
             },
             {
                 "textureType": "water",
-                "blocksPlayerMovement": true
+                "blocksPlayerMovement": true,
+                "blocksEnemyMovement": true,
+                "blocksPlayerProjectiles": true,
+                "blocksEnemyProjectiles": true
             },
             {
                 "textureType": "water",
-                "blocksPlayerMovement": true
+                "blocksPlayerMovement": true,
+                "blocksEnemyMovement": true,
+                "blocksPlayerProjectiles": true,
+                "blocksEnemyProjectiles": true
             },
             {
                 "textureType": "water",
-                "blocksPlayerMovement": true
+                "blocksPlayerMovement": true,
+                "blocksEnemyMovement": true,
+                "blocksPlayerProjectiles": true,
+                "blocksEnemyProjectiles": true
             },
             {
                 "textureType": "water",
-                "blocksPlayerMovement": true
+                "blocksPlayerMovement": true,
+                "blocksEnemyMovement": true,
+                "blocksPlayerProjectiles": true,
+                "blocksEnemyProjectiles": true
             },
             {
                 "textureType": "grass",
@@ -274,7 +313,10 @@
             },
             {
                 "textureType": "water",
-                "blocksPlayerMovement": true
+                "blocksPlayerMovement": true,
+                "blocksEnemyMovement": true,
+                "blocksPlayerProjectiles": true,
+                "blocksEnemyProjectiles": true
             },
             {
                 "textureType": "grass",

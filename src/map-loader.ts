@@ -40,7 +40,8 @@ export function loadMapFromJson(jsonData: any): MapState {
             blocksEnemyProjectiles: tile.blocksEnemyProjectiles ?? false,
             blocksPlayerMovement: tile.blocksPlayerMovement ?? false,
             blocksPlayerProjectiles: tile.blocksPlayerProjectiles ?? false,
-            enemySpawnPoint: tile.enemySpawnPoint ?? false
+            enemySpawnPoint: tile.enemySpawnPoint ?? false,
+            spawnerType: tile.spawnerType
         }))
     );
 
@@ -80,6 +81,22 @@ export function blocksPlayerMovement(map: MapState, worldX: number, worldY: numb
 export function blocksEnemyMovement(map: MapState, worldX: number, worldY: number): boolean {
     const tile = getTileAtPosition(map, worldX, worldY);
     return tile ? tile.blocksEnemyMovement : true;
+}
+
+/**
+ * Checks if a position blocks player projectiles
+ */
+export function blocksPlayerProjectile(map: MapState, worldX: number, worldY: number): boolean {
+    const tile = getTileAtPosition(map, worldX, worldY);
+    return tile ? tile.blocksPlayerProjectiles : true;
+}
+
+/**
+ * Checks if a position blocks enemy projectiles
+ */
+export function blocksEnemyProjectile(map: MapState, worldX: number, worldY: number): boolean {
+    const tile = getTileAtPosition(map, worldX, worldY);
+    return tile ? tile.blocksEnemyProjectiles : true;
 }
 
 /**

@@ -23,9 +23,11 @@ import {
     Shape,
     Collider,
     DOT_TICK_RATE,
-    MapState
+    MapState,
+    ItemState,
+    SpawnerState
 } from "./types";
-import { loadTestMap } from "./map-loader";
+import { loadTestMap, blocksPlayerMovement, blocksEnemyMovement, blocksPlayerProjectile, blocksEnemyProjectile } from "./map-loader";
 import { SpatialHash } from "./spatial-hash";
 import { FloatingTextHelper } from "./managers/floating-text-manager";
 import { CombatManager } from "./managers/combat-manager";
@@ -51,6 +53,8 @@ export class ShinobiSurvivalGame extends Game {
     xpOrbs: XpOrbState[] = [];
     particles: ParticleState[] = [];
     hazards: HazardZoneState[] = [];
+    items: ItemState[] = [];
+    spawners: SpawnerState[] = [];
 
     spatialHash: SpatialHash = new SpatialHash(200);
     floatingTexts: FloatingText[] = [];
@@ -225,6 +229,25 @@ export class ShinobiSurvivalGame extends Game {
 
             i++;
         }
+
+        // Initialize Spawners
+        this.spawners = [];
+        this.items = [];
+        if (ShinobiSurvivalGame.map) {
+            for (let y = 0; y < ShinobiSurvivalGame.map.height; y++) {
+                for (let x = 0; x < ShinobiSurvivalGame.map.width; x++) {
+                    const tile = ShinobiSurvivalGame.map.tiles[y][x];
+                    if (tile.spawnerType) {
+                        this.spawners.push({
+                            pos: new Vec2((x + 0.5) * ShinobiSurvivalGame.map.tileSize, (y + 0.5) * ShinobiSurvivalGame.map.tileSize),
+                            type: tile.spawnerType,
+                            cooldown: 0,
+                            maxCooldown: 30
+                        });
+                    }
+                }
+            }
+        }
     }
 
     tickPlaying(playerInputs: Map<NetplayPlayer, DefaultInput>) {
@@ -330,8 +353,40 @@ export class ShinobiSurvivalGame extends Game {
 
                 if (dx !== 0 || dy !== 0) {
                     const len = Math.sqrt(dx * dx + dy * dy);
-                    p.pos.x += (dx / len) * moveSpeed * dt;
-                    p.pos.y += (dy / len) * moveSpeed * dt;
+                    const vx = (dx / len) * moveSpeed;
+                    const vy = (dy / len) * moveSpeed;
+
+                    const radius = 20; // Player radius
+
+                    // Try moving X
+                    const nextX = p.pos.x + vx * dt;
+                    let collisionX = false;
+                    // Check 4 corners of AABB at nextX
+                    if (blocksPlayerMovement(ShinobiSurvivalGame.map, nextX - radius, p.pos.y - radius) ||
+                        blocksPlayerMovement(ShinobiSurvivalGame.map, nextX + radius, p.pos.y - radius) ||
+                        blocksPlayerMovement(ShinobiSurvivalGame.map, nextX - radius, p.pos.y + radius) ||
+                        blocksPlayerMovement(ShinobiSurvivalGame.map, nextX + radius, p.pos.y + radius)) {
+                        collisionX = true;
+                    }
+
+                    if (!collisionX) {
+                        p.pos.x = nextX;
+                    }
+
+                    // Try moving Y
+                    const nextY = p.pos.y + vy * dt;
+                    let collisionY = false;
+                    // Check 4 corners of AABB at nextY
+                    if (blocksPlayerMovement(ShinobiSurvivalGame.map, p.pos.x - radius, nextY - radius) ||
+                        blocksPlayerMovement(ShinobiSurvivalGame.map, p.pos.x + radius, nextY - radius) ||
+                        blocksPlayerMovement(ShinobiSurvivalGame.map, p.pos.x - radius, nextY + radius) ||
+                        blocksPlayerMovement(ShinobiSurvivalGame.map, p.pos.x + radius, nextY + radius)) {
+                        collisionY = true;
+                    }
+
+                    if (!collisionY) {
+                        p.pos.y = nextY;
+                    }
 
                     if (dx !== 0) p.direction = Math.sign(dx);
                 }
@@ -544,9 +599,32 @@ export class ShinobiSurvivalGame extends Game {
                 if (e.rooted) e.speedMult = 0;
 
                 const speed = 50 * e.speedMult;
-                // Apply Push
-                e.pos.x += (Math.cos(angle) * speed + e.push.x) * dt;
-                e.pos.y += (Math.sin(angle) * speed + e.push.y) * dt;
+                const vx = Math.cos(angle) * speed + e.push.x;
+                const vy = Math.sin(angle) * speed + e.push.y;
+
+                const radius = 20;
+
+                // Move X
+                const nextX = e.pos.x + vx * dt;
+                let collisionX = false;
+                if (blocksEnemyMovement(ShinobiSurvivalGame.map, nextX - radius, e.pos.y - radius) ||
+                    blocksEnemyMovement(ShinobiSurvivalGame.map, nextX + radius, e.pos.y - radius) ||
+                    blocksEnemyMovement(ShinobiSurvivalGame.map, nextX - radius, e.pos.y + radius) ||
+                    blocksEnemyMovement(ShinobiSurvivalGame.map, nextX + radius, e.pos.y + radius)) {
+                    collisionX = true;
+                }
+                if (!collisionX) e.pos.x = nextX;
+
+                // Move Y
+                const nextY = e.pos.y + vy * dt;
+                let collisionY = false;
+                if (blocksEnemyMovement(ShinobiSurvivalGame.map, e.pos.x - radius, nextY - radius) ||
+                    blocksEnemyMovement(ShinobiSurvivalGame.map, e.pos.x + radius, nextY - radius) ||
+                    blocksEnemyMovement(ShinobiSurvivalGame.map, e.pos.x - radius, nextY + radius) ||
+                    blocksEnemyMovement(ShinobiSurvivalGame.map, e.pos.x + radius, nextY + radius)) {
+                    collisionY = true;
+                }
+                if (!collisionY) e.pos.y = nextY;
 
                 // Decay Push
                 e.push.x *= 0.95;
@@ -673,8 +751,27 @@ export class ShinobiSurvivalGame extends Game {
             }
 
             // Move Projectiles
-            proj.pos.x += proj.vel.x * dt;
-            proj.pos.y += proj.vel.y * dt;
+            if (proj.vel.x !== 0 || proj.vel.y !== 0) {
+                const nextX = proj.pos.x + proj.vel.x * dt;
+                const nextY = proj.pos.y + proj.vel.y * dt;
+
+                let hitWall = false;
+                const isPlayerProj = !!this.players[proj.ownerId];
+
+                if (isPlayerProj) {
+                    if (blocksPlayerProjectile(ShinobiSurvivalGame.map, nextX, nextY)) hitWall = true;
+                } else {
+                    if (blocksEnemyProjectile(ShinobiSurvivalGame.map, nextX, nextY)) hitWall = true;
+                }
+
+                if (hitWall) {
+                    this.projectiles.splice(i, 1);
+                    continue;
+                }
+
+                proj.pos.x = nextX;
+                proj.pos.y = nextY;
+            }
 
             // Collision with Enemies
             const potentialCollisions = this.spatialHash.query(proj);
@@ -741,6 +838,64 @@ export class ShinobiSurvivalGame extends Game {
                             dead: false
                         });
                     }
+                }
+            }
+        }
+
+        // Update Spawners
+        for (const spawner of this.spawners) {
+            if (spawner.cooldown > 0) {
+                spawner.cooldown -= dt;
+            } else {
+                let blocked = false;
+                for (const item of this.items) {
+                    const d = Math.sqrt((item.pos.x - spawner.pos.x) ** 2 + (item.pos.y - spawner.pos.y) ** 2);
+                    if (d < 10) { blocked = true; break; }
+                }
+
+                if (!blocked) {
+                    this.items.push({
+                        id: this.nextEntityId++,
+                        type: spawner.type,
+                        pos: new Vec2(spawner.pos.x, spawner.pos.y),
+                        value: spawner.type === 'health' ? 50 : (spawner.type === 'magnet' ? 1 : 100),
+                        life: 60
+                    });
+                    spawner.cooldown = spawner.maxCooldown;
+                }
+            }
+        }
+
+        // Update Items
+        for (let i = this.items.length - 1; i >= 0; i--) {
+            const item = this.items[i];
+            item.life -= dt;
+            if (item.life <= 0) {
+                this.items.splice(i, 1);
+                continue;
+            }
+
+            for (let id in this.players) {
+                const p = this.players[id];
+                if (p.dead) continue;
+                const d = Math.sqrt((p.pos.x - item.pos.x) ** 2 + (p.pos.y - item.pos.y) ** 2);
+                if (d < 30) {
+                    if (item.type === 'health') {
+                        p.hp = Math.min(p.maxHp, p.hp + item.value);
+                        this.spawnFloatingText(p.pos, `+${item.value} HP`, 'green', p.id);
+                    } else if (item.type === 'magnet') {
+                        for (const orb of this.xpOrbs) {
+                            this.teamXP += orb.val;
+                        }
+                        this.xpOrbs = [];
+                        this.spawnFloatingText(p.pos, "MAGNET!", 'cyan', p.id);
+                    } else if (item.type === 'chest') {
+                        this.teamXP += item.value;
+                        this.spawnFloatingText(p.pos, `+${item.value} XP`, 'gold', p.id);
+                    }
+
+                    this.items.splice(i, 1);
+                    break;
                 }
             }
         }

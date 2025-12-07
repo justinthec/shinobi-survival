@@ -226,6 +226,22 @@ export interface MapTile {
     blocksPlayerMovement: boolean;
     blocksPlayerProjectiles: boolean;
     enemySpawnPoint: boolean;
+    spawnerType?: 'chest' | 'health' | 'magnet';
+}
+
+export interface ItemState {
+    id: number;
+    type: 'chest' | 'health' | 'magnet';
+    pos: Vec2;
+    value: number; // Amount of HP, XP, etc.
+    life: number; // Despawn timer?
+}
+
+export interface SpawnerState {
+    pos: Vec2; // World position (center of tile)
+    type: 'chest' | 'health' | 'magnet';
+    cooldown: number;
+    maxCooldown: number;
 }
 
 export interface MapState {
