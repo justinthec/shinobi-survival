@@ -39,8 +39,11 @@ export function createPlayerStats(overrides?: Partial<PlayerStats>): PlayerStats
         areaMult: 1,
         cooldownMult: 1,
         critChance: 0.05,
-        knockback: 1,
+        knockback: 0,
         piercing: 0,
+        critDamage: 1.5,
+        healthRegen: 0,
+        armor: 0,
         ...overrides
     };
 }
@@ -103,6 +106,11 @@ export function createPlayer(id: number = 0, overrides?: Partial<PlayerState>): 
         dashTime: 0,
         dashVec: new Vec2(0, 0),
         dashHitList: [],
+        reviveTimer: 0,
+        spectatingTargetId: null,
+        deathCount: 0,
+        autoRespawnTimer: 0,
+        invincibleTimer: 0,
         ...overrides
     };
 }

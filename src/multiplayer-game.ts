@@ -38,6 +38,9 @@ import { ParticleManager } from "./managers/particle-manager";
 import { HazardManager } from "./managers/hazard-manager";
 
 const MAX_ENEMIES = 50;
+// Module-level cache for minimap to avoid serialization issues
+let minimapCache: HTMLCanvasElement | null = null;
+
 export class ShinobiSurvivalGame extends Game {
     static timestep = 1000 / 60;
     static canvasSize = { width: 1470, height: 900 };
@@ -107,15 +110,25 @@ export class ShinobiSurvivalGame extends Game {
             }
         }
 
+        // Calculate map center for initial spawning
+        let startX = 0;
+        let startY = 0;
+        if (ShinobiSurvivalGame.map) {
+            startX = (ShinobiSurvivalGame.map.width * ShinobiSurvivalGame.map.tileSize) / 2;
+            startY = (ShinobiSurvivalGame.map.height * ShinobiSurvivalGame.map.tileSize) / 2;
+        }
+
         // Initialize players
         for (let p of players) {
             this.players[p.id] = {
                 id: p.id,
                 name: `Player ${p.id + 1}`,
-                pos: new Vec2(0, 0),
+                pos: new Vec2(startX, startY),
                 hp: 100,
                 maxHp: 100,
                 character: null,
+                charState: null,
+                shape: { type: 'circle', radius: 20 },
                 skills: {
                     skillQ: { cooldown: 0, chargeTime: 0, isCharging: false, activeTime: 0 },
                     skillE: { cooldown: 0, chargeTime: 0, isCharging: false, activeTime: 0 },
@@ -123,7 +136,17 @@ export class ShinobiSurvivalGame extends Game {
                 },
                 weaponLevel: 1,
                 isEvolved: false,
-                stats: { damageMult: 1, areaMult: 1, cooldownMult: 1, critChance: 0.05, knockback: 1, piercing: 0 },
+                stats: {
+                    damageMult: 1.0,
+                    cooldownMult: 1.0,
+                    areaMult: 1.0,
+                    critChance: 0.05,
+                    critDamage: 1.5,
+                    healthRegen: 0,
+                    armor: 0,
+                    knockback: 0,
+                    piercing: 0
+                },
                 elements: { Fire: false, Water: false, Earth: false, Wind: false, Lightning: false },
                 ready: false,
                 offeredUpgrades: [],
@@ -137,18 +160,21 @@ export class ShinobiSurvivalGame extends Game {
                 burstTimer: 0,
                 burstCount: 0,
                 shield: 0,
-                maxShield: 50,
+                maxShield: 0,
                 healCharge: 0,
                 skillChargeTime: 0,
                 skillCharging: false,
                 ultActiveTime: 0,
+                invincible: false,
+                rooted: false,
                 dashTime: 0,
                 dashVec: new Vec2(0, 0),
                 dashHitList: [],
-                charState: null,
-                invincible: false,
-                rooted: false,
-                shape: { type: 'circle', radius: 20 }
+                reviveTimer: 0,
+                spectatingTargetId: null,
+                deathCount: 0,
+                autoRespawnTimer: 0,
+                invincibleTimer: 0
             };
         }
     }
@@ -250,6 +276,29 @@ export class ShinobiSurvivalGame extends Game {
         }
     }
 
+    cycleSpectatorTarget(p: PlayerState, direction: number) {
+        const playerIds = Object.keys(this.players).map(Number).sort((a, b) => a - b);
+        // Default to self if null
+        let currentId = p.spectatingTargetId !== null ? p.spectatingTargetId : p.id;
+        let currentIndex = playerIds.indexOf(currentId);
+
+        if (currentIndex === -1) currentIndex = 0;
+
+        // Try to find an alive player to spectate
+        for (let i = 0; i < playerIds.length; i++) {
+            currentIndex = (currentIndex + direction + playerIds.length) % playerIds.length;
+            const nextId = playerIds[currentIndex];
+            // Allow spectating if alive OR if it's me (even if dead, I can watch my own corpse/respawn timer)
+            if (!this.players[nextId].dead || nextId === p.id) {
+                p.spectatingTargetId = nextId;
+                return;
+            }
+        }
+
+        // If all dead, just stay on self or cycle anyway
+        p.spectatingTargetId = playerIds[(currentIndex + direction + playerIds.length) % playerIds.length];
+    }
+
     tickPlaying(playerInputs: Map<NetplayPlayer, DefaultInput>) {
         const dt = ShinobiSurvivalGame.timestep / 1000;
         this.gameTime += dt;
@@ -264,7 +313,69 @@ export class ShinobiSurvivalGame extends Game {
         for (const [player, input] of playerInputs.entries()) {
             const id = player.id;
             const p = this.players[id];
-            if (p.dead) continue;
+
+            if (p.dead) {
+                // Auto-Respawn Logic
+                if (p.autoRespawnTimer > 0) {
+                    p.autoRespawnTimer -= dt;
+                    if (p.autoRespawnTimer <= 0) {
+                        // Auto-Revive
+                        p.dead = false;
+                        p.hp = p.maxHp * 0.5;
+                        p.reviveTimer = 0;
+                        p.invincibleTimer = 4.0;
+                        p.invincible = true;
+                        this.spawnFloatingText(p.pos, "RESPAWNED!", "gold", p.id);
+                    }
+                }
+
+                // Spectating Controls
+                if (input.keysPressed['ArrowLeft']) {
+                    this.cycleSpectatorTarget(p, -1);
+                }
+                if (input.keysPressed['ArrowRight']) {
+                    this.cycleSpectatorTarget(p, 1);
+                }
+
+                // Revive Logic (Teammate)
+                let beingRevived = false;
+                for (let otherId in this.players) {
+                    const other = this.players[otherId];
+                    if (!other.dead) {
+                        const dist = Math.sqrt((p.pos.x - other.pos.x) ** 2 + (p.pos.y - other.pos.y) ** 2);
+                        if (dist < 50) { // Revive range
+                            beingRevived = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (beingRevived) {
+                    p.reviveTimer += dt;
+                    if (p.reviveTimer >= 5.0) {
+                        p.dead = false;
+                        p.hp = p.maxHp * 0.5;
+                        p.reviveTimer = 0;
+                        p.invincibleTimer = 4.0;
+                        p.invincible = true;
+                        this.spawnFloatingText(p.pos, "REVIVED!", "gold", p.id);
+                    }
+                } else {
+                    p.reviveTimer = Math.max(0, p.reviveTimer - dt);
+                }
+
+                continue; // Skip normal player updates if dead
+            } else {
+                p.reviveTimer = 0;
+
+                // Invincibility Timer
+                if (p.invincibleTimer > 0) {
+                    p.invincibleTimer -= dt;
+                    if (p.invincibleTimer <= 0) {
+                        p.invincible = false;
+                    }
+                }
+            }
 
             // Movement
             this.updateCharacterPassives(p, dt);
@@ -544,17 +655,17 @@ export class ShinobiSurvivalGame extends Game {
         this.spawnTimer += dt;
 
         // Wave Logic
-        let spawnRate = 1.0;
+        let spawnRate = 0.5;
         let waveMultiplier = 1;
 
         if (this.gameTime < 60) {
-            spawnRate = 1.0; // Slow start
+            spawnRate = 0.5; // Slow start
             waveMultiplier = 1;
         } else if (this.gameTime < 120) {
-            spawnRate = 0.8; // Medium
+            spawnRate = 0.4; // Medium
             waveMultiplier = 2;
         } else {
-            spawnRate = 0.4; // Fast
+            spawnRate = 0.2; // Fast
             waveMultiplier = 3;
         }
 
@@ -902,38 +1013,38 @@ export class ShinobiSurvivalGame extends Game {
 
         // XP Collection & Management
         // 1. Cap XP Orbs to 500
-        // const MAX_XP_ORBS = 500;
-        // if (this.xpOrbs.length > MAX_XP_ORBS) {
-        //     // Sort by age (ID) to find oldest? Or just assume index 0 is oldest (since we push).
-        //     // Yes, we push to end, so index 0 is oldest.
-        //     const oldestOrb = this.xpOrbs[0];
+        const MAX_XP_ORBS = 500;
+        if (this.xpOrbs.length > MAX_XP_ORBS) {
+            // Sort by age (ID) to find oldest? Or just assume index 0 is oldest (since we push).
+            // Yes, we push to end, so index 0 is oldest.
+            const oldestOrb = this.xpOrbs[0];
 
-        //     // Find nearest orb to merge into
-        //     let nearestOrb: XpOrbState | null = null;
-        //     let minDist = Infinity;
+            // Find nearest orb to merge into
+            let nearestOrb: XpOrbState | null = null;
+            let minDist = Infinity;
 
-        //     // Search a subset to avoid O(N^2) if we did this for many orbs, 
-        //     // but here we only do it for one orb per frame (or a few if we are way over limit).
-        //     // Let's just search all other orbs.
-        //     for (let i = 1; i < this.xpOrbs.length; i++) {
-        //         const other = this.xpOrbs[i];
-        //         const d = Math.sqrt((oldestOrb.pos.x - other.pos.x) ** 2 + (oldestOrb.pos.y - other.pos.y) ** 2);
-        //         if (d < minDist) {
-        //             minDist = d;
-        //             nearestOrb = other;
-        //         }
-        //     }
+            // Search a subset to avoid O(N^2) if we did this for many orbs, 
+            // but here we only do it for one orb per frame (or a few if we are way over limit).
+            // Let's just search all other orbs.
+            for (let i = 1; i < this.xpOrbs.length; i++) {
+                const other = this.xpOrbs[i];
+                const d = Math.sqrt((oldestOrb.pos.x - other.pos.x) ** 2 + (oldestOrb.pos.y - other.pos.y) ** 2);
+                if (d < minDist) {
+                    minDist = d;
+                    nearestOrb = other;
+                }
+            }
 
-        //     if (nearestOrb) {
-        //         nearestOrb.val += oldestOrb.val;
-        //         // Remove oldest
-        //         this.xpOrbs.shift();
-        //     } else {
-        //         // No other orbs? Should not happen if length > 500.
-        //         // Just remove it if we can't merge.
-        //         this.xpOrbs.shift();
-        //     }
-        // }
+            if (nearestOrb) {
+                nearestOrb.val += oldestOrb.val;
+                // Remove oldest
+                this.xpOrbs.shift();
+            } else {
+                // No other orbs? Should not happen if length > 500.
+                // Just remove it if we can't merge.
+                this.xpOrbs.shift();
+            }
+        }
 
         for (let id in this.players) {
             const p = this.players[id];
@@ -1025,6 +1136,20 @@ export class ShinobiSurvivalGame extends Game {
         // Apply Damage
         p.hp -= amount;
         p.flash = 0.1;
+
+        // Kill player
+        if (p.hp <= 0) {
+            p.hp = 0;
+            p.dead = true;
+            p.reviveTimer = 0;
+            p.spectatingTargetId = null; // Will default to self or cycle
+
+            p.deathCount++;
+            const respawnTime = Math.min(60, 15 + (p.deathCount * 9));
+            p.autoRespawnTimer = respawnTime;
+
+            this.spawnFloatingText(p.pos, "DEAD", "gray", p.id);
+        }
     }
 
     damageEnemy(e: EnemyState, amount: number, sourcePlayer: PlayerState) {
@@ -1362,11 +1487,19 @@ export class ShinobiSurvivalGame extends Game {
             if (localPlayerId === null) localPlayerId = 0; // Fallback
 
             const localPlayer = this.players[localPlayerId];
+            let targetPlayer = localPlayer;
+
+            if (localPlayer && localPlayer.dead && localPlayer.spectatingTargetId !== null) {
+                const spectateTarget = this.players[localPlayer.spectatingTargetId];
+                if (spectateTarget) {
+                    targetPlayer = spectateTarget;
+                }
+            }
 
             let cx = 0, cy = 0;
-            if (localPlayer) {
-                cx = localPlayer.pos.x - canvas.width / 2;
-                cy = localPlayer.pos.y - canvas.height / 2;
+            if (targetPlayer) {
+                cx = targetPlayer.pos.x - canvas.width / 2;
+                cy = targetPlayer.pos.y - canvas.height / 2;
             }
 
             ctx.translate(-cx, -cy);
@@ -1402,41 +1535,6 @@ export class ShinobiSurvivalGame extends Game {
                                 default: ctx.fillStyle = '#2d5a27';
                             }
                             ctx.fillRect(worldX, worldY, tileSize, tileSize);
-                        }
-                    }
-                }
-            } else {
-                // Fallback: Draw old tiled grass floor if no map loaded
-                if (SPRITES.grass && SPRITES.grass instanceof HTMLImageElement && SPRITES.grass.complete) {
-                    const tileSize = 64;
-                    const grassStartX = Math.floor((cx - 200) / tileSize) * tileSize;
-                    const grassStartY = Math.floor((cy - 200) / tileSize) * tileSize;
-                    const grassEndX = cx + canvas.width + 200;
-                    const grassEndY = cy + canvas.height + 200;
-
-                    for (let y = grassStartY; y < grassEndY; y += tileSize) {
-                        for (let x = grassStartX; x < grassEndX; x += tileSize) {
-                            ctx.drawImage(SPRITES.grass, x, y, tileSize, tileSize);
-                        }
-                    }
-                }
-
-                // Draw forest borders (old system)
-                const gridY = 100;
-                const startY = Math.floor((cy - 200) / gridY) * gridY;
-                const endY = cy + canvas.height + 200;
-                const forestLeft = -700;
-                const forestRight = 700;
-
-                for (let y = startY; y < endY; y += gridY) {
-                    if (cx < forestLeft + 200) {
-                        for (let x = forestLeft - 300; x < forestLeft; x += 80) {
-                            if (SPRITES.tree) ctx.drawImage(SPRITES.tree, x, y);
-                        }
-                    }
-                    if (cx + canvas.width > forestRight - 200) {
-                        for (let x = forestRight; x < forestRight + 300; x += 80) {
-                            if (SPRITES.tree) ctx.drawImage(SPRITES.tree, x - 60, y);
                         }
                     }
                 }
@@ -1497,14 +1595,13 @@ export class ShinobiSurvivalGame extends Game {
             // Draw Players
             for (let id in this.players) {
                 const p = this.players[id];
-                if (p.dead) continue;
 
                 const spriteKey = p.character || 'naruto';
                 const sprite = SPRITES[spriteKey];
 
                 // Ultimate Visuals (Delegated)
                 const ultLogic = getSkill(p.character || '', 'ult');
-                if (ultLogic) ultLogic.draw(ctx, p.skills.ult, p, this);
+                if (!p.dead && ultLogic) ultLogic.draw(ctx, p.skills.ult, p, this);
 
                 // Draw Shadow Clones (Visual Only)
                 if (p.character === 'naruto' && p.weaponLevel >= 3 && !p.dead) {
@@ -1542,6 +1639,10 @@ export class ShinobiSurvivalGame extends Game {
 
                 ctx.save(); // Start player rendering group
 
+                if (p.dead) {
+                    ctx.filter = 'grayscale(100%) opacity(50%)';
+                }
+
                 ctx.translate(p.pos.x, p.pos.y);
                 ctx.scale(p.direction, 1); // Flip based on direction
                 if (sprite) {
@@ -1551,6 +1652,32 @@ export class ShinobiSurvivalGame extends Game {
                 }
 
                 ctx.restore(); // End Player Sprite Transform (Scale/Flip)
+
+                if (p.dead) {
+                    // Draw Revive Indicator
+                    ctx.fillStyle = 'white';
+                    ctx.font = 'bold 14px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText("NEEDS REVIVE", p.pos.x, p.pos.y - 60);
+
+                    // Draw Auto-Respawn Timer
+                    if (p.autoRespawnTimer > 0) {
+                        ctx.fillStyle = 'yellow';
+                        ctx.font = 'bold 24px Arial';
+                        ctx.fillText(Math.ceil(p.autoRespawnTimer).toString(), p.pos.x, p.pos.y);
+                    }
+
+                    if (p.reviveTimer > 0) {
+                        // Draw Progress Bar
+                        const progress = Math.min(p.reviveTimer / 5.0, 1.0);
+                        const barWidth = 40;
+                        const barHeight = 6;
+                        ctx.fillStyle = '#444';
+                        ctx.fillRect(p.pos.x - barWidth / 2, p.pos.y - 80, barWidth, barHeight);
+                        ctx.fillStyle = '#00ff00';
+                        ctx.fillRect(p.pos.x - barWidth / 2, p.pos.y - 80, barWidth * progress, barHeight);
+                    }
+                }
 
                 // Rasengan Charging Visuals (Delegated)
                 const skillQLogic = getSkill(p.character || '', 'skillQ');
@@ -1585,6 +1712,81 @@ export class ShinobiSurvivalGame extends Game {
                     const hpPct = Math.min(Math.max(p.hp / p.maxHp, 0), 1);
                     ctx.fillStyle = 'red'; ctx.fillRect(p.pos.x - 20, p.pos.y - 40, 40, 5);
                     ctx.fillStyle = '#0f0'; ctx.fillRect(p.pos.x - 20, p.pos.y - 40, 40 * hpPct, 5);
+                }
+            }
+
+            // Teammate Direction Indicators (Off-screen)
+            for (let id in this.players) {
+                if (parseInt(id) === targetPlayer.id) continue; // Skip self/target
+                const p = this.players[id];
+
+                // Check if off-screen
+                // Viewport is [cx, cy] to [cx + width, cy + height]
+                const margin = 50; // Padding from edge
+                const onScreen = p.pos.x >= cx && p.pos.x <= cx + canvas.width &&
+                    p.pos.y >= cy && p.pos.y <= cy + canvas.height;
+
+                if (!onScreen) {
+                    // Calculate angle from center of screen
+                    const screenCenterX = cx + canvas.width / 2;
+                    const screenCenterY = cy + canvas.height / 2;
+                    const angle = Math.atan2(p.pos.y - screenCenterY, p.pos.x - screenCenterX);
+
+                    // Calculate position on screen edge
+                    // We want to intersect the ray from center with the screen bounds (minus margin)
+                    // Screen bounds relative to center:
+                    const halfW = canvas.width / 2 - margin;
+                    const halfH = canvas.height / 2 - margin;
+
+                    // Ray: x = t * cos(angle), y = t * sin(angle)
+                    // We want to find t such that x = +/- halfW or y = +/- halfH
+                    // tX = halfW / |cos(angle)|
+                    // tY = halfH / |sin(angle)|
+                    // t = min(tX, tY)
+
+                    const tx = halfW / Math.abs(Math.cos(angle));
+                    const ty = halfH / Math.abs(Math.sin(angle));
+                    const t = Math.min(tx, ty);
+
+                    const indicatorX = screenCenterX + t * Math.cos(angle);
+                    const indicatorY = screenCenterY + t * Math.sin(angle);
+
+                    // Draw Indicator
+                    ctx.save();
+                    ctx.translate(indicatorX, indicatorY);
+                    ctx.rotate(angle);
+
+                    const color = this.getPlayerColor(parseInt(id));
+                    ctx.fillStyle = color;
+
+                    // Arrow shape
+                    ctx.beginPath();
+                    ctx.moveTo(10, 0);
+                    ctx.lineTo(-10, 10);
+                    ctx.lineTo(-10, -10);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // Text
+                    ctx.rotate(-angle); // Reset rotation for text
+                    ctx.fillStyle = color;
+                    ctx.font = 'bold 16px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+
+                    // Offset text slightly towards center or away?
+                    // Let's put it "under" or "next to" the arrow.
+                    // Actually, just putting it near the arrow is fine.
+                    // Let's offset it towards the center of the screen so it doesn't get clipped?
+                    // Or just draw it at the indicator pos.
+                    // Let's draw it slightly inward.
+                    const textDist = 25;
+                    const textX = -Math.cos(angle) * textDist;
+                    const textY = -Math.sin(angle) * textDist;
+
+                    ctx.fillText(`P${parseInt(id) + 1}`, textX, textY);
+
+                    ctx.restore();
                 }
             }
 
@@ -1697,51 +1899,288 @@ export class ShinobiSurvivalGame extends Game {
 
             ctx.restore(); // End Camera Transform
 
-            // HUD (Screen Space)
-            if (this.gamePhase === 'playing' || this.gamePhase === 'levelUp') {
-                // Team XP Bar (Top Center)
+            // Draw HUD
+            ctx.restore(); // Restore camera transform to draw UI in screen space
+
+            // Top Center Timer
+            const timerW = 100;
+            const timerH = 40;
+            const timerX = (canvas.width - timerW) / 2;
+            const timerY = 10;
+
+            ctx.fillStyle = 'rgba(20, 20, 30, 0.9)';
+            ctx.fillRect(timerX, timerY, timerW, timerH);
+            ctx.strokeStyle = '#444'; ctx.lineWidth = 2; ctx.strokeRect(timerX, timerY, timerW, timerH);
+
+            const minutes = Math.floor(this.gameTime / 60);
+            const seconds = Math.floor(this.gameTime % 60);
+            const timeStr = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 24px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(timeStr, canvas.width / 2, timerY + timerH / 2);
+
+            // Bottom Center Cockpit
+            if (localPlayer && (this.gamePhase === 'playing' || this.gamePhase === 'levelUp')) {
+                const cockpitW = 500;
+                const cockpitH = 120;
+                const cockpitX = (canvas.width - cockpitW) / 2;
+                const cockpitY = canvas.height - cockpitH - 10; // 10px padding from bottom
+
+                // Background
+                ctx.fillStyle = 'rgba(20, 20, 30, 0.8)';
+                ctx.fillRect(cockpitX, cockpitY, cockpitW, cockpitH);
+                ctx.strokeStyle = '#444'; ctx.lineWidth = 2; ctx.strokeRect(cockpitX, cockpitY, cockpitW, cockpitH);
+
+                // Portrait (Left)
+                const portraitX = cockpitX + 60;
+                const portraitY = cockpitY + 60;
+                const portraitR = 40;
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(portraitX, portraitY, portraitR, 0, Math.PI * 2);
+                ctx.clip();
+
+                // Draw Character Sprite
+                const spriteKey = localPlayer.character || 'naruto';
+                const sprite = SPRITES[spriteKey];
+                if (sprite) {
+                    // Draw larger version of sprite
+                    ctx.drawImage(sprite, portraitX - 32, portraitY - 32, 64, 64);
+                } else {
+                    ctx.fillStyle = 'gray'; ctx.fillRect(portraitX - 32, portraitY - 32, 64, 64);
+                }
+                ctx.restore();
+
+                // Portrait Border
+                const playerColor = this.getPlayerColor(localPlayerId);
+                ctx.strokeStyle = playerColor;
+                ctx.lineWidth = 4;
+                ctx.beginPath(); ctx.arc(portraitX, portraitY, portraitR, 0, Math.PI * 2); ctx.stroke();
+
+                // Level Indicator
+                const levelX = portraitX + 30;
+                const levelY = portraitY + 30;
+                ctx.fillStyle = '#222';
+                ctx.beginPath(); ctx.arc(levelX, levelY, 12, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = '#d4af37'; ctx.lineWidth = 2; ctx.stroke();
+
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 14px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.teamLevel.toString(), levelX, levelY);
+
+                // Main Content Area (Right of Portrait)
+                const contentX = cockpitX + 120;
+                const contentW = cockpitW - 130;
+
+                // 1. Passives Row (Top)
+                const passiveY = cockpitY + 20;
+                const passiveSize = 20;
+                const passiveGap = 5;
+
+                // Draw simple icons for stats
+                // Draw simple icons for stats
+                const stats = [
+                    { label: 'DMG', val: localPlayer.stats.damageMult, icon: 'sword' },
+                    { label: 'CDR', val: localPlayer.stats.cooldownMult, icon: 'clock' },
+                    { label: 'AREA', val: localPlayer.stats.areaMult, icon: 'area' },
+                ];
+
+                ctx.font = '10px Arial';
+                stats.forEach((stat, i) => {
+                    const px = contentX + i * (passiveSize + passiveGap + 30);
+
+                    // Draw Icon
+                    ctx.save();
+                    ctx.translate(px + passiveSize / 2, passiveY + passiveSize / 2);
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+
+                    if (stat.icon === 'sword') {
+                        // Sword
+                        ctx.moveTo(-4, 4); ctx.lineTo(4, -4); // Blade
+                        ctx.moveTo(-2, 2); ctx.lineTo(2, 6); // Hilt Cross
+                        ctx.moveTo(-5, 5); ctx.lineTo(-7, 7); // Handle
+                    } else if (stat.icon === 'clock') {
+                        // Clock
+                        ctx.arc(0, 0, 7, 0, Math.PI * 2);
+                        ctx.moveTo(0, 0); ctx.lineTo(0, -4); // Hour
+                        ctx.moveTo(0, 0); ctx.lineTo(3, 0); // Minute
+                    } else if (stat.icon === 'area') {
+                        // Area (Expanding arrows)
+                        ctx.moveTo(-2, -2); ctx.lineTo(-6, -6);
+                        ctx.moveTo(-6, -6); ctx.lineTo(-3, -6);
+                        ctx.moveTo(-6, -6); ctx.lineTo(-6, -3);
+
+                        ctx.moveTo(2, 2); ctx.lineTo(6, 6);
+                        ctx.moveTo(6, 6); ctx.lineTo(3, 6);
+                        ctx.moveTo(6, 6); ctx.lineTo(6, 3);
+
+                        ctx.moveTo(2, -2); ctx.lineTo(6, -6);
+                        ctx.moveTo(-2, 2); ctx.lineTo(-6, 6);
+                    }
+
+                    ctx.stroke();
+                    ctx.restore();
+
+                    ctx.fillStyle = 'white';
+                    ctx.textAlign = 'left';
+                    ctx.fillText(stat.val.toFixed(1), px + passiveSize + 2, passiveY + 14);
+                });
+
+                // 2. Skills & Weapons Row (Middle)
+                const skillY = cockpitY + 50;
+                const skillSize = 40;
+                const skillGap = 10;
+
+                // Skill Q, E, R
+                const drawSkillIcon = (x: number, key: string, label: string) => {
+                    const skill = localPlayer.skills[key];
+                    ctx.fillStyle = '#333'; ctx.fillRect(x, skillY, skillSize, skillSize);
+                    ctx.strokeStyle = '#666'; ctx.lineWidth = 1; ctx.strokeRect(x, skillY, skillSize, skillSize);
+
+                    ctx.fillStyle = 'white'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'right';
+                    ctx.fillText(label, x + skillSize - 2, skillY + 12);
+
+                    if (skill.cooldown > 0) {
+                        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                        const h = (skill.cooldown / 10) * skillSize; // Assume max cd 10 for visual? Or just full
+                        ctx.fillRect(x, skillY, skillSize, skillSize);
+
+                        ctx.fillStyle = 'white'; ctx.font = 'bold 14px Arial'; ctx.textAlign = 'center';
+                        ctx.fillText(Math.ceil(skill.cooldown).toString(), x + skillSize / 2, skillY + skillSize / 2 + 5);
+                    }
+                };
+
+                drawSkillIcon(contentX, 'skillQ', 'Q');
+                drawSkillIcon(contentX + skillSize + skillGap, 'skillE', 'E');
+                drawSkillIcon(contentX + (skillSize + skillGap) * 2, 'ult', 'R');
+
+                // Weapons (Right of skills)
+                const weaponX = contentX + (skillSize + skillGap) * 3 + 20;
+                const weaponSize = 30;
+
+                // Draw Main Weapon Icon (Placeholder)
+                ctx.fillStyle = '#444'; ctx.fillRect(weaponX, skillY + 5, weaponSize, weaponSize);
+                ctx.strokeStyle = '#888'; ctx.strokeRect(weaponX, skillY + 5, weaponSize, weaponSize);
+                ctx.fillStyle = 'white'; ctx.font = '10px Arial'; ctx.textAlign = 'center';
+                ctx.fillText(`Lv${localPlayer.weaponLevel}`, weaponX + weaponSize / 2, skillY + weaponSize / 2 + 5);
+
+                // 3. HP Bar (Bottom)
+                const hpY = cockpitY + 95;
+                const hpH = 15;
+                const hpW = contentW;
+
+                const hpPct = localPlayer.hp / localPlayer.maxHp;
+                ctx.fillStyle = '#222'; ctx.fillRect(contentX, hpY, hpW, hpH);
+                ctx.fillStyle = '#2ecc71'; ctx.fillRect(contentX, hpY, hpW * hpPct, hpH);
+
+                // HP Text
+                ctx.fillStyle = 'white'; ctx.font = '10px Arial'; ctx.textAlign = 'center';
+                ctx.fillText(`${Math.ceil(localPlayer.hp)} / ${localPlayer.maxHp}`, contentX + hpW / 2, hpY + 11);
+
+                // 4. XP Bar (Absolute Bottom of Cockpit)
+                const xpY = cockpitY + cockpitH - 4;
                 const xpPct = Math.min(this.teamXP / this.xpToNextLevel, 1);
-                const barW = 600; const barH = 20;
-                const barX = (canvas.width - barW) / 2;
+                ctx.fillStyle = '#00d2ff';
+                ctx.fillRect(cockpitX, xpY, cockpitW * xpPct, 4);
 
-                ctx.fillStyle = '#333'; ctx.fillRect(barX, 10, barW, barH);
-                ctx.fillStyle = '#00d2ff'; ctx.fillRect(barX, 10, barW * xpPct, barH);
-                ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(barX, 10, barW, barH);
+                // Minimap (Bottom Right)
+                if (ShinobiSurvivalGame.map) {
+                    const mapW = ShinobiSurvivalGame.map.width * ShinobiSurvivalGame.map.tileSize;
+                    const mapH = ShinobiSurvivalGame.map.height * ShinobiSurvivalGame.map.tileSize;
 
-                ctx.fillStyle = 'white'; ctx.font = 'bold 16px Arial'; ctx.textAlign = 'center';
-                ctx.fillText(`Team Level ${this.teamLevel}`, canvas.width / 2, 26);
+                    const minimapSize = 200;
+                    const scale = minimapSize / Math.max(mapW, mapH);
+                    const mmW = mapW * scale;
+                    const mmH = mapH * scale;
 
-                // Local Player HUD (Bottom Left)
-                if (localPlayer) {
-                    // HP Bar
-                    const hpPct = localPlayer.hp / localPlayer.maxHp;
-                    ctx.fillStyle = '#333'; ctx.fillRect(20, canvas.height - 40, 200, 20);
-                    ctx.fillStyle = '#2ecc71'; ctx.fillRect(20, canvas.height - 40, 200 * hpPct, 20);
-                    ctx.strokeStyle = '#fff'; ctx.strokeRect(20, canvas.height - 40, 200, 20);
-                    ctx.fillStyle = 'white'; ctx.font = '14px Arial'; ctx.textAlign = 'left';
-                    ctx.fillText(`${Math.ceil(localPlayer.hp)} / ${localPlayer.maxHp}`, 25, canvas.height - 25);
+                    const mmX = canvas.width - mmW - 20;
+                    const mmY = canvas.height - mmH - 20;
 
-                    // Skills
-                    const drawSkill = (x: number, key: string, label: string) => {
-                        const skill = localPlayer.skills[key];
-                        ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(x, canvas.height - 90, 50, 50);
-                        ctx.strokeStyle = 'white'; ctx.strokeRect(x, canvas.height - 90, 50, 50);
+                    // Background (Cached)
+                    if (!minimapCache) {
+                        minimapCache = document.createElement('canvas');
+                        minimapCache.width = mmW;
+                        minimapCache.height = mmH;
+                        const mCtx = minimapCache.getContext('2d')!;
 
-                        ctx.fillStyle = 'white'; ctx.font = '12px Arial'; ctx.textAlign = 'center';
-                        ctx.fillText(label, x + 25, canvas.height - 95);
-
-                        if (skill.cooldown > 0) {
-                            ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(x, canvas.height - 90, 50, 50);
-                            ctx.fillStyle = 'white'; ctx.font = 'bold 16px Arial';
-                            ctx.fillText(Math.ceil(skill.cooldown).toString(), x + 25, canvas.height - 60);
+                        // Draw Map Tiles
+                        const tileSize = ShinobiSurvivalGame.map.tileSize * scale;
+                        for (let y = 0; y < ShinobiSurvivalGame.map.height; y++) {
+                            for (let x = 0; x < ShinobiSurvivalGame.map.width; x++) {
+                                const tile = ShinobiSurvivalGame.map.tiles[y][x];
+                                let color = '#000';
+                                switch (tile.textureType) {
+                                    case 'grass': color = '#2d5a27'; break;
+                                    case 'tree': color = '#1b5e20'; break;
+                                    case 'rock': color = '#6b6b6b'; break;
+                                    case 'water': color = '#1a5276'; break;
+                                    default: color = '#2d5a27';
+                                }
+                                mCtx.fillStyle = color;
+                                mCtx.fillRect(x * tileSize, y * tileSize, tileSize + 1, tileSize + 1); // +1 to fix gaps
+                            }
                         }
-                    };
+                    }
 
-                    drawSkill(180, 'skillQ', 'Q');
-                    drawSkill(240, 'skillE', 'E');
-                    drawSkill(300, 'ult', 'R');
+                    // Draw Cached Map
+                    ctx.drawImage(minimapCache, mmX, mmY);
+                    ctx.strokeStyle = '#444'; ctx.lineWidth = 2; ctx.strokeRect(mmX, mmY, mmW, mmH);
 
-                    this.drawCharacterHUD(ctx, localPlayer);
+                    // Players (Colored Dots)
+                    for (let id in this.players) {
+                        const p = this.players[id];
+                        // Show all players, alive or dead
+
+                        const px = mmX + p.pos.x * scale;
+                        const py = mmY + p.pos.y * scale;
+
+                        ctx.fillStyle = this.getPlayerColor(parseInt(id));
+
+                        if (p.dead) {
+                            // Dead Indicator: Hollow Circle with X
+                            ctx.strokeStyle = this.getPlayerColor(parseInt(id));
+                            ctx.lineWidth = 2;
+                            ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI * 2); ctx.stroke();
+
+                            // Draw X
+                            ctx.beginPath();
+                            ctx.moveTo(px - 3, py - 3); ctx.lineTo(px + 3, py + 3);
+                            ctx.moveTo(px + 3, py - 3); ctx.lineTo(px - 3, py + 3);
+                            ctx.stroke();
+                        } else {
+                            // Alive: Filled Dot
+                            ctx.beginPath(); ctx.arc(px, py, 3, 0, Math.PI * 2); ctx.fill();
+                        }
+                    }
+
+                    // Camera Viewport (White Outline)
+                    // Viewport in world space is [cx, cy] to [cx + canvas.width, cy + canvas.height]
+                    // But we need to recalculate cx, cy since we are in screen space now and lost the local vars.
+                    // Re-calculate camera pos based on targetPlayer
+                    let targetPlayer = localPlayer;
+                    if (localPlayer.dead && localPlayer.spectatingTargetId !== null) {
+                        const spectateTarget = this.players[localPlayer.spectatingTargetId];
+                        if (spectateTarget) targetPlayer = spectateTarget;
+                    }
+
+                    const camX = targetPlayer.pos.x - canvas.width / 2;
+                    const camY = targetPlayer.pos.y - canvas.height / 2;
+
+                    const vx = mmX + camX * scale;
+                    const vy = mmY + camY * scale;
+                    const vw = canvas.width * scale;
+                    const vh = canvas.height * scale;
+
+                    ctx.strokeStyle = 'white'; ctx.lineWidth = 1;
+                    ctx.strokeRect(vx, vy, vw, vh);
                 }
             }
 

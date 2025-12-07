@@ -44,6 +44,9 @@ export interface PlayerStats {
     critChance: number;
     knockback: number;
     piercing: number;
+    critDamage: number;
+    healthRegen: number;
+    armor: number;
 }
 
 export interface ElementFlags {
@@ -132,6 +135,13 @@ export interface PlayerState {
     dashTime: number;
     dashVec: Vec2;
     dashHitList: number[]; // List of enemy IDs hit during this dash
+
+    // Death & Revive
+    reviveTimer: number;
+    spectatingTargetId: number | null;
+    deathCount: number;
+    autoRespawnTimer: number;
+    invincibleTimer: number;
 }
 
 export interface EnemyState {
