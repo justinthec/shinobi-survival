@@ -7,6 +7,8 @@
 Shinobi Clash is a multiplayer PvP arena fighter built with **TypeScript** and **NetplayJS**.
 Choose your character (Naruto or Sasuke) and battle it out in a 1v1 duel using unique abilities and movement mechanics.
 
+*Note: The original Shinobi Survival roguelike game is available on the `original-game` branch.*
+
 ## Contributing
 
 ### Setup

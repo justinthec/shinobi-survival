@@ -4,7 +4,7 @@ This document provides guidance for AI coding agents working on the **Shinobi Cl
 
 ## Project Overview
 
-**Shinobi Clash** is a 1v1 PvP arena fighter built with:
+**Shinobi Clash** is a PvP arena fighter (currently 1v1, with plans for 2v2/FFA) built with:
 - **TypeScript** - Main language
 - **NetplayJS** - Rollback netcode library for multiplayer synchronization
 - **Webpack** - Build tool
