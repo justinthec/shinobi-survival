@@ -48,6 +48,7 @@ export interface ProjectileState {
     vel: Vec2; // vx, vy
     ownerId: number;
     angle: number;
+    rotation?: number;
     life: number;
     maxLife: number;
     radius: number;
