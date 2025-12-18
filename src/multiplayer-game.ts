@@ -46,6 +46,15 @@ export class ShinobiClashGame extends Game {
             configurable: true
         });
 
+        // Debug Toggle Listener
+        window.addEventListener('keydown', (e) => {
+            if (e.key === '`' || e.key === '~') {
+                if (this.renderer) {
+                    this.renderer.debugMode = !this.renderer.debugMode;
+                }
+            }
+        });
+
         // Initialize Players
         for (let p of players) {
             if (p.isLocalPlayer()) {
