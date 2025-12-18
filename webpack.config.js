@@ -3,7 +3,6 @@ const CopyPlugin = require("copy-webpack-plugin");
 
 module.exports = {
     entry: {
-        local: './src/local-testing.ts',
         game: './src/client.ts',
         profiler: './src/profiler.ts',
     },
