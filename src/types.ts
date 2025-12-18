@@ -14,6 +14,8 @@ export interface PlayerState {
     maxHp: number;
     dead: boolean;
     ready: boolean;
+    debugMode: boolean;
+    radius: number;
 
     // Combat Stats
     stats: {

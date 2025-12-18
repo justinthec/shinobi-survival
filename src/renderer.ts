@@ -58,6 +58,63 @@ export class Renderer {
 
         // HUD (UI Layer)
         this.drawHUD(focusPlayer);
+
+        if (focusPlayer.debugMode) {
+            this.drawDebug(game, focusPlayer);
+        }
+    }
+
+    drawDebug(game: ShinobiClashGame, focusPlayer: PlayerState) {
+        const ctx = this.ctx;
+        ctx.save();
+
+        // Re-apply camera transform
+        const width = this.canvas.width;
+        const height = this.canvas.height;
+        const camX = focusPlayer.pos.x - width / 2;
+        const camY = focusPlayer.pos.y - height / 2;
+
+        ctx.translate(-camX, -camY);
+
+        ctx.lineWidth = 1;
+
+        // Draw Player Hitboxes
+        for (const id in game.players) {
+            const p = game.players[id];
+            if (p.dead) continue;
+
+            ctx.strokeStyle = '#00FF00'; // Green
+            ctx.beginPath();
+            ctx.arc(p.pos.x, p.pos.y, p.radius, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Draw center point
+            ctx.fillStyle = '#00FF00';
+            ctx.fillRect(p.pos.x - 2, p.pos.y - 2, 4, 4);
+        }
+
+        // Draw Projectile Hitboxes
+        for (const proj of game.projectiles) {
+            ctx.strokeStyle = '#FF0000'; // Red
+            ctx.beginPath();
+            ctx.arc(proj.pos.x, proj.pos.y, proj.radius, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Draw velocity vector
+            ctx.beginPath();
+            ctx.moveTo(proj.pos.x, proj.pos.y);
+            ctx.lineTo(proj.pos.x + proj.vel.x * 5, proj.pos.y + proj.vel.y * 5);
+            ctx.stroke();
+        }
+
+        ctx.restore();
+
+        // Screen space debug info
+        ctx.fillStyle = 'white';
+        ctx.font = '12px monospace';
+        ctx.fillText(`Debug Mode On`, 10, 20);
+        ctx.fillText(`Projectiles: ${game.projectiles.length}`, 10, 35);
+        ctx.fillText(`Particles: ${game.particles.length}`, 10, 50);
     }
 
     drawGrid(camX: number, camY: number, width: number, height: number) {

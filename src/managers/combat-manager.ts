@@ -223,7 +223,7 @@ export class CombatManager {
             if (target.dead) continue;
 
             const dist = Math.sqrt((target.pos.x - proj.pos.x) ** 2 + (target.pos.y - proj.pos.y) ** 2);
-            if (dist < proj.radius + 20) {
+            if (dist < proj.radius + target.radius) {
                 hit = true;
 
                 // Damage
