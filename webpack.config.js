@@ -5,6 +5,7 @@ module.exports = {
     entry: {
         game: './src/client.ts',
         profiler: './src/profiler.ts',
+        local: './src/local.ts',
     },
     module: {
         rules: [
