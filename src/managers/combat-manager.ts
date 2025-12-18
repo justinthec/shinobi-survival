@@ -146,6 +146,7 @@ export class CombatManager {
             vel: new Vec2(Math.cos(p.angle) * speed, Math.sin(p.angle) * speed),
             ownerId: p.id,
             angle: p.angle,
+            rotation: 0,
             life: life,
             maxLife: life,
             radius: type === 'fireball' ? 20 : 25,
@@ -184,6 +185,12 @@ export class CombatManager {
                 proj.pos.x += proj.vel.x;
                 proj.pos.y += proj.vel.y;
             }
+
+            // Spin
+            if (proj.type === 'rasenshuriken') {
+                proj.rotation = (proj.rotation || 0) + 0.3;
+            }
+
             proj.life--;
 
             // Collision
