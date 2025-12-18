@@ -93,6 +93,7 @@ Implemented in `src/renderer.ts`:
 1.  **Adding class instances to game state** - Will break after NetplayJS sync. Use Plain Old Data (POD) interfaces (see `types.ts`).
 2.  **Using `this.random()` for visuals** - Use `Math.random()` for client-only visuals (particles), `this.random()` (deterministic) for gameplay affecting logic (damage, crits).
 3.  **Modifying state in Renderer** - Renderer runs independently of the simulation tick and can roll back/forward.
+4.  **Manual Event Listeners** - Do not add global event listeners (e.g. `window.addEventListener`) for input. Input handling must go through the NetplayJS `tick` loop via `DefaultInput` to ensure determinism and proper rollback support.
 
 ## File Modification Checklist
 

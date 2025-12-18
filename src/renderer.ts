@@ -4,7 +4,6 @@ import { PlayerState, ProjectileState } from "./types";
 export class Renderer {
     ctx: CanvasRenderingContext2D;
     canvas: HTMLCanvasElement;
-    debugMode: boolean = false;
 
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
@@ -60,7 +59,7 @@ export class Renderer {
         // HUD (UI Layer)
         this.drawHUD(focusPlayer);
 
-        if (this.debugMode) {
+        if (focusPlayer.debugMode) {
             this.drawDebug(game, focusPlayer);
         }
     }
@@ -86,7 +85,7 @@ export class Renderer {
 
             ctx.strokeStyle = '#00FF00'; // Green
             ctx.beginPath();
-            ctx.arc(p.pos.x, p.pos.y, 20, 0, Math.PI * 2);
+            ctx.arc(p.pos.x, p.pos.y, p.radius, 0, Math.PI * 2);
             ctx.stroke();
 
             // Draw center point

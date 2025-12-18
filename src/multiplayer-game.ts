@@ -49,15 +49,6 @@ export class ShinobiClashGame extends Game {
             configurable: true
         });
 
-        // Debug Toggle Listener
-        window.addEventListener('keydown', (e) => {
-            if (e.key === '`' || e.key === '~') {
-                if (this.renderer) {
-                    this.renderer.debugMode = !this.renderer.debugMode;
-                }
-            }
-        });
-
         // Initialize Players
         for (let p of players) {
             if (p.isLocalPlayer()) {
@@ -74,6 +65,8 @@ export class ShinobiClashGame extends Game {
                 maxHp: 100,
                 dead: false,
                 ready: false,
+                debugMode: false,
+                radius: 20,
                 stats: { speed: 6, damageMult: 1, cooldownMult: 1 },
                 cooldowns: { q: 0, e: 0, sp: 0 },
                 casting: 0,
@@ -143,6 +136,12 @@ export class ShinobiClashGame extends Game {
         // 1. Process Inputs (Movement & Skills)
         for (const [player, input] of playerInputs.entries()) {
             const p = this.players[player.id];
+
+            // Toggle debug mode
+            if (input.keysPressed['`']) {
+                p.debugMode = !p.debugMode;
+            }
+
             if (p.dead) continue;
 
             CombatManager.processInput(this, p, input);
