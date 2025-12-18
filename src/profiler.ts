@@ -2,7 +2,6 @@ import { DefaultInput, NetplayPlayer, Vec2 } from "netplayjs";
 import { ShinobiClashGame } from "./multiplayer-game";
 import { ProjectileState } from "./types";
 
-// ... rest of the file ...
 // Profiler State
 let isRunning = false;
 let isStressTest = false;
@@ -11,6 +10,7 @@ let canvas: HTMLCanvasElement;
 let historyCanvas: HTMLCanvasElement;
 let historyCtx: CanvasRenderingContext2D;
 let players: NetplayPlayer[] = [];
+let currentPlayerCount = 4;
 
 // Stats
 let stats = {
@@ -40,19 +40,20 @@ const ui = {
     stateSize: document.getElementById('stateSize'),
     driftStatus: document.getElementById('driftStatus'),
     spikeCount: document.getElementById('spikeCount'),
-    projectilesInput: document.getElementById('projectiles') as HTMLInputElement,
     entityCounts: document.getElementById('entityCounts'),
     reportModal: document.getElementById('reportModal'),
     reportContent: document.getElementById('reportContent'),
 };
 
-function init() {
+function init(numPlayers: number = 4) {
+    currentPlayerCount = numPlayers;
     canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
     historyCanvas = document.getElementById('historyCanvas') as HTMLCanvasElement;
     historyCtx = historyCanvas.getContext('2d')!;
 
-    // Create 4 mock players
-    for (let i = 0; i < 4; i++) {
+    // Create mock players
+    players = [];
+    for (let i = 0; i < numPlayers; i++) {
         players.push(new NetplayPlayer(i, i === 0, i === 0));
     }
 
@@ -69,7 +70,7 @@ function init() {
     // Initial Draw
     game.draw(canvas);
 
-    console.log("Profiler initialized");
+    console.log(`Profiler initialized with ${numPlayers} players`);
 }
 
 function loop() {
@@ -111,38 +112,26 @@ function loop() {
     // 2. Tick
     const t0 = performance.now();
     game.tick(inputs);
-    const t1 = performance.now();
-    const tickDuration = t1 - t0;
 
-    // 3. Projectile Spawning (Slider)
-    const targetProjectiles = parseInt(ui.projectilesInput.value);
-    if (game.projectiles.length < targetProjectiles) {
-        // Spawn dummy projectiles
-        const needed = targetProjectiles - game.projectiles.length;
-        for (let i = 0; i < needed; i++) {
-            game.projectiles.push({
-                id: game.nextEntityId++,
-                type: 'fireball', // Assuming 'fireball' exists
-                pos: new Vec2(Math.random() * 1600, Math.random() * 1600),
-                vel: new Vec2((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10),
-                ownerId: -1,
-                angle: 0,
-                life: 60,
-                maxLife: 60,
-                radius: 20,
-                state: 'flying',
-                isAoe: false
-            });
+    // Immortality: Reset HP every frame to prevent death during stress test
+    for (const id in game.players) {
+        const p = game.players[id];
+        if (p) {
+            p.hp = p.maxHp;
+            p.dead = false;
         }
     }
 
-    // 4. Draw
+    const t1 = performance.now();
+    const tickDuration = t1 - t0;
+
+    // 3. Draw
     const t2 = performance.now();
     game.draw(canvas);
     const t3 = performance.now();
     const drawDuration = t3 - t2;
 
-    // 5. Serialize
+    // 4. Serialize
     const t4 = performance.now();
     const state = game.serialize();
     const json = JSON.stringify(state);
@@ -215,14 +204,6 @@ function drawHistoryChart() {
 
     ctx.clearRect(0, 0, w, h);
 
-    // Draw 16ms line
-    const budgetY = h - (16.67 / 33) * h;
-    ctx.strokeStyle = '#ef4444';
-    ctx.beginPath();
-    ctx.moveTo(0, budgetY);
-    ctx.lineTo(w, budgetY);
-    ctx.stroke();
-
     // Draw history
     if (stats.history.length < 2) return;
 
@@ -266,6 +247,13 @@ function drawHistoryChart() {
     // Reset max/avg
 };
 
+(window as any).updatePlayerCount = (val: string) => {
+    const count = parseInt(val);
+    if (!isNaN(count) && count > 0) {
+        init(count);
+    }
+};
+
 (window as any).showReport = () => {
     if (ui.reportModal && ui.reportContent) {
         ui.reportModal.style.display = 'flex';
@@ -282,7 +270,7 @@ Spikes: ${stats.spikes}
 
 Settings:
 Stress Test: ${isStressTest ? 'ON' : 'OFF'}
-Projectiles: ${ui.projectilesInput.value}
+Players: ${currentPlayerCount}
         `;
         ui.reportContent.textContent = report;
     }

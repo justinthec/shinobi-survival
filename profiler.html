@@ -377,12 +377,13 @@
         <button class="btn-report" onclick="showReport()">📊 Generate Report</button>
 
         <h2>Entity Counts</h2>
-        <p style="font-size: 0.75rem; color: #666; margin-bottom: 10px;">4 players with max weapons</p>
+        <p style="font-size: 0.75rem; color: #666; margin-bottom: 10px;">Adjust player count below</p>
 
         <div class="control-group">
-            <label>Projectiles <span id="projVal">50</span></label>
-            <input type="range" id="projectiles" min="0" max="300" value="50"
-                oninput="document.getElementById('projVal').textContent=this.value">
+            <label>Players <span id="playerVal">4</span></label>
+            <input type="range" id="players" min="1" max="10" value="4"
+                oninput="document.getElementById('playerVal').textContent=this.value"
+                onchange="window.updatePlayerCount(this.value)">
         </div>
 
         <div class="stats-panel">
