@@ -246,6 +246,9 @@ npm run build
 # Creates production bundles in dist/
 ```
 
+> [!IMPORTANT]
+> Always run `npm run build` before submitting changes to ensure `dist/` is up to date.
+
 ## Common Pitfalls
 
 1. **Forgetting `shape` property** - All entities need a `shape` for collision detection

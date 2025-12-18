@@ -165,7 +165,7 @@ export class Renderer {
             ctx.fillStyle = '#ed8936';
             ctx.beginPath(); ctx.arc(0, 0, p.radius, 0, Math.PI * 2); ctx.fill();
         } else if (p.type === 'rasenshuriken') {
-            ctx.rotate(p.rotation || 0);
+            ctx.rotate(Date.now() / 50);
             ctx.fillStyle = '#4fd1c5';
             ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill();
             // Blades

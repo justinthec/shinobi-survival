@@ -19,10 +19,7 @@ const MAP_SIZE = 1600;
 
 export class ShinobiClashGame extends Game {
     static timestep = 1000 / 60;
-    static canvasSize = {
-        width: typeof window !== 'undefined' ? window.innerWidth : 800,
-        height: typeof window !== 'undefined' ? window.innerHeight : 600
-    };
+    static canvasSize = { width: window.innerWidth, height: window.innerHeight };
     static numPlayers = 2;
 
     // Game State
