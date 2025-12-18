@@ -20,7 +20,6 @@ src/
 ├── types.ts              # All TypeScript interfaces and types
 ├── sprites.ts            # Sprite loading and management
 ├── client.ts             # NetplayJS client entry point
-├── local-testing.ts      # Local 2-player testing entry point
 ├── spatial-hash.ts       # Spatial partitioning for collision detection
 ├── skills/               # Character-specific skill implementations
 │   ├── types.ts          # SkillLogic, SkillState, WeaponLogic interfaces
@@ -233,12 +232,6 @@ this.damageEnemy(enemy, damage, sourcePlayer);
 ```
 
 ## Testing
-
-### Local Testing
-```bash
-npm run dev
-# Open http://localhost:9000/local-testing.html for 2-player local test
-```
 
 ### Build
 ```bash

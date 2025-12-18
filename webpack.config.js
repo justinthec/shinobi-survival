@@ -31,7 +31,6 @@ module.exports = {
     plugins: [
         new CopyPlugin({
             patterns: [
-                { from: "local-testing.html", to: "." },
                 { from: "game.html", to: "." },
                 { from: "profiler.html", to: "." },
                 { from: "grass.png", to: "." },
