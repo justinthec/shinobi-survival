@@ -54,6 +54,10 @@ export interface ProjectileState {
     radius: number;
     state: 'flying' | 'exploding';
     isAoe?: boolean;
+    // Clone Stats
+    hp?: number;
+    maxHp?: number;
+    actionState?: 'run' | 'punch';
 }
 
 export interface ParticleState {
