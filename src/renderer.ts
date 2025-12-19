@@ -18,62 +18,40 @@ export class Renderer {
         const width = this.canvas.width;
         const height = this.canvas.height;
 
-        // Background
+        // Background Logic
+        // We clear the screen and draw the background pattern in world space
+        // This ensures proper scrolling
+
+        // Background Pattern
         if (!this.bgPattern && SPRITES.tile_grass) {
             this.bgPattern = ctx.createPattern(SPRITES.tile_grass, 'repeat');
         }
 
-        if (this.bgPattern) {
-            ctx.fillStyle = this.bgPattern;
-            ctx.fillRect(0, 0, width, height);
-        } else {
-            // Fallback
-            ctx.fillStyle = '#2d5a27'; // Dark green
-            ctx.fillRect(0, 0, width, height);
-        }
-
-        // Camera Transform
-        ctx.save();
-        // Translate so focusPlayer is in center
+        // Camera Transform Logic
         const camX = focusPlayer.pos.x - width / 2;
         const camY = focusPlayer.pos.y - height / 2;
-        ctx.translate(-camX, -camY);
 
-        // Use pattern offset for background to make it look fixed to world?
-        // Actually, if I fillRect(0,0,width,height), it's screen space.
-        // If I want the grass to move with the camera, I should draw a big rect in world space or use translation.
-        // Better: Clear screen with pattern, but set pattern transform?
-        // Simple approach: Draw a huge rectangle of grass?
-        // Or just let it be screen-static? "Change background color to some grass sprite texture".
-        // Usually means the ground is grass.
-        // Let's make it scroll properly.
-        // Redraw BG logic:
         ctx.save();
-        ctx.resetTransform(); // Clear previous
-        ctx.fillStyle = '#1a202c'; // Void
+        ctx.resetTransform(); // Ensure we work in screen coordinates for clear
+
+        ctx.fillStyle = '#1a202c'; // Void color
         ctx.fillRect(0, 0, width, height);
 
         if (this.bgPattern) {
-            ctx.translate(-camX, -camY); // Apply camera
+            ctx.translate(-camX, -camY); // Apply camera to background
             ctx.fillStyle = this.bgPattern;
-            ctx.fillRect(camX, camY, width, height); // Fill visible area
-            // Wait, fillRect with pattern uses the pattern coordinate system usually aligned to origin.
-            // If we translate, the pattern moves.
-            // Let's just fill a large area covering the map.
-            ctx.fillStyle = this.bgPattern;
-            ctx.fillRect(0, 0, 1600, 1600);
+            ctx.fillRect(0, 0, 1600, 1600); // Draw map area
         } else {
+            // Fallback if pattern not ready
+             ctx.translate(-camX, -camY);
              ctx.fillStyle = '#2d5a27';
              ctx.fillRect(0, 0, 1600, 1600);
         }
         ctx.restore();
 
-        // Translate again for objects (previous save/restore cleared it)
+        // Main Drawing Layer
         ctx.save();
         ctx.translate(-camX, -camY);
-
-        // Grid (Optional overlay)
-        // this.drawGrid(camX, camY, width, height);
 
         // Map Border
         ctx.strokeStyle = '#e53e3e';
@@ -113,6 +91,16 @@ export class Renderer {
 
         // HUD (UI Layer)
         this.drawHUD(focusPlayer);
+    }
+
+    // Helper for safe roundRect
+    drawRoundedRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+        ctx.beginPath();
+        if (typeof ctx.roundRect === 'function') {
+            ctx.roundRect(x, y, w, h, r);
+        } else {
+            ctx.rect(x, y, w, h);
+        }
     }
 
     drawGrid(camX: number, camY: number, width: number, height: number) {
@@ -183,8 +171,8 @@ export class Renderer {
 
         // Arms
         ctx.fillStyle = c.main;
-        ctx.beginPath(); ctx.roundRect(0, -16, 12, 6, 3); ctx.fill();
-        ctx.beginPath(); ctx.roundRect(0, 10, 12, 6, 3); ctx.fill();
+        this.drawRoundedRectPath(ctx, 0, -16, 12, 6, 3); ctx.fill();
+        this.drawRoundedRectPath(ctx, 0, 10, 12, 6, 3); ctx.fill();
 
         ctx.restore();
 
@@ -193,10 +181,10 @@ export class Renderer {
              ctx.save();
              ctx.translate(x, y - 50);
              ctx.fillStyle = 'rgba(0,0,0,0.8)';
-             ctx.beginPath(); ctx.roundRect(-20, 0, 40, 6, 3); ctx.fill(); // Smaller bar for clones maybe?
+             this.drawRoundedRectPath(ctx, -20, 0, 40, 6, 3); ctx.fill();
              const pct = Math.max(0, hp / maxHp);
              ctx.fillStyle = pct > 0.5 ? '#48bb78' : '#f56565';
-             ctx.beginPath(); ctx.roundRect(-18, 1, 36 * pct, 4, 2); ctx.fill();
+             this.drawRoundedRectPath(ctx, -18, 1, 36 * pct, 4, 2); ctx.fill();
 
              if (!isClone) {
                  ctx.fillStyle = 'white';
