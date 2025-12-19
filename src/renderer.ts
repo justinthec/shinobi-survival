@@ -233,6 +233,11 @@ export class Renderer {
             ctx.shadowColor = 'purple'; ctx.shadowBlur = 10;
             ctx.beginPath(); ctx.arc(0, 0, p.radius, 0, Math.PI * 2); ctx.fill();
             ctx.shadowBlur = 0;
+        } else if (p.type === 'lightning_slash') {
+            ctx.rotate(p.rotation || 0);
+            if (SPRITES.sword_slash) {
+                ctx.drawImage(SPRITES.sword_slash as HTMLCanvasElement, -50, -30);
+            }
         }
 
         ctx.restore();
@@ -302,5 +307,46 @@ export class Renderer {
 
             y += 80;
         }
+    }
+
+    drawGameOver(game: ShinobiClashGame) {
+        const ctx = this.ctx;
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 60px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText("GAME OVER", w / 2, h / 2 - 50);
+
+        // Find winner
+        let winner = "No One";
+        const alive = Object.values(game.players).filter(p => !p.dead);
+        if (alive.length > 0) winner = alive[0].name + " Wins!";
+        else winner = "Draw!";
+
+        ctx.font = '40px Arial';
+        ctx.fillStyle = '#f1c40f';
+        ctx.fillText(winner, w / 2, h / 2 + 20);
+
+        // New Game Button
+        const btnX = w / 2 - 100;
+        const btnY = h / 2 + 50;
+        const btnW = 200;
+        const btnH = 60;
+
+        ctx.fillStyle = '#2ecc71';
+        this.drawRoundedRectPath(ctx, btnX, btnY, btnW, btnH, 10);
+        ctx.fill();
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 30px Arial';
+        ctx.fillText("PRESS SPACE", w / 2, btnY + 40);
     }
 }

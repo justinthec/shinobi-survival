@@ -78,6 +78,32 @@ export class ShinobiClashGame extends Game {
             this.tickCharSelect(playerInputs);
         } else if (this.gamePhase === 'playing') {
             this.tickPlaying(playerInputs);
+        } else if (this.gamePhase === 'gameOver') {
+            this.tickGameOver(playerInputs);
+        }
+    }
+
+    tickGameOver(playerInputs: Map<NetplayPlayer, DefaultInput>) {
+        for (const [player, input] of playerInputs.entries()) {
+            // Restart on Space or Touch
+            if (input.keysPressed[' '] || (input.touches && input.touches.length > 0)) {
+                this.gamePhase = 'charSelect';
+                for (let id in this.players) {
+                    const p = this.players[id];
+                    p.ready = false;
+                    p.character = null;
+                    p.dead = false;
+                    p.hp = 100; // Reset temp
+                    p.spectatorTargetId = undefined;
+                        p.cooldowns = { q: 0, e: 0, sp: 0 };
+                        p.casting = 0;
+                        p.dash = { active: false, vx: 0, vy: 0, life: 0 };
+                }
+                this.projectiles = [];
+                this.particles = [];
+                this.floatingTexts = [];
+                return;
+            }
         }
     }
 
@@ -155,6 +181,15 @@ export class ShinobiClashGame extends Game {
             t.pos.y -= t.vy; // Float up
             return t.life > 0;
         });
+
+        // Check Game Over
+        let aliveCount = 0;
+        for (let id in this.players) {
+            if (!this.players[id].dead) aliveCount++;
+        }
+        if (aliveCount <= 1) {
+            this.gamePhase = 'gameOver';
+        }
     }
 
     draw(canvas: HTMLCanvasElement) {
@@ -176,10 +211,20 @@ export class ShinobiClashGame extends Game {
 
         // Playing Phase
         let targetId = ShinobiClashGame.localPlayerId ?? 0;
-        const target = this.players[targetId] || Object.values(this.players)[0];
+        let target = this.players[targetId] || Object.values(this.players)[0];
+
+        // Spectator Logic
+        if (target && target.dead && target.spectatorTargetId !== undefined) {
+            const spec = this.players[target.spectatorTargetId];
+            if (spec) target = spec;
+        }
 
         if (target) {
             this.renderer!.draw(this, target);
+        }
+
+        if (this.gamePhase === 'gameOver') {
+            this.renderer!.drawGameOver(this);
         }
     }
 
