@@ -168,8 +168,6 @@ export class ShinobiClashGame extends Game {
         // 1. Process Inputs (Movement & Skills)
         for (const [player, input] of playerInputs.entries()) {
             const p = this.players[player.id];
-            if (p.dead) continue;
-
             CombatManager.processInput(this, p, input);
         }
 
