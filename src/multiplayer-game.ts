@@ -65,7 +65,7 @@ export class ShinobiClashGame extends Game {
                 maxHp: 100,
                 dead: false,
                 ready: false,
-                stats: { speed: 3, damageMult: 1, cooldownMult: 1 },
+                stats: { speed: 0.6, damageMult: 1, cooldownMult: 1 },
                 cooldowns: { q: 0, e: 0, sp: 0 },
                 casting: 0,
                 dash: { active: false, vx: 0, vy: 0, life: 0 }
@@ -122,10 +122,10 @@ export class ShinobiClashGame extends Game {
             const p = this.players[id];
             if (p.character === 'naruto') {
                 p.maxHp = 150; p.hp = 150;
-                p.stats.speed = 3;
+                p.stats.speed = 0.6;
             } else if (p.character === 'sasuke') {
                 p.maxHp = 130; p.hp = 130;
-                p.stats.speed = 3.25;
+                p.stats.speed = 0.65;
             }
         }
     }

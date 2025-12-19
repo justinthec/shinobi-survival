@@ -53,10 +53,6 @@ export class CombatManager {
             p.dash.life--;
 
             // Continuous Dash Trail (White Poof)
-            // Deterministic random using simple math if game.random() isn't available statically
-            // But game instance is passed. We assume game has a random() if it follows NetplayJS pattern.
-            // If not, we use a simple seed based on tick/id.
-            // Let's rely on deterministic math for safety as I can't verify game.random() exists on type ShinobiClashGame easily right now.
             const rand = () => {
                 const seed = game.projectiles.length + p.pos.x + p.pos.y + p.dash.life;
                 return Math.abs(Math.sin(seed));
@@ -66,9 +62,9 @@ export class CombatManager {
                 id: game.nextEntityId++,
                 type: 'smoke',
                 pos: new Vec2(p.pos.x, p.pos.y),
-                vel: new Vec2((rand() - 0.5) * 1, (rand() - 0.5) * 1), // Slower spread
-                life: 30, // Longer life (was 15)
-                maxLife: 30,
+                vel: new Vec2((rand() - 0.5) * 0.2, (rand() - 0.5) * 0.2), // 0.2x spread
+                life: 150, // 0.2x speed -> 5x life
+                maxLife: 150,
                 color: 'rgba(255,255,255,0.5)',
                 size: 4 + rand() * 4
             });
@@ -102,8 +98,8 @@ export class CombatManager {
     static tryCastQ(game: ShinobiClashGame, p: PlayerState) {
         if (p.cooldowns.q > 0) return;
 
-        p.cooldowns.q = 240; // 4s (was 2s)
-        p.casting = 20; // Lock (was 10)
+        p.cooldowns.q = 1200; // 0.2x speed -> 5x CD
+        p.casting = 100; // 5x cast time
 
         if (p.character === 'naruto') {
             this.spawnProjectile(game, p, 'rasenshuriken');
@@ -115,7 +111,7 @@ export class CombatManager {
     static tryCastE(game: ShinobiClashGame, p: PlayerState, targetPos: Vec2) {
         if (p.cooldowns.e > 0) return;
 
-        p.cooldowns.e = 720; // 12s (was 6s)
+        p.cooldowns.e = 3600; // 5x CD
 
         if (p.character === 'naruto') {
             // Clone Strike (Teleport + Clone)
@@ -129,13 +125,13 @@ export class CombatManager {
     static tryDash(game: ShinobiClashGame, p: PlayerState) {
         if (p.cooldowns.sp > 0) return;
 
-        p.cooldowns.sp = 360; // 6s (was 3s)
+        p.cooldowns.sp = 1800; // 5x CD
 
         // Dash vector based on aim angle
-        const dashSpeed = 12.5; // Was 25
+        const dashSpeed = 2.5; // 0.2x speed
         p.dash = {
             active: true,
-            life: 16, // Was 8
+            life: 80, // 5x duration
             vx: Math.cos(p.angle) * dashSpeed,
             vy: Math.sin(p.angle) * dashSpeed
         };
@@ -151,15 +147,15 @@ export class CombatManager {
                 id: game.nextEntityId++,
                 type: 'smoke',
                 pos: new Vec2(p.pos.x, p.pos.y),
-                vel: new Vec2((rand(i)-0.5)*2.5, (rand(i+10)-0.5)*2.5), // Slower burst (was 5)
-                life: 40, maxLife: 40, color: 'white', size: 6 // Longer life (was 20)
+                vel: new Vec2((rand(i)-0.5)*0.5, (rand(i+10)-0.5)*0.5), // 0.2x spread
+                life: 200, maxLife: 200, color: 'white', size: 6 // 5x life
             });
         }
     }
 
     static spawnProjectile(game: ShinobiClashGame, p: PlayerState, type: string, targetPos?: Vec2) {
-        const speed = type === 'fireball' ? 7 : 9; // Was 14 : 18
-        const life = type === 'fireball' ? 100 : 120; // Was 50 : 60
+        const speed = type === 'fireball' ? 1.4 : 1.8; // 0.2x speed
+        const life = type === 'fireball' ? 500 : 600; // 5x life
 
         let pos = new Vec2(p.pos.x, p.pos.y);
         let vel = new Vec2(Math.cos(p.angle) * speed, Math.sin(p.angle) * speed);
@@ -196,8 +192,8 @@ export class CombatManager {
         };
 
         if (type === 'clone_strike') {
-            proj.life = 600; // 10 seconds (was 300)
-            proj.maxLife = 600;
+            proj.life = 3000; // 5x life
+            proj.maxLife = 3000;
             proj.hp = 30;
             proj.maxHp = 30;
             proj.radius = 20;
@@ -219,7 +215,7 @@ export class CombatManager {
                     game.projectiles.push({
                         ...proj, id: game.nextEntityId++,
                         type: 'amaterasu_burn',
-                        life: 120, radius: 60, isAoe: true // Life 120 (was 60)
+                        life: 600, radius: 60, isAoe: true // 5x life
                     });
                     game.projectiles.splice(i, 1);
                 }
@@ -240,7 +236,7 @@ export class CombatManager {
 
                 if (nearest) {
                     const angle = Math.atan2(nearest.pos.y - proj.pos.y, nearest.pos.x - proj.pos.x);
-                    const speed = 3.5; // Was 7
+                    const speed = 0.3; // Much slower (was 0.2x scale of 7 = 1.4, but requested MUCH slower)
                     proj.vel.x = Math.cos(angle) * speed;
                     proj.vel.y = Math.sin(angle) * speed;
                     proj.angle = angle; // Face enemy
@@ -275,7 +271,7 @@ export class CombatManager {
 
             if (proj.state === 'exploding' || proj.isAoe) {
                 proj.life--;
-                if (proj.life % 10 === 0) this.checkCollision(game, proj); // % 10 (was 5)
+                if (proj.life % 50 === 0) this.checkCollision(game, proj); // 5x interval
                 if (proj.life <= 0) game.projectiles.splice(i, 1);
                 continue;
             }
@@ -286,7 +282,7 @@ export class CombatManager {
 
             // Spin
             if (proj.type === 'rasenshuriken') {
-                proj.rotation = (proj.rotation || 0) + 0.15; // Was 0.3
+                proj.rotation = (proj.rotation || 0) + 0.03; // 0.2x speed
             }
 
             proj.life--;
@@ -297,12 +293,12 @@ export class CombatManager {
             if (hit || proj.life <= 0) {
                 if (proj.type === 'rasenshuriken') {
                     proj.state = 'exploding';
-                    proj.life = 80; // Was 40
+                    proj.life = 400; // 5x life
                     proj.radius = 80;
                     proj.vel.x = 0; proj.vel.y = 0;
                 } else if (proj.type === 'fireball') {
                     proj.state = 'exploding';
-                    proj.life = 20; // Was 10
+                    proj.life = 100; // 5x life
                     proj.radius = 50;
                     proj.vel.x = 0; proj.vel.y = 0;
                 } else {
@@ -364,7 +360,7 @@ export class CombatManager {
                 pos: new Vec2(target.pos.x, target.pos.y - 40),
                 val: dmg.toString(),
                 color: 'red',
-                life: 60, maxLife: 60, vy: 0.5 // Was 30, 1
+                life: 300, maxLife: 300, vy: 0.1 // 5x life, 0.2x speed
             });
 
             if (target.hp <= 0) {
@@ -388,7 +384,7 @@ export class CombatManager {
                  pos: new Vec2(clone.pos.x, clone.pos.y - 40),
                  val: dmg.toString(),
                  color: 'white',
-                 life: 60, maxLife: 60, vy: 0.5 // Was 30, 1
+                 life: 300, maxLife: 300, vy: 0.1 // 5x life, 0.2x speed
             });
         }
     }
