@@ -236,7 +236,7 @@ export class Renderer {
         } else if (p.type === 'lightning_slash') {
             ctx.rotate(p.rotation || 0);
             if (SPRITES.sword_slash) {
-                ctx.drawImage(SPRITES.sword_slash as HTMLCanvasElement, -50, -30);
+                ctx.drawImage(SPRITES.sword_slash as HTMLCanvasElement, -100, -100);
             }
         }
 
@@ -262,7 +262,8 @@ export class Renderer {
 
             // Overlay
             if (cd > 0) {
-                const pct = cd / max;
+                const safeCD = Math.min(cd, max);
+                const pct = safeCD / max;
                 ctx.fillStyle = 'rgba(0,0,0,0.7)';
                 ctx.fillRect(x, h - 80 + (60 * (1 - pct)), 60, 60 * pct);
             }

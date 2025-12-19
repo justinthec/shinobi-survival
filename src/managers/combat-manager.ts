@@ -108,8 +108,13 @@ export class CombatManager {
     static tryCastQ(game: ShinobiClashGame, p: PlayerState) {
         if (p.cooldowns.q > 0) return;
 
-        p.cooldowns.q = 240; // 4s (was 2s)
-        p.casting = 20; // Lock (was 10)
+        if (p.character === 'naruto') {
+            p.cooldowns.q = 240; // 4s
+        } else {
+            p.cooldowns.q = 30; // 0.5s (Very short)
+        }
+
+        p.casting = 20; // Lock
 
         if (p.character === 'naruto') {
             this.spawnProjectile(game, p, 'rasenshuriken');
@@ -271,7 +276,7 @@ export class CombatManager {
         if (type === 'lightning_slash') {
             proj.life = 10;
             proj.maxLife = 10;
-            proj.radius = 60;
+            proj.radius = 100;
             proj.rotation = p.angle;
             // Position offset handled in generic block or override here?
             // Generic block uses 30 offset. We want 50.

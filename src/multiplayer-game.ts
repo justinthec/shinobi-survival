@@ -85,6 +85,14 @@ export class ShinobiClashGame extends Game {
 
     tickGameOver(playerInputs: Map<NetplayPlayer, DefaultInput>) {
         for (const [player, input] of playerInputs.entries()) {
+            const p = this.players[player.id];
+
+            // Spectator Controls
+            if (p) {
+                if (input.keysPressed['ArrowLeft']) CombatManager.cycleSpectator(this, p, -1);
+                if (input.keysPressed['ArrowRight']) CombatManager.cycleSpectator(this, p, 1);
+            }
+
             // Restart on Space or Touch
             if (input.keysPressed[' '] || (input.touches && input.touches.length > 0)) {
                 this.gamePhase = 'charSelect';
