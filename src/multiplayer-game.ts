@@ -76,6 +76,7 @@ export class ShinobiClashGame extends Game {
     }
 
     tick(playerInputs: Map<NetplayPlayer, DefaultInput>): void {
+        this.gameTime++; // Increment game time
         if (this.gamePhase === 'charSelect') {
             this.tickCharSelect(playerInputs);
         } else if (this.gamePhase === 'playing') {

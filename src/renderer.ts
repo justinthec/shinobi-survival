@@ -1,19 +1,32 @@
 import { ShinobiClashGame } from "./multiplayer-game";
 import { PlayerState, ProjectileState } from "./types";
+import { initSprites, SPRITES } from "./sprites";
 
 export class Renderer {
     ctx: CanvasRenderingContext2D;
     canvas: HTMLCanvasElement;
+    bgPattern: CanvasPattern | null = null;
 
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d')!;
+        initSprites().then(() => {
+            // Sprites loaded
+            this.createBackgroundPattern();
+        });
+    }
+
+    createBackgroundPattern() {
+        if (SPRITES.grass) {
+            this.bgPattern = this.ctx.createPattern(SPRITES.grass, 'repeat');
+        }
     }
 
     draw(game: ShinobiClashGame, focusPlayer: PlayerState) {
         const ctx = this.ctx;
         const width = this.canvas.width;
         const height = this.canvas.height;
+        const time = game.gameTime;
 
         // Clear
         ctx.fillStyle = '#1a202c';
@@ -26,23 +39,38 @@ export class Renderer {
         const camY = focusPlayer.pos.y - height / 2;
         ctx.translate(-camX, -camY);
 
-        // Grid
-        this.drawGrid(camX, camY, width, height);
+        // Draw Background
+        if (this.bgPattern) {
+            ctx.save();
+            ctx.fillStyle = this.bgPattern;
+            ctx.fillRect(camX, camY, width, height);
+            ctx.restore();
+        } else {
+             // Fallback Grid
+            this.drawGrid(camX, camY, width, height);
+        }
 
         // Map Border
         ctx.strokeStyle = '#e53e3e';
         ctx.lineWidth = 10;
         ctx.strokeRect(0, 0, 1600, 1600);
 
+        // Particles (Behind players)
+        game.particles.forEach(p => {
+             ctx.fillStyle = p.color;
+             ctx.globalAlpha = p.life / p.maxLife;
+             ctx.beginPath();
+             ctx.arc(p.pos.x, p.pos.y, p.size, 0, Math.PI * 2);
+             ctx.fill();
+             ctx.globalAlpha = 1.0;
+        });
+
         // Projectiles
-        game.projectiles.forEach(p => this.drawProjectile(p));
+        game.projectiles.forEach(p => this.drawProjectile(p, time));
 
         // Players(z-index sort by Y)
         const sortedPlayers = Object.values(game.players).sort((a, b) => a.pos.y - b.pos.y);
-        sortedPlayers.forEach(p => this.drawPlayer(p));
-
-        // Particles
-        // TODO: Port particle drawing
+        sortedPlayers.forEach(p => this.drawPlayer(p, time));
 
         // Floating Text
         game.floatingTexts.forEach(t => {
@@ -117,9 +145,19 @@ export class Renderer {
         ctx.fillText(`Particles: ${game.particles.length}`, 10, 50);
     }
 
+    // Helper for safe roundRect
+    drawRoundedRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+        ctx.beginPath();
+        if (typeof ctx.roundRect === 'function') {
+            ctx.roundRect(x, y, w, h, r);
+        } else {
+            ctx.rect(x, y, w, h);
+        }
+    }
+
     drawGrid(camX: number, camY: number, width: number, height: number) {
         const ctx = this.ctx;
-        ctx.strokeStyle = '#2d3748';
+        ctx.strokeStyle = 'rgba(0,0,0,0.2)';
         ctx.lineWidth = 2;
         const grid = 100;
 
@@ -134,31 +172,31 @@ export class Renderer {
         }
     }
 
-    drawPlayer(p: PlayerState) {
-        if (p.dead) {
-            // Draw Grave?
-            return;
-        }
+    drawPlayer(p: PlayerState, time: number) {
+        if (p.dead) return;
+        this.drawNinjaBody(p.pos.x, p.pos.y, p.angle, p.character || 'naruto', p.hp, p.maxHp, p.name, time, false);
+    }
 
+    drawNinjaBody(x: number, y: number, angle: number, type: string, hp: number, maxHp: number, name: string, time: number, isClone: boolean) {
         const ctx = this.ctx;
         ctx.save();
-        ctx.translate(p.pos.x, p.pos.y);
-        ctx.rotate(p.angle);
+        ctx.translate(x, y);
+        ctx.rotate(angle);
 
         // Shadow
         ctx.fillStyle = 'rgba(0,0,0,0.4)';
         ctx.beginPath(); ctx.ellipse(-2, 2, 16, 16, 0, 0, Math.PI * 2); ctx.fill();
 
-        // Colors
-        const isNaruto = p.character === 'naruto';
-
+        // Visual Colors
+        const isNaruto = type === 'naruto';
         const c = isNaruto ? {
             skin: '#ffcba4', hair: '#ffdd00', main: '#ff6600', sub: '#1a1a1a', acc: '#0055aa'
         } : {
             skin: '#ffe0bd', hair: '#111122', main: '#9ca3af', sub: '#4b5563', acc: '#8b5cf6'
         };
 
-        // Simplified Body Draw (Porting the logic from index.html is good, but let's simplify for brevity if needed)
+        if (isClone) ctx.globalAlpha = 0.8;
+
         // Body
         ctx.fillStyle = c.main;
         ctx.beginPath(); ctx.ellipse(-5, 0, 16, 12, 0, 0, Math.PI * 2); ctx.fill();
@@ -171,50 +209,54 @@ export class Renderer {
         ctx.fillStyle = c.hair;
         ctx.beginPath();
         if (isNaruto) {
-            // Spikes
             for (let i = 0; i < 14; i++) {
-                const angle = (i / 14) * Math.PI * 2;
+                const a = (i / 14) * Math.PI * 2;
                 const len = 14;
-                const cx = 2 + Math.cos(angle) * len;
-                const cy = Math.sin(angle) * len;
+                const cx = 2 + Math.cos(a) * len;
+                const cy = Math.sin(a) * len;
                 if (i === 0) ctx.moveTo(cx, cy); else ctx.lineTo(cx, cy);
             }
         } else {
-            // Duck butt
             ctx.moveTo(-5, 0); ctx.lineTo(-18, -10); ctx.lineTo(-12, 0); ctx.lineTo(-18, 10);
         }
         ctx.fill();
 
-        // Arms (if not dead)
+        // Arms
         ctx.fillStyle = c.main;
-        ctx.beginPath(); ctx.roundRect(0, -16, 12, 6, 3); ctx.fill();
-        ctx.beginPath(); ctx.roundRect(0, 10, 12, 6, 3); ctx.fill();
+        this.drawRoundedRectPath(ctx, 0, -16, 12, 6, 3); ctx.fill();
+        this.drawRoundedRectPath(ctx, 0, 10, 12, 6, 3); ctx.fill();
 
         ctx.restore();
 
-        // Health bar
-        this.drawHealthBar(p);
+        // Health Bar
+        if (maxHp > 0) {
+             ctx.save();
+             ctx.translate(x, y - 50);
+             ctx.fillStyle = 'rgba(0,0,0,0.8)';
+             this.drawRoundedRectPath(ctx, -20, 0, 40, 6, 3); ctx.fill();
+             const pct = Math.max(0, hp / maxHp);
+             ctx.fillStyle = pct > 0.5 ? '#48bb78' : '#f56565';
+             this.drawRoundedRectPath(ctx, -18, 1, 36 * pct, 4, 2); ctx.fill();
+
+             if (!isClone) {
+                 ctx.fillStyle = 'white';
+                 ctx.font = '10px Arial';
+                 ctx.textAlign = 'center';
+                 ctx.fillText(name, 0, -5);
+             }
+             ctx.restore();
+        }
     }
 
-    drawHealthBar(p: PlayerState) {
+    drawProjectile(p: ProjectileState, time: number) {
         const ctx = this.ctx;
-        ctx.save();
-        ctx.translate(p.pos.x, p.pos.y - 50);
-        ctx.fillStyle = 'rgba(0,0,0,0.8)';
-        ctx.beginPath(); ctx.roundRect(-30, 0, 60, 8, 4); ctx.fill();
-        const pct = Math.max(0, p.hp / p.maxHp);
-        ctx.fillStyle = pct > 0.5 ? '#48bb78' : '#f56565';
-        ctx.beginPath(); ctx.roundRect(-28, 2, 56 * pct, 4, 2); ctx.fill();
 
-        ctx.fillStyle = 'white';
-        ctx.font = '10px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(p.name, 0, -5);
-        ctx.restore();
-    }
+        if (p.type === 'clone_strike') {
+            // Draw as a Ninja
+            this.drawNinjaBody(p.pos.x, p.pos.y, p.angle, 'naruto', p.hp || 0, p.maxHp || 1, "Clone", time, true);
+            return;
+        }
 
-    drawProjectile(p: ProjectileState) {
-        const ctx = this.ctx;
         ctx.save();
         ctx.translate(p.pos.x, p.pos.y);
 
@@ -249,12 +291,6 @@ export class Renderer {
     }
 
     drawHUD(p: PlayerState) {
-        // We can draw simple HUD here or rely on DOM elements + updates.
-        // The index.html used DOM elements for HUD (Cooldowns).
-        // Since we are Netplay, we might want to sync the DOM HUD.
-        // Or just draw it on canvas.
-        // Let's draw on canvas for simplicity in this port first.
-
         const ctx = this.ctx;
         const w = this.canvas.width;
         const h = this.canvas.height;

@@ -2,11 +2,14 @@ export const SPRITES: Record<string, HTMLCanvasElement | HTMLImageElement> = {};
 
 export function initSprites() {
     // Load grass tile image
-    const grassImg = new Image();
-    grassImg.src = './grass.png';
-    SPRITES.grass = grassImg;
+    if (typeof Image !== 'undefined') {
+        const grassImg = new Image();
+        grassImg.src = './grass.png';
+        SPRITES.grass = grassImg;
+    }
 
     const makeSprite = (width: number, height: number, drawFn: (ctx: CanvasRenderingContext2D, cx: number, cy: number) => void) => {
+        if (typeof document === 'undefined') return {} as HTMLCanvasElement;
         const c = document.createElement('canvas');
         c.width = width; c.height = height;
         const ctx = c.getContext('2d')!;
