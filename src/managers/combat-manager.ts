@@ -5,6 +5,12 @@ import { PlayerState, ProjectileState } from "../types";
 export class CombatManager {
 
     static processInput(game: ShinobiClashGame, p: PlayerState, input: DefaultInput) {
+        if (p.dead) {
+            if (input.keysPressed['ArrowLeft']) this.cycleSpectator(game, p, -1);
+            if (input.keysPressed['ArrowRight']) this.cycleSpectator(game, p, 1);
+            return;
+        }
+
         if (p.casting > 0) {
             p.casting--;
             return; // Stunned while casting
@@ -43,7 +49,7 @@ export class CombatManager {
         // 4. Skills
         if (input.keysPressed['q']) this.tryCastQ(game, p);
         if (input.keysPressed['e']) this.tryCastE(game, p, targetPos);
-        if (input.keysPressed[' ']) this.tryDash(game, p);
+        if (input.keysPressed[' ']) this.tryDash(game, p, input);
     }
 
     static handleMovement(game: ShinobiClashGame, p: PlayerState, input: DefaultInput) {
@@ -102,13 +108,18 @@ export class CombatManager {
     static tryCastQ(game: ShinobiClashGame, p: PlayerState) {
         if (p.cooldowns.q > 0) return;
 
-        p.cooldowns.q = 240; // 4s (was 2s)
-        p.casting = 20; // Lock (was 10)
+        if (p.character === 'naruto') {
+            p.cooldowns.q = 240; // 4s
+        } else {
+            p.cooldowns.q = 30; // 0.5s (Very short)
+        }
+
+        p.casting = 20; // Lock
 
         if (p.character === 'naruto') {
             this.spawnProjectile(game, p, 'rasenshuriken');
         } else {
-            this.spawnProjectile(game, p, 'fireball');
+            this.spawnProjectile(game, p, 'lightning_slash');
         }
     }
 
@@ -118,26 +129,84 @@ export class CombatManager {
         p.cooldowns.e = 720; // 12s (was 6s)
 
         if (p.character === 'naruto') {
-            // Clone Strike (Teleport + Clone)
+            // Clone Strike
             this.spawnProjectile(game, p, 'clone_strike', targetPos);
         } else {
-            // Amaterasu
-            this.spawnProjectile(game, p, 'amaterasu_buildup', targetPos);
+            // Sasuke Teleport
+            const maxRange = 300;
+            const dx = targetPos.x - p.pos.x;
+            const dy = targetPos.y - p.pos.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            let tx = targetPos.x;
+            let ty = targetPos.y;
+
+            if (dist > maxRange) {
+                const angle = Math.atan2(dy, dx);
+                tx = p.pos.x + Math.cos(angle) * maxRange;
+                ty = p.pos.y + Math.sin(angle) * maxRange;
+            }
+
+            // Clamp to map bounds
+            const bounds = 1600 - 20;
+            tx = Math.max(20, Math.min(bounds, tx));
+            ty = Math.max(20, Math.min(bounds, ty));
+
+            // Particles at start
+            game.particles.push({
+                id: game.nextEntityId++,
+                type: 'teleport',
+                pos: new Vec2(p.pos.x, p.pos.y),
+                vel: new Vec2(0, 0),
+                life: 20, maxLife: 20, color: '#8A2BE2', size: 10
+            });
+
+            // Move
+            p.pos.x = tx;
+            p.pos.y = ty;
+
+            // Particles at end
+            game.particles.push({
+                id: game.nextEntityId++,
+                type: 'teleport',
+                pos: new Vec2(p.pos.x, p.pos.y),
+                vel: new Vec2(0, 0),
+                life: 20, maxLife: 20, color: '#8A2BE2', size: 10
+            });
         }
     }
 
-    static tryDash(game: ShinobiClashGame, p: PlayerState) {
+    static tryDash(game: ShinobiClashGame, p: PlayerState, input: DefaultInput) {
         if (p.cooldowns.sp > 0) return;
 
         p.cooldowns.sp = 360; // 6s (was 3s)
 
-        // Dash vector based on aim angle
+        // Dash vector based on movement keys
         const dashSpeed = 12.5; // Was 25
+        let dx = 0; let dy = 0;
+        if (input.keysHeld['a']) dx -= 1;
+        if (input.keysHeld['d']) dx += 1;
+        if (input.keysHeld['w']) dy -= 1;
+        if (input.keysHeld['s']) dy += 1;
+
+        let vx = 0;
+        let vy = 0;
+
+        if (dx !== 0 || dy !== 0) {
+            const len = Math.sqrt(dx * dx + dy * dy);
+            vx = (dx / len) * dashSpeed;
+            vy = (dy / len) * dashSpeed;
+        } else {
+            // Fallback to mouse aim if stationary
+            vx = Math.cos(p.angle) * dashSpeed;
+            vy = Math.sin(p.angle) * dashSpeed;
+        }
+
         p.dash = {
             active: true,
             life: 16, // Was 8
-            vx: Math.cos(p.angle) * dashSpeed,
-            vy: Math.sin(p.angle) * dashSpeed
+            vx: vx,
+            vy: vy
         };
 
         // Initial Burst
@@ -169,8 +238,8 @@ export class CombatManager {
             pos = new Vec2(targetPos.x, targetPos.y);
             vel = new Vec2(0, 0); // Stationary
         }
-        else if (type === 'clone_strike' && targetPos) {
-            pos = new Vec2(targetPos.x, targetPos.y);
+        else if (type === 'clone_strike') {
+            pos = new Vec2(p.pos.x, p.pos.y);
             vel = new Vec2(0, 0); // Starts stationary, moves in update
         }
         else {
@@ -198,10 +267,24 @@ export class CombatManager {
         if (type === 'clone_strike') {
             proj.life = 600; // 10 seconds (was 300)
             proj.maxLife = 600;
-            proj.hp = 30;
-            proj.maxHp = 30;
+            proj.hp = p.maxHp;
+            proj.maxHp = p.maxHp;
             proj.radius = 20;
             proj.actionState = 'run';
+        }
+
+        if (type === 'lightning_slash') {
+            proj.life = 10;
+            proj.maxLife = 10;
+            proj.radius = 100;
+            proj.rotation = p.angle;
+            // Position offset handled in generic block or override here?
+            // Generic block uses 30 offset. We want 50.
+            const ox = Math.cos(p.angle) * 50;
+            const oy = Math.sin(p.angle) * 50;
+            proj.pos.x = p.pos.x + ox;
+            proj.pos.y = p.pos.y + oy;
+            proj.vel.x = 0; proj.vel.y = 0;
         }
 
         game.projectiles.push(proj);
@@ -210,6 +293,13 @@ export class CombatManager {
     static updateProjectiles(game: ShinobiClashGame) {
         for (let i = game.projectiles.length - 1; i >= 0; i--) {
             const proj = game.projectiles[i];
+
+            if (proj.type === 'lightning_slash') {
+                if (proj.life === 9) this.checkCollision(game, proj); // Hit once
+                proj.life--;
+                if (proj.life <= 0) game.projectiles.splice(i, 1);
+                continue;
+            }
 
             // 1. Amaterasu Logic
             if (proj.type === 'amaterasu_buildup') {
@@ -240,7 +330,7 @@ export class CombatManager {
 
                 if (nearest) {
                     const angle = Math.atan2(nearest.pos.y - proj.pos.y, nearest.pos.x - proj.pos.x);
-                    const speed = 3.5; // Was 7
+                    const speed = 2.5; // Slower than players
                     proj.vel.x = Math.cos(angle) * speed;
                     proj.vel.y = Math.sin(angle) * speed;
                     proj.angle = angle; // Face enemy
@@ -356,6 +446,7 @@ export class CombatManager {
         if (proj.type === 'clone_strike') dmg = 20;
         if (proj.type === 'amaterasu_burn') dmg = 2;
         if (proj.state === 'exploding') dmg = 2;
+        if (proj.type === 'lightning_slash') dmg = 25;
 
         if (dmg > 0) {
             target.hp -= dmg;
@@ -391,5 +482,25 @@ export class CombatManager {
                  life: 60, maxLife: 60, vy: 0.5 // Was 30, 1
             });
         }
+    }
+
+    static cycleSpectator(game: ShinobiClashGame, p: PlayerState, dir: number) {
+        const aliveIds = Object.values(game.players)
+            .filter(pl => !pl.dead)
+            .map(pl => pl.id)
+            .sort((a, b) => a - b);
+
+        if (aliveIds.length === 0) return;
+
+        let currentTarget = p.spectatorTargetId;
+        // If current target invalid, pick first
+        if (currentTarget === undefined || !aliveIds.includes(currentTarget)) {
+            p.spectatorTargetId = aliveIds[0];
+            return;
+        }
+
+        let idx = aliveIds.indexOf(currentTarget);
+        idx = (idx + dir + aliveIds.length) % aliveIds.length;
+        p.spectatorTargetId = aliveIds[idx];
     }
 }

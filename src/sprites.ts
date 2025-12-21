@@ -298,10 +298,31 @@ export function initSprites() {
         ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill();
     });
 
-    SPRITES.sword_slash = makeSprite(100, 60, (ctx, cx, cy) => {
-        ctx.fillStyle = 'rgba(200, 220, 255, 0.8)'; ctx.beginPath();
-        ctx.arc(cx - 20, cy, 45, -Math.PI / 3, Math.PI / 3); ctx.lineTo(cx - 30, cy); ctx.fill();
-        ctx.strokeStyle = '#00d2ff'; ctx.lineWidth = 2; ctx.stroke();
+    SPRITES.sword_slash = makeSprite(200, 200, (ctx, cx, cy) => {
+        ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 20;
+        ctx.strokeStyle = '#e0ffff'; ctx.lineWidth = 5;
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+        ctx.beginPath();
+        // Lightning Zig-Zag Arc
+        const steps = 12;
+        const radius = 90;
+        for (let i = 0; i <= steps; i++) {
+            const t = i / steps;
+            const angle = -Math.PI / 2.5 + (Math.PI / 1.25) * t;
+            const jitter = (Math.random() - 0.5) * 20; // Deterministic random if seeded? No, makeSprite runs once at init.
+            // Using modulo for pseudo-random visual
+            const zigzag = (i % 2 === 0 ? 10 : -10);
+            const r = radius + zigzag;
+            const x = cx - 60 + Math.cos(angle) * r;
+            const y = cy + Math.sin(angle) * r;
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+
+        // White core
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.shadowBlur = 0;
+        ctx.stroke();
     });
 
     SPRITES.sand_hand = makeSprite(120, 160, (ctx, cx, cy) => {

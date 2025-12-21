@@ -29,6 +29,8 @@ export interface PlayerState {
         sp: number; // Dash/Space
     };
 
+    spectatorTargetId?: number;
+
     // Action States
     casting: number; // Frames remaining for cast lock
     dash: {
@@ -39,7 +41,7 @@ export interface PlayerState {
     };
 }
 
-export type ProjectileType = 'rasenshuriken' | 'fireball' | 'clone_strike' | 'amaterasu_buildup' | 'amaterasu_burn';
+export type ProjectileType = 'rasenshuriken' | 'fireball' | 'clone_strike' | 'amaterasu_buildup' | 'amaterasu_burn' | 'lightning_slash';
 
 export interface ProjectileState {
     id: number;
