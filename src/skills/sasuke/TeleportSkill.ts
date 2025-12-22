@@ -1,6 +1,6 @@
 import { DefaultInput, Vec2 } from "netplayjs";
 import { ShinobiClashGame } from "../../multiplayer-game";
-import { PlayerState } from "../../types";
+import { PlayerState, PLAYER_RADIUS } from "../../types";
 import { Skill } from "../Skill";
 
 export class TeleportSkill implements Skill {
@@ -29,9 +29,9 @@ export class TeleportSkill implements Skill {
 
         // Clamp to map bounds (hardcoded in original as 20..1600-20)
         // Ideally should come from MapState but for now hardcode to match
-        const bounds = 1600 - 20;
-        tx = Math.max(20, Math.min(bounds, tx));
-        ty = Math.max(20, Math.min(bounds, ty));
+        const bounds = 1600 - PLAYER_RADIUS;
+        tx = Math.max(PLAYER_RADIUS, Math.min(bounds, tx));
+        ty = Math.max(PLAYER_RADIUS, Math.min(bounds, ty));
 
         // Particles at start
         game.particles.push({

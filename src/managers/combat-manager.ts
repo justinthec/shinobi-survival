@@ -1,6 +1,6 @@
 import { DefaultInput, Vec2 } from "netplayjs";
 import { ShinobiClashGame } from "../multiplayer-game";
-import { PlayerState, ProjectileState } from "../types";
+import { PlayerState, ProjectileState, PLAYER_RADIUS } from "../types";
 import { SkillRegistry } from "../skills/SkillRegistry";
 import { RasenshurikenSkill } from "../skills/naruto/RasenshurikenSkill";
 import { CloneStrikeSkill } from "../skills/naruto/CloneStrikeSkill";
@@ -53,7 +53,59 @@ export class CombatManager {
 
         // 4. Skills
         if (input.keysPressed['q']) SkillRegistry.getSkill(p.character, 'q')?.cast(game, p, input, targetPos);
-        if (input.keysPressed['e']) SkillRegistry.getSkill(p.character, 'e')?.cast(game, p, input, targetPos);
+
+        // Sasuke's Teleport (E) Logic
+        if (p.character === 'sasuke') {
+            const skillE = SkillRegistry.getSkill('sasuke', 'e');
+            if (skillE) {
+                if (input.keysHeld['e']) {
+                    // Charging
+                    if (!p.skillStates['e']) p.skillStates['e'] = {};
+                    p.skillStates['e'].charging = true;
+                    // Re-calculate target to clamp properly (we can just use targetPos but might want to re-clamp)
+                    // The TeleportSkill doesn't expose logic easily, but we can just store raw target
+                    // And let Cast handle clamping? Or we clamp here for visual indicator accuracy.
+                    // Let's rely on Cast for logic, but for Indicator we need a way to know where it will land.
+                    // For now, store raw. TeleportSkill currently clamps inside cast.
+                    // Ideally we refactor TeleportSkill to expose `calculateDestination`.
+                    // But to keep it simple, we store raw targetPos.
+                    // WAIT: User wanted indicator. If we store raw targetPos, indicator might be out of range.
+                    // We should replicate the clamp logic here or use a helper.
+                    // Hardcoding Teleport range (300) here is duplicated logic but safest for now.
+                    const maxRange = 300;
+                    const dx = targetPos.x - p.pos.x;
+                    const dy = targetPos.y - p.pos.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    let tx = targetPos.x;
+                    let ty = targetPos.y;
+                    if (dist > maxRange) {
+                        const angle = Math.atan2(dy, dx);
+                        tx = p.pos.x + Math.cos(angle) * maxRange;
+                        ty = p.pos.y + Math.sin(angle) * maxRange;
+                    }
+                    // Map Bounds
+                    const bounds = 1600 - PLAYER_RADIUS;
+                    tx = Math.max(PLAYER_RADIUS, Math.min(bounds, tx));
+                    ty = Math.max(PLAYER_RADIUS, Math.min(bounds, ty));
+
+                    p.skillStates['e'].target = new Vec2(tx, ty);
+
+                } else {
+                    // Released
+                    if (p.skillStates['e']?.charging) {
+                         // Cast!
+                         if (p.skillStates['e'].target) {
+                            skillE.cast(game, p, input, p.skillStates['e'].target);
+                         }
+                         delete p.skillStates['e'];
+                    }
+                }
+            }
+        } else {
+             // Normal Cast for others
+             if (input.keysPressed['e']) SkillRegistry.getSkill(p.character, 'e')?.cast(game, p, input, targetPos);
+        }
+
         if (input.keysPressed[' ']) SkillRegistry.getSkill(p.character, ' ')?.cast(game, p, input, targetPos);
     }
 
@@ -101,8 +153,8 @@ export class CombatManager {
             p.pos.y += vy;
 
             // Bounds
-            p.pos.x = Math.max(20, Math.min(1600 - 20, p.pos.x));
-            p.pos.y = Math.max(20, Math.min(1600 - 20, p.pos.y));
+            p.pos.x = Math.max(PLAYER_RADIUS, Math.min(1600 - PLAYER_RADIUS, p.pos.x));
+            p.pos.y = Math.max(PLAYER_RADIUS, Math.min(1600 - PLAYER_RADIUS, p.pos.y));
         }
     }
 
@@ -224,11 +276,30 @@ export class CombatManager {
             if (target.dead) continue;
 
             // Radius check
-            // proj.radius should be correct from Skill.
             const dist = Math.sqrt((target.pos.x - proj.pos.x) ** 2 + (target.pos.y - proj.pos.y) ** 2);
-            if (dist < proj.radius + 20) {
-                hit = true;
-                this.applyDamage(game, target, proj);
+
+            if (proj.type === 'lightning_slash') {
+                // Sector Check
+                if (dist < proj.radius + PLAYER_RADIUS) {
+                    // Check Angle
+                    const angleToTarget = Math.atan2(target.pos.y - proj.pos.y, target.pos.x - proj.pos.x);
+                    let diff = angleToTarget - proj.angle;
+                    // Normalize to -PI..PI
+                    while (diff > Math.PI) diff -= Math.PI * 2;
+                    while (diff < -Math.PI) diff += Math.PI * 2;
+
+                    // 120 degrees total = +/- 60 degrees = +/- PI/3
+                    if (Math.abs(diff) < Math.PI / 3) {
+                         hit = true;
+                         this.applyDamage(game, target, proj);
+                    }
+                }
+            } else {
+                // Standard Circle Check
+                if (dist < proj.radius + PLAYER_RADIUS) {
+                    hit = true;
+                    this.applyDamage(game, target, proj);
+                }
             }
         }
 

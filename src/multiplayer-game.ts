@@ -68,7 +68,8 @@ export class ShinobiClashGame extends Game {
                 stats: { speed: 3, damageMult: 1, cooldownMult: 1 },
                 cooldowns: { q: 0, e: 0, sp: 0 },
                 casting: 0,
-                dash: { active: false, vx: 0, vy: 0, life: 0 }
+                dash: { active: false, vx: 0, vy: 0, life: 0 },
+                skillStates: {}
             };
         }
     }
@@ -106,6 +107,7 @@ export class ShinobiClashGame extends Game {
                         p.cooldowns = { q: 0, e: 0, sp: 0 };
                         p.casting = 0;
                         p.dash = { active: false, vx: 0, vy: 0, life: 0 };
+                        p.skillStates = {};
                 }
                 this.projectiles = [];
                 this.particles = [];

@@ -5,8 +5,8 @@ import { Skill } from "../Skill";
 
 export class LightningSlashSkill implements Skill {
     static readonly DAMAGE = 25;
-    static readonly LIFE = 10;
-    static readonly RADIUS = 100;
+    static readonly LIFE = 1; // Instant hit
+    static readonly RADIUS = 125;
     static readonly CAST_TIME = 20;
 
     readonly cooldown = 30;
@@ -17,13 +17,11 @@ export class LightningSlashSkill implements Skill {
         p.cooldowns.q = this.cooldown;
         p.casting = LightningSlashSkill.CAST_TIME;
 
-        const ox = Math.cos(p.angle) * 50;
-        const oy = Math.sin(p.angle) * 50;
-
+        // Position fixed to player for the sector check
         const proj: ProjectileState = {
             id: game.nextEntityId++,
             type: 'lightning_slash',
-            pos: new Vec2(p.pos.x + ox, p.pos.y + oy),
+            pos: new Vec2(p.pos.x, p.pos.y),
             vel: new Vec2(0, 0),
             ownerId: p.id,
             angle: p.angle,

@@ -1,5 +1,5 @@
 import { ShinobiClashGame } from "./multiplayer-game";
-import { PlayerState, ProjectileState } from "./types";
+import { PlayerState, ProjectileState, PLAYER_RADIUS } from "./types";
 import { initSprites, SPRITES } from "./sprites";
 import { SkillRegistry } from "./skills/SkillRegistry";
 
@@ -116,14 +116,21 @@ export class Renderer {
             const p = game.players[id];
             if (p.dead) continue;
             ctx.beginPath();
-            ctx.arc(p.pos.x, p.pos.y, 20, 0, Math.PI * 2);
+            ctx.arc(p.pos.x, p.pos.y, PLAYER_RADIUS, 0, Math.PI * 2);
             ctx.stroke();
         }
 
         // Projectiles
         for (const proj of game.projectiles) {
             ctx.beginPath();
-            ctx.arc(proj.pos.x, proj.pos.y, proj.radius, 0, Math.PI * 2);
+            if (proj.type === 'lightning_slash') {
+                // Draw Sector
+                ctx.moveTo(proj.pos.x, proj.pos.y);
+                ctx.arc(proj.pos.x, proj.pos.y, proj.radius, proj.angle - Math.PI / 3, proj.angle + Math.PI / 3);
+                ctx.lineTo(proj.pos.x, proj.pos.y);
+            } else {
+                ctx.arc(proj.pos.x, proj.pos.y, proj.radius, 0, Math.PI * 2);
+            }
             ctx.stroke();
         }
     }
@@ -157,14 +164,24 @@ export class Renderer {
 
     drawPlayer(p: PlayerState, time: number) {
         if (p.dead) return;
+
+        // Draw Charging Indicator for Sasuke's Teleport
+        if (p.character === 'sasuke' && p.skillStates && p.skillStates['e'] && p.skillStates['e'].charging && p.skillStates['e'].target) {
+            const target = p.skillStates['e'].target;
+            this.drawNinjaBody(target.x, target.y, p.angle, 'sasuke', 0, 0, "", time, false, 0.5, '#8A2BE2');
+        }
+
         this.drawNinjaBody(p.pos.x, p.pos.y, p.angle, p.character || 'naruto', p.hp, p.maxHp, p.name, time, false);
     }
 
-    drawNinjaBody(x: number, y: number, angle: number, type: string, hp: number, maxHp: number, name: string, time: number, isClone: boolean) {
+    drawNinjaBody(x: number, y: number, angle: number, type: string, hp: number, maxHp: number, name: string, time: number, isClone: boolean, opacity: number = 1, colorOverride: string | null = null) {
         const ctx = this.ctx;
         ctx.save();
         ctx.translate(x, y);
+        ctx.scale(1.25, 1.25);
         ctx.rotate(angle);
+
+        if (opacity < 1) ctx.globalAlpha = opacity;
 
         // Shadow
         ctx.fillStyle = 'rgba(0,0,0,0.4)';
@@ -178,7 +195,18 @@ export class Renderer {
             skin: '#ffe0bd', hair: '#111122', main: '#9ca3af', sub: '#4b5563', acc: '#8b5cf6'
         };
 
-        if (isClone) ctx.globalAlpha = 0.8;
+        // Override if needed (e.g. purple ghost)
+        if (colorOverride) {
+            // Simplified tinted version
+            c.skin = colorOverride;
+            c.hair = colorOverride;
+            c.main = colorOverride;
+            c.sub = colorOverride;
+            c.acc = colorOverride;
+        }
+
+        if (isClone) ctx.globalAlpha = 0.8 * opacity;
+        else if (opacity < 1) ctx.globalAlpha = opacity;
 
         // Body
         ctx.fillStyle = c.main;

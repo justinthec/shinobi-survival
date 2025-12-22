@@ -4,6 +4,14 @@ export type GamePhase = 'charSelect' | 'playing' | 'gameOver';
 
 export type CharacterType = 'naruto' | 'sasuke';
 
+export const PLAYER_RADIUS = 25;
+
+export interface SkillState {
+    charging?: boolean;
+    target?: Vec2;
+    [key: string]: any;
+}
+
 export interface PlayerState {
     id: number;
     name: string;
@@ -39,6 +47,7 @@ export interface PlayerState {
         vy: number;
         life: number;
     };
+    skillStates: Record<string, SkillState>;
 }
 
 export type ProjectileType = 'rasenshuriken' | 'fireball' | 'clone_strike' | 'amaterasu_buildup' | 'amaterasu_burn' | 'lightning_slash';

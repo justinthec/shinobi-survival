@@ -6,7 +6,7 @@ import { Skill } from "../Skill";
 export class CloneStrikeSkill implements Skill {
     static readonly DAMAGE = 20;
     static readonly LIFE = 600;
-    static readonly RADIUS = 20;
+    static readonly RADIUS = 25;
 
     readonly cooldown = 720;
 
