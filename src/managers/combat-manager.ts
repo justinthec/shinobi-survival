@@ -186,6 +186,13 @@ export class CombatManager {
 
             // 2. Clone AI
             if (proj.type === 'clone_strike') {
+                // If punching, freeze and wait
+                if (proj.actionState === 'punch') {
+                    proj.life--;
+                    if (proj.life <= 0) game.projectiles.splice(i, 1);
+                    continue;
+                }
+
                 // Find nearest enemy
                 let nearest = null;
                 let minDst = Infinity;
@@ -215,7 +222,9 @@ export class CombatManager {
                 // Check collision (Punch)
                 const hit = this.checkCollision(game, proj);
                 if (hit) {
-                     game.projectiles.splice(i, 1);
+                     // Hit! Change to punch state for visual effect
+                     proj.actionState = 'punch';
+                     proj.life = 15; // Animation duration
                      continue;
                 }
 
@@ -311,9 +320,24 @@ export class CombatManager {
                 if (targetProj.ownerId === proj.ownerId) continue;
 
                 const dist = Math.sqrt((targetProj.pos.x - proj.pos.x) ** 2 + (targetProj.pos.y - proj.pos.y) ** 2);
-                if (dist < proj.radius + targetProj.radius) {
-                    hit = true;
-                    this.applyDamageToClone(game, targetProj, proj);
+
+                if (proj.type === 'lightning_slash') {
+                    // Sector Check vs Clone
+                    if (dist < proj.radius + targetProj.radius) {
+                         const angleToTarget = Math.atan2(targetProj.pos.y - proj.pos.y, targetProj.pos.x - proj.pos.x);
+                         let diff = angleToTarget - proj.angle;
+                         while (diff > Math.PI) diff -= Math.PI * 2;
+                         while (diff < -Math.PI) diff += Math.PI * 2;
+                         if (Math.abs(diff) < Math.PI / 3) {
+                             hit = true;
+                             this.applyDamageToClone(game, targetProj, proj);
+                         }
+                    }
+                } else {
+                    if (dist < proj.radius + targetProj.radius) {
+                        hit = true;
+                        this.applyDamageToClone(game, targetProj, proj);
+                    }
                 }
              }
         }
@@ -355,9 +379,11 @@ export class CombatManager {
         if (proj.type === 'fireball') dmg = 15;
         if (proj.type === 'rasenshuriken') dmg = RasenshurikenSkill.DAMAGE;
         if (proj.state === 'exploding') dmg = 2;
+        if (proj.type === 'lightning_slash') dmg = LightningSlashSkill.DAMAGE;
 
         if (dmg > 0 && clone.hp !== undefined) {
             clone.hp -= dmg;
+
             game.floatingTexts.push({
                  id: game.nextEntityId++,
                  pos: new Vec2(clone.pos.x, clone.pos.y - 40),

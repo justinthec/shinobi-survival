@@ -91,27 +91,23 @@ export class Renderer {
                  ctx.lineTo(0, 0);
                  ctx.fill();
 
-                 // 2. Jagged Lightning Lines
+                 // 2. Jagged Lightning Lines (Reduced intensity)
                  ctx.strokeStyle = 'white';
-                 ctx.lineWidth = 3;
+                 ctx.lineWidth = 2;
                  ctx.beginPath();
                  ctx.moveTo(0, 0);
 
                  // Seed random based on particle ID/Life to flicker but be deterministic-ish for a frame
-                 // NetplayJS particles usually update logic but drawing can use random for visual noise if it doesn't affect state.
-                 // We'll draw 3 jagged bolts
-                 for (let bolt = 0; bolt < 3; bolt++) {
-                     let angle = -Math.PI / 3 + (Math.PI * 2 / 3) * (bolt + 0.5) / 3;
-                     let dist = 0;
-                     ctx.moveTo(0, 0);
-                     let cx = 0, cy = 0;
-                     while (dist < p.size) {
-                         dist += 15 + Math.random() * 20;
-                         angle += (Math.random() - 0.5) * 1;
-                         cx += Math.cos(angle) * 20;
-                         cy += Math.sin(angle) * 20;
-                         ctx.lineTo(cx, cy);
-                     }
+                 // Single jagged bolt for less clutter
+                 let angle = -Math.PI / 6 + (Math.random() * Math.PI / 3);
+                 let dist = 0;
+                 let cx = 0, cy = 0;
+                 while (dist < p.size) {
+                     dist += 20 + Math.random() * 30;
+                     angle += (Math.random() - 0.5) * 0.8;
+                     cx += Math.cos(angle) * 25;
+                     cy += Math.sin(angle) * 25;
+                     ctx.lineTo(cx, cy);
                  }
                  ctx.stroke();
 
@@ -326,17 +322,30 @@ export class Renderer {
             ctx.fillStyle = '#ed8936';
             ctx.beginPath(); ctx.arc(0, 0, p.radius, 0, Math.PI * 2); ctx.fill();
         } else if (p.type === 'rasenshuriken') {
-            ctx.rotate(p.rotation || 0);
-            ctx.fillStyle = '#4fd1c5';
-            ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill();
-            // Blades
-            ctx.fillStyle = 'rgba(255,255,255,0.8)';
-            for (let i = 0; i < 4; i++) {
-                ctx.rotate(Math.PI / 2);
-                ctx.beginPath(); ctx.moveTo(0, 0);
-                ctx.quadraticCurveTo(20, -10, 40, 0);
-                ctx.quadraticCurveTo(20, 10, 0, 0);
-                ctx.fill();
+            if (p.state === 'exploding') {
+                 // Tornado Visual
+                 ctx.fillStyle = 'rgba(100, 200, 255, 0.4)';
+                 for(let i=0; i<3; i++) {
+                     ctx.beginPath();
+                     ctx.ellipse(0, 0, p.radius * (0.5 + i*0.2), 10, (time * 0.2) + i, 0, Math.PI*2);
+                     ctx.fill();
+                 }
+                 // Core
+                 ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                 ctx.beginPath(); ctx.arc(0, 0, 20, 0, Math.PI*2); ctx.fill();
+            } else {
+                ctx.rotate(p.rotation || 0);
+                ctx.fillStyle = '#4fd1c5';
+                ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill();
+                // Blades
+                ctx.fillStyle = 'rgba(255,255,255,0.8)';
+                for (let i = 0; i < 4; i++) {
+                    ctx.rotate(Math.PI / 2);
+                    ctx.beginPath(); ctx.moveTo(0, 0);
+                    ctx.quadraticCurveTo(20, -10, 40, 0);
+                    ctx.quadraticCurveTo(20, 10, 0, 0);
+                    ctx.fill();
+                }
             }
         } else if (p.type === 'amaterasu_buildup') {
             ctx.strokeStyle = 'black';
