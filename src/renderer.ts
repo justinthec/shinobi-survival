@@ -1,16 +1,29 @@
 import { ShinobiClashGame } from "./multiplayer-game";
 import { PlayerState, ProjectileState } from "./types";
 import { initSprites, SPRITES } from "./sprites";
+import { SkillRegistry } from "./skills/SkillRegistry";
 
 export class Renderer {
     ctx: CanvasRenderingContext2D;
     canvas: HTMLCanvasElement;
     bgPattern: CanvasPattern | null = null;
 
+    static debugMode = false;
+    static listenerAttached = false;
+
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d')!;
         initSprites();
+
+        if (typeof window !== 'undefined' && !Renderer.listenerAttached) {
+            window.addEventListener('keydown', (e) => {
+                if (e.key === '`') {
+                    Renderer.debugMode = !Renderer.debugMode;
+                }
+            });
+            Renderer.listenerAttached = true;
+        }
     }
 
     draw(game: ShinobiClashGame, focusPlayer: PlayerState) {
@@ -19,10 +32,6 @@ export class Renderer {
         const height = this.canvas.height;
 
         // Background Logic
-        // We clear the screen and draw the background pattern in world space
-        // This ensures proper scrolling
-
-        // Background Pattern
         if (!this.bgPattern && SPRITES.tile_grass) {
             this.bgPattern = ctx.createPattern(SPRITES.tile_grass, 'repeat');
         }
@@ -32,17 +41,16 @@ export class Renderer {
         const camY = focusPlayer.pos.y - height / 2;
 
         ctx.save();
-        ctx.resetTransform(); // Ensure we work in screen coordinates for clear
+        ctx.resetTransform();
 
         ctx.fillStyle = '#1a202c'; // Void color
         ctx.fillRect(0, 0, width, height);
 
         if (this.bgPattern) {
-            ctx.translate(-camX, -camY); // Apply camera to background
+            ctx.translate(-camX, -camY);
             ctx.fillStyle = this.bgPattern;
-            ctx.fillRect(0, 0, 1600, 1600); // Draw map area
+            ctx.fillRect(0, 0, 1600, 1600);
         } else {
-            // Fallback if pattern not ready
              ctx.translate(-camX, -camY);
              ctx.fillStyle = '#2d5a27';
              ctx.fillRect(0, 0, 1600, 1600);
@@ -87,10 +95,37 @@ export class Renderer {
             ctx.fillText(t.val, t.pos.x, t.pos.y);
         });
 
+        // Debug Hitboxes
+        if (Renderer.debugMode) {
+            this.drawHitboxes(game);
+        }
+
         ctx.restore();
 
         // HUD (UI Layer)
-        this.drawHUD(focusPlayer);
+        this.drawHUD(game, focusPlayer);
+    }
+
+    drawHitboxes(game: ShinobiClashGame) {
+        const ctx = this.ctx;
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+
+        // Players
+        for (let id in game.players) {
+            const p = game.players[id];
+            if (p.dead) continue;
+            ctx.beginPath();
+            ctx.arc(p.pos.x, p.pos.y, 20, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // Projectiles
+        for (const proj of game.projectiles) {
+            ctx.beginPath();
+            ctx.arc(proj.pos.x, proj.pos.y, proj.radius, 0, Math.PI * 2);
+            ctx.stroke();
+        }
     }
 
     // Helper for safe roundRect
@@ -243,7 +278,7 @@ export class Renderer {
         ctx.restore();
     }
 
-    drawHUD(p: PlayerState) {
+    drawHUD(game: ShinobiClashGame, p: PlayerState) {
         const ctx = this.ctx;
         const w = this.canvas.width;
         const h = this.canvas.height;
@@ -269,9 +304,35 @@ export class Renderer {
             }
         };
 
-        drawCD('Q', w / 2 - 100, p.cooldowns.q, 120);
-        drawCD('E', w / 2, p.cooldowns.e, 360);
-        drawCD('SPC', w / 2 + 100, p.cooldowns.sp, 180);
+        const getMaxCD = (key: string) => {
+            const skill = SkillRegistry.getSkill(p.character, key);
+            return skill ? skill.cooldown : 100;
+        };
+
+        drawCD('Q', w / 2 - 100, p.cooldowns.q, getMaxCD('q'));
+        drawCD('E', w / 2, p.cooldowns.e, getMaxCD('e'));
+        drawCD('SPC', w / 2 + 100, p.cooldowns.sp, getMaxCD(' '));
+
+        // Spectator UI
+        const localId = ShinobiClashGame.localPlayerId;
+        const localPlayer = localId !== null ? game.players[localId] : null;
+
+        if (localPlayer && localPlayer.dead) {
+             ctx.fillStyle = 'white';
+             ctx.strokeStyle = 'black';
+             ctx.lineWidth = 4;
+
+             ctx.font = 'bold 30px Arial';
+             ctx.textAlign = 'center';
+             const text1 = `SPECTATING: ${p.name}`;
+             ctx.strokeText(text1, w / 2, 100);
+             ctx.fillText(text1, w / 2, 100);
+
+             ctx.font = '20px Arial';
+             const text2 = "Press Left/Right to Switch";
+             ctx.strokeText(text2, w / 2, 130);
+             ctx.fillText(text2, w / 2, 130);
+        }
     }
 
     drawCharSelect(game: ShinobiClashGame) {
