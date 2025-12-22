@@ -137,27 +137,13 @@ export class CombatManager {
                 continue;
             }
 
-            // 1. Amaterasu Logic
-            if (proj.type === 'amaterasu_buildup') {
-                proj.life--;
-                if (proj.life <= 0) {
-                    // Explode
-                    game.projectiles.push({
-                        ...proj, id: game.nextEntityId++,
-                        type: 'amaterasu_burn',
-                        life: 120, radius: 60, isAoe: true
-                    });
-                    game.projectiles.splice(i, 1);
-                }
-                continue;
-            }
 
             // 2. Clone AI
             if (proj.type === 'clone_strike') {
                 // If punching, freeze and wait
                 if (proj.actionState === 'punch') {
                     proj.life--;
-                    if (proj.life <= 0) game.projectiles.splice(i, 1);
+                    if (proj.life <= 0 || (proj.hp !== undefined && proj.hp <= 0)) game.projectiles.splice(i, 1);
                     continue;
                 }
 
@@ -230,11 +216,6 @@ export class CombatManager {
                     proj.state = 'exploding';
                     proj.life = RasenshurikenSkill.EXPLOSION_LIFE;
                     proj.radius = RasenshurikenSkill.EXPLOSION_RADIUS;
-                    proj.vel.x = 0; proj.vel.y = 0;
-                } else if (proj.type === 'fireball') {
-                    proj.state = 'exploding';
-                    proj.life = 20;
-                    proj.radius = 50;
                     proj.vel.x = 0; proj.vel.y = 0;
                 } else {
                     game.projectiles.splice(i, 1);
@@ -321,9 +302,6 @@ export class CombatManager {
              if (proj.type === 'rasenshuriken') dmg = RasenshurikenSkill.EXPLOSION_DAMAGE;
              else dmg = 2; // Generic explosion tick
         }
-        if (proj.type === 'amaterasu_burn') dmg = 2;
-        if (proj.type === 'fireball' && proj.state === 'exploding') dmg = 0; // Fireball explosion visual only? Or handled above.
-        if (proj.type === 'fireball' && proj.state !== 'exploding') dmg = 15; // Fallback if not set
 
         if (dmg > 0 && target.hp !== undefined) {
             target.hp -= dmg;

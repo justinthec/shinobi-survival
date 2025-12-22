@@ -50,7 +50,7 @@ export interface PlayerState {
     skillStates: Record<string, SkillState>;
 }
 
-export type ProjectileType = 'rasenshuriken' | 'fireball' | 'clone_strike' | 'amaterasu_buildup' | 'amaterasu_burn' | 'lightning_slash';
+export type ProjectileType = 'rasenshuriken' | 'clone_strike' | 'lightning_slash';
 
 export interface ProjectileState {
     id: number;

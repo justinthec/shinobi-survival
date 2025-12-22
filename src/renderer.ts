@@ -70,26 +70,28 @@ export class Renderer {
         game.particles.forEach(p => {
              ctx.save();
              ctx.translate(p.pos.x, p.pos.y);
+             ctx.scale(1.25, 1.25); // Apply consistent scale
              ctx.globalAlpha = p.life / p.maxLife;
 
              if (p.type === 'slash') {
-                 // Draw Slash Arc (Lightning Style)
+                 // Draw Slash Arc (Solid Crescent Swipe)
                  if (p.rotation !== undefined) {
                      ctx.rotate(p.rotation);
                  }
 
-                 // 1. Gradient Arc Background
-                 const grad = ctx.createRadialGradient(0, 0, p.size * 0.2, 0, 0, p.size);
-                 grad.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
-                 grad.addColorStop(0.5, 'rgba(138, 43, 226, 0.4)'); // Purple/Blue
-                 grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                 // Solid Crescent
+                 ctx.fillStyle = '#E6E6FA'; // Lavender/White
+                 ctx.shadowBlur = 15;
+                 ctx.shadowColor = '#8A2BE2'; // Purple Glow
 
-                 ctx.fillStyle = grad;
                  ctx.beginPath();
-                 ctx.moveTo(0, 0);
+                 // Outer Arc
                  ctx.arc(0, 0, p.size, -Math.PI / 3, Math.PI / 3);
-                 ctx.lineTo(0, 0);
+                 // Inner Curve (to make it crescent)
+                 ctx.quadraticCurveTo(0, 0, p.size * Math.cos(-Math.PI/3), p.size * Math.sin(-Math.PI/3));
                  ctx.fill();
+
+                 ctx.shadowBlur = 0; // Reset
 
                  // 2. Jagged Lightning Lines (Reduced intensity)
                  ctx.strokeStyle = 'white';
@@ -317,18 +319,16 @@ export class Renderer {
         const ctx = this.ctx;
 
         if (p.type === 'clone_strike') {
-            // Draw as a Ninja
+            // Draw as a Ninja (drawNinjaBody handles scale internally)
             this.drawNinjaBody(p.pos.x, p.pos.y, p.angle, 'naruto', p.hp || 0, p.maxHp || 1, "Clone", time, true, 1, null, p.actionState);
             return;
         }
 
         ctx.save();
         ctx.translate(p.pos.x, p.pos.y);
+        ctx.scale(1.25, 1.25); // Apply consistent scale for projectiles
 
-        if (p.type === 'fireball') {
-            ctx.fillStyle = '#ed8936';
-            ctx.beginPath(); ctx.arc(0, 0, p.radius, 0, Math.PI * 2); ctx.fill();
-        } else if (p.type === 'rasenshuriken') {
+        if (p.type === 'rasenshuriken') {
             if (p.state === 'exploding') {
                  // Tornado Visual
                  ctx.fillStyle = 'rgba(100, 200, 255, 0.4)';
@@ -354,15 +354,6 @@ export class Renderer {
                     ctx.fill();
                 }
             }
-        } else if (p.type === 'amaterasu_buildup') {
-            ctx.strokeStyle = 'black';
-            ctx.setLineDash([5, 5]);
-            ctx.beginPath(); ctx.arc(0, 0, p.radius, 0, Math.PI * 2); ctx.stroke();
-        } else if (p.type === 'amaterasu_burn') {
-            ctx.fillStyle = 'black';
-            ctx.shadowColor = 'purple'; ctx.shadowBlur = 10;
-            ctx.beginPath(); ctx.arc(0, 0, p.radius, 0, Math.PI * 2); ctx.fill();
-            ctx.shadowBlur = 0;
         } else if (p.type === 'lightning_slash') {
             // Visuals handled by Particle 'slash'
         }
