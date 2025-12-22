@@ -298,13 +298,13 @@ export class CombatManager {
                          while (diff < -Math.PI) diff += Math.PI * 2;
                          if (Math.abs(diff) < Math.PI / 3) {
                              hit = true;
-                             this.applyDamageToClone(game, targetProj, proj);
+                             this.applyDamage(game, targetProj, proj);
                          }
                     }
                 } else {
                     if (dist < proj.radius + targetProj.radius) {
                         hit = true;
-                        this.applyDamageToClone(game, targetProj, proj);
+                        this.applyDamage(game, targetProj, proj);
                     }
                 }
              }
@@ -313,19 +313,19 @@ export class CombatManager {
         return hit;
     }
 
-    static applyDamage(game: ShinobiClashGame, target: PlayerState, proj: ProjectileState) {
-        let dmg = 0;
-        if (proj.type === 'fireball') dmg = 15;
-        if (proj.type === 'rasenshuriken') dmg = RasenshurikenSkill.DAMAGE;
-        if (proj.type === 'clone_strike') dmg = CloneStrikeSkill.DAMAGE;
-        if (proj.type === 'amaterasu_burn') dmg = 2;
+    static applyDamage(game: ShinobiClashGame, target: { hp?: number, dead?: boolean, pos: Vec2 }, proj: ProjectileState) {
+        let dmg = proj.damage || 0;
+
+        // Handle special cases (explosions, etc.) if damage not pre-calc, or override
         if (proj.state === 'exploding') {
              if (proj.type === 'rasenshuriken') dmg = RasenshurikenSkill.EXPLOSION_DAMAGE;
-             else dmg = 2;
+             else dmg = 2; // Generic explosion tick
         }
-        if (proj.type === 'lightning_slash') dmg = LightningSlashSkill.DAMAGE;
+        if (proj.type === 'amaterasu_burn') dmg = 2;
+        if (proj.type === 'fireball' && proj.state === 'exploding') dmg = 0; // Fireball explosion visual only? Or handled above.
+        if (proj.type === 'fireball' && proj.state !== 'exploding') dmg = 15; // Fallback if not set
 
-        if (dmg > 0) {
+        if (dmg > 0 && target.hp !== undefined) {
             target.hp -= dmg;
             game.floatingTexts.push({
                 id: game.nextEntityId++,
@@ -337,28 +337,8 @@ export class CombatManager {
 
             if (target.hp <= 0) {
                 target.hp = 0;
-                target.dead = true;
+                if (target.dead !== undefined) target.dead = true;
             }
-        }
-    }
-
-    static applyDamageToClone(game: ShinobiClashGame, clone: ProjectileState, proj: ProjectileState) {
-        let dmg = 0;
-        if (proj.type === 'fireball') dmg = 15;
-        if (proj.type === 'rasenshuriken') dmg = RasenshurikenSkill.DAMAGE;
-        if (proj.state === 'exploding') dmg = 2;
-        if (proj.type === 'lightning_slash') dmg = LightningSlashSkill.DAMAGE;
-
-        if (dmg > 0 && clone.hp !== undefined) {
-            clone.hp -= dmg;
-
-            game.floatingTexts.push({
-                 id: game.nextEntityId++,
-                 pos: new Vec2(clone.pos.x, clone.pos.y - 40),
-                 val: dmg.toString(),
-                 color: 'white',
-                 life: 60, maxLife: 60, vy: 0.5
-            });
         }
     }
 

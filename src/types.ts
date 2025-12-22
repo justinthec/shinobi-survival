@@ -65,6 +65,8 @@ export interface ProjectileState {
     radius: number;
     state: 'flying' | 'exploding';
     isAoe?: boolean;
+    damage?: number; // Pre-calculated damage for generic handling
+
     // Clone Stats
     hp?: number;
     maxHp?: number;

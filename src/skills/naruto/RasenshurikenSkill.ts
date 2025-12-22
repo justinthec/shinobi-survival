@@ -37,7 +37,8 @@ export class RasenshurikenSkill implements Skill {
             life: RasenshurikenSkill.LIFE,
             maxLife: RasenshurikenSkill.LIFE,
             radius: RasenshurikenSkill.RADIUS,
-            state: 'flying'
+            state: 'flying',
+            damage: RasenshurikenSkill.DAMAGE
         };
 
         game.projectiles.push(proj);

@@ -29,7 +29,8 @@ export class CloneStrikeSkill implements Skill {
             state: 'flying',
             hp: 40,
             maxHp: 40,
-            actionState: 'run'
+            actionState: 'run',
+            damage: CloneStrikeSkill.DAMAGE
         };
 
         // Wait, original logic used targetPos for 'clone_strike'?

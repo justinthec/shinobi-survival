@@ -30,7 +30,8 @@ export class LightningSlashSkill implements Skill {
             life: LightningSlashSkill.LIFE,
             maxLife: LightningSlashSkill.LIFE, // Explicitly set for collision check
             radius: LightningSlashSkill.RADIUS,
-            state: 'flying'
+            state: 'flying',
+            damage: LightningSlashSkill.DAMAGE
         };
         game.projectiles.push(proj);
 
