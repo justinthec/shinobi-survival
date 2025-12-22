@@ -4,9 +4,9 @@ import { PlayerState, ProjectileState } from "../../types";
 import { Skill } from "../Skill";
 
 export class CloneStrikeSkill implements Skill {
-    static readonly DAMAGE = 20;
+    static readonly DAMAGE = 15;
     static readonly LIFE = 600;
-    static readonly RADIUS = 20;
+    static readonly RADIUS = 25;
 
     readonly cooldown = 720;
 
@@ -27,9 +27,10 @@ export class CloneStrikeSkill implements Skill {
             maxLife: CloneStrikeSkill.LIFE,
             radius: CloneStrikeSkill.RADIUS,
             state: 'flying',
-            hp: p.maxHp,
-            maxHp: p.maxHp,
-            actionState: 'run'
+            hp: 40,
+            maxHp: 40,
+            actionState: 'run',
+            damage: CloneStrikeSkill.DAMAGE
         };
 
         // Wait, original logic used targetPos for 'clone_strike'?

@@ -4,6 +4,14 @@ export type GamePhase = 'charSelect' | 'playing' | 'gameOver';
 
 export type CharacterType = 'naruto' | 'sasuke';
 
+export const PLAYER_RADIUS = 25;
+
+export interface SkillState {
+    charging?: boolean;
+    target?: Vec2;
+    [key: string]: any;
+}
+
 export interface PlayerState {
     id: number;
     name: string;
@@ -39,9 +47,10 @@ export interface PlayerState {
         vy: number;
         life: number;
     };
+    skillStates: Record<string, SkillState>;
 }
 
-export type ProjectileType = 'rasenshuriken' | 'fireball' | 'clone_strike' | 'amaterasu_buildup' | 'amaterasu_burn' | 'lightning_slash';
+export type ProjectileType = 'rasenshuriken' | 'clone_strike' | 'lightning_slash';
 
 export interface ProjectileState {
     id: number;
@@ -56,6 +65,8 @@ export interface ProjectileState {
     radius: number;
     state: 'flying' | 'exploding';
     isAoe?: boolean;
+    damage?: number; // Pre-calculated damage for generic handling
+
     // Clone Stats
     hp?: number;
     maxHp?: number;
@@ -71,6 +82,7 @@ export interface ParticleState {
     maxLife: number;
     color: string;
     size: number;
+    rotation?: number;
 }
 
 export interface FloatingText {
