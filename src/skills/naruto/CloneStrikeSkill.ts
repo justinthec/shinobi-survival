@@ -4,7 +4,7 @@ import { PlayerState, ProjectileState } from "../../types";
 import { Skill } from "../Skill";
 
 export class CloneStrikeSkill implements Skill {
-    static readonly DAMAGE = 20;
+    static readonly DAMAGE = 15;
     static readonly LIFE = 600;
     static readonly RADIUS = 25;
 
@@ -27,8 +27,8 @@ export class CloneStrikeSkill implements Skill {
             maxLife: CloneStrikeSkill.LIFE,
             radius: CloneStrikeSkill.RADIUS,
             state: 'flying',
-            hp: p.maxHp,
-            maxHp: p.maxHp,
+            hp: 40,
+            maxHp: 40,
             actionState: 'run'
         };
 

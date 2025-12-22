@@ -4,8 +4,8 @@ import { PlayerState, ProjectileState } from "../../types";
 import { Skill } from "../Skill";
 
 export class RasenshurikenSkill implements Skill {
-    static readonly DAMAGE = 5;
-    static readonly EXPLOSION_DAMAGE = 2;
+    static readonly DAMAGE = 60;
+    static readonly EXPLOSION_DAMAGE = 5;
     static readonly RADIUS = 32;
     static readonly EXPLOSION_RADIUS = 100;
     static readonly EXPLOSION_LIFE = 80;

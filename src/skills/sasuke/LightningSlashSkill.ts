@@ -4,7 +4,7 @@ import { PlayerState, ProjectileState } from "../../types";
 import { Skill } from "../Skill";
 
 export class LightningSlashSkill implements Skill {
-    static readonly DAMAGE = 25;
+    static readonly DAMAGE = 20;
     static readonly LIFE = 2; // Logic duration (1 tick + 1 draw frame)
     static readonly VISUAL_LIFE = 15;
     static readonly RADIUS = 125;
@@ -28,7 +28,7 @@ export class LightningSlashSkill implements Skill {
             angle: p.angle,
             rotation: p.angle,
             life: LightningSlashSkill.LIFE,
-            maxLife: LightningSlashSkill.LIFE,
+            maxLife: LightningSlashSkill.LIFE, // Explicitly set for collision check
             radius: LightningSlashSkill.RADIUS,
             state: 'flying'
         };

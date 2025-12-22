@@ -73,16 +73,48 @@ export class Renderer {
              ctx.globalAlpha = p.life / p.maxLife;
 
              if (p.type === 'slash') {
-                 // Draw Slash Arc
+                 // Draw Slash Arc (Lightning Style)
                  if (p.rotation !== undefined) {
                      ctx.rotate(p.rotation);
                  }
-                 ctx.fillStyle = 'rgba(200, 200, 255, 0.5)'; // Light blue/white arc
+
+                 // 1. Gradient Arc Background
+                 const grad = ctx.createRadialGradient(0, 0, p.size * 0.2, 0, 0, p.size);
+                 grad.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+                 grad.addColorStop(0.5, 'rgba(138, 43, 226, 0.4)'); // Purple/Blue
+                 grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+                 ctx.fillStyle = grad;
                  ctx.beginPath();
                  ctx.moveTo(0, 0);
                  ctx.arc(0, 0, p.size, -Math.PI / 3, Math.PI / 3);
                  ctx.lineTo(0, 0);
                  ctx.fill();
+
+                 // 2. Jagged Lightning Lines
+                 ctx.strokeStyle = 'white';
+                 ctx.lineWidth = 3;
+                 ctx.beginPath();
+                 ctx.moveTo(0, 0);
+
+                 // Seed random based on particle ID/Life to flicker but be deterministic-ish for a frame
+                 // NetplayJS particles usually update logic but drawing can use random for visual noise if it doesn't affect state.
+                 // We'll draw 3 jagged bolts
+                 for (let bolt = 0; bolt < 3; bolt++) {
+                     let angle = -Math.PI / 3 + (Math.PI * 2 / 3) * (bolt + 0.5) / 3;
+                     let dist = 0;
+                     ctx.moveTo(0, 0);
+                     let cx = 0, cy = 0;
+                     while (dist < p.size) {
+                         dist += 15 + Math.random() * 20;
+                         angle += (Math.random() - 0.5) * 1;
+                         cx += Math.cos(angle) * 20;
+                         cy += Math.sin(angle) * 20;
+                         ctx.lineTo(cx, cy);
+                     }
+                 }
+                 ctx.stroke();
+
              } else {
                  ctx.fillStyle = p.color;
                  ctx.beginPath();
@@ -180,7 +212,12 @@ export class Renderer {
         if (p.dead) return;
 
         // Draw Charging Indicator for Sasuke's Teleport
-        if (p.character === 'sasuke' && p.skillStates && p.skillStates['e'] && p.skillStates['e'].charging && p.skillStates['e'].target) {
+        // Only if local player is holding it (or spectator logic matches? User said "Only the local player that is holding the E button down")
+        // And cooldown is 0.
+        const isLocal = ShinobiClashGame.localPlayerId === p.id;
+        const isOffCooldown = p.cooldowns.e <= 0;
+
+        if (isLocal && isOffCooldown && p.character === 'sasuke' && p.skillStates && p.skillStates['e'] && p.skillStates['e'].charging && p.skillStates['e'].target) {
             const target = p.skillStates['e'].target;
             this.drawNinjaBody(target.x, target.y, p.angle, 'sasuke', 0, 0, "", time, false, 0.5, '#8A2BE2');
         }
