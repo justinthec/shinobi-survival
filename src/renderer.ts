@@ -73,24 +73,23 @@ export class Renderer {
              ctx.globalAlpha = p.life / p.maxLife;
 
              if (p.type === 'slash') {
-                 // Draw Slash Arc (Solid Crescent Swipe)
+                 // Draw Slash Arc (Lightning Style)
                  if (p.rotation !== undefined) {
                      ctx.rotate(p.rotation);
                  }
 
-                 // Solid Crescent
-                 ctx.fillStyle = '#E6E6FA'; // Lavender/White
-                 ctx.shadowBlur = 15;
-                 ctx.shadowColor = '#8A2BE2'; // Purple Glow
+                 // 1. Gradient Arc Background
+                 const grad = ctx.createRadialGradient(0, 0, p.size * 0.2, 0, 0, p.size);
+                 grad.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+                 grad.addColorStop(0.5, 'rgba(138, 43, 226, 0.4)'); // Purple/Blue
+                 grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
+                 ctx.fillStyle = grad;
                  ctx.beginPath();
-                 // Outer Arc
+                 ctx.moveTo(0, 0);
                  ctx.arc(0, 0, p.size, -Math.PI / 3, Math.PI / 3);
-                 // Inner Curve (to make it crescent)
-                 ctx.quadraticCurveTo(0, 0, p.size * Math.cos(-Math.PI/3), p.size * Math.sin(-Math.PI/3));
+                 ctx.lineTo(0, 0);
                  ctx.fill();
-
-                 ctx.shadowBlur = 0; // Reset
 
                  // 2. Jagged Lightning Lines (Reduced intensity)
                  ctx.strokeStyle = 'white';
