@@ -14,6 +14,12 @@ import {
 } from "./types";
 import { Renderer } from "./renderer";
 import { CombatManager } from "./managers/combat-manager";
+import { registerNaruto } from "./characters/naruto";
+import { registerSasuke } from "./characters/sasuke";
+
+// Register Characters
+registerNaruto();
+registerSasuke();
 
 const MAP_SIZE = 1600;
 
@@ -75,6 +81,8 @@ export class ShinobiClashGame extends Game {
     }
 
     tick(playerInputs: Map<NetplayPlayer, DefaultInput>): void {
+        this.gameTime++; // Increment game time
+
         if (this.gamePhase === 'charSelect') {
             this.tickCharSelect(playerInputs);
         } else if (this.gamePhase === 'playing') {

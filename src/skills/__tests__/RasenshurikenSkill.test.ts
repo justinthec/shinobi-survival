@@ -1,4 +1,4 @@
-import { RasenshurikenSkill } from "../naruto/RasenshurikenSkill";
+import { RasenshurikenSkill } from "../../characters/naruto/skills/RasenshurikenSkill";
 import { ShinobiClashGame } from "../../multiplayer-game";
 import { PlayerState } from "../../types";
 import { Vec2, DefaultInput } from "netplayjs";

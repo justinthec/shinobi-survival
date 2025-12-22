@@ -1,9 +1,9 @@
 import { Skill } from "./Skill";
 import { DashSkill } from "./common/DashSkill";
-import { RasenshurikenSkill } from "./naruto/RasenshurikenSkill";
-import { CloneStrikeSkill } from "./naruto/CloneStrikeSkill";
-import { LightningSlashSkill } from "./sasuke/LightningSlashSkill";
-import { TeleportSkill } from "./sasuke/TeleportSkill";
+import { RasenshurikenSkill } from "../characters/naruto/skills/RasenshurikenSkill";
+import { CloneStrikeSkill } from "../characters/naruto/skills/CloneStrikeSkill";
+import { LightningSlashSkill } from "../characters/sasuke/skills/LightningSlashSkill";
+import { TeleportSkill } from "../characters/sasuke/skills/TeleportSkill";
 import { CharacterType } from "../types";
 
 export class SkillRegistry {

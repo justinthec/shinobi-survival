@@ -1,7 +1,7 @@
 import { DefaultInput, Vec2 } from "netplayjs";
-import { ShinobiClashGame } from "../../multiplayer-game";
-import { PlayerState, ProjectileState } from "../../types";
-import { Skill } from "../Skill";
+import { ShinobiClashGame } from "../../../multiplayer-game";
+import { PlayerState, ProjectileState } from "../../../types";
+import { Skill } from "../../../skills/Skill";
 
 export class RasenshurikenSkill implements Skill {
     static readonly DAMAGE = 60;

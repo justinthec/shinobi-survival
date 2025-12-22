@@ -1,7 +1,7 @@
 import { DefaultInput, Vec2 } from "netplayjs";
-import { ShinobiClashGame } from "../../multiplayer-game";
-import { PlayerState, PLAYER_RADIUS } from "../../types";
-import { Skill } from "../Skill";
+import { ShinobiClashGame } from "../../../multiplayer-game";
+import { PlayerState, PLAYER_RADIUS } from "../../../types";
+import { Skill } from "../../../skills/Skill";
 
 export class TeleportSkill implements Skill {
     static readonly RANGE = 300;
