@@ -1,7 +1,9 @@
 import { ShinobiClashGame } from '../multiplayer-game';
 import { CombatManager } from '../managers/combat-manager';
 import { PlayerState, ProjectileState } from '../types';
-import { Vec2, NetplayPlayer } from 'netplayjs';
+import { Vec2, NetplayPlayer, DefaultInput } from 'netplayjs';
+import { RasenshurikenSkill } from '../skills/naruto/RasenshurikenSkill';
+import { CloneStrikeSkill } from '../skills/naruto/CloneStrikeSkill';
 
 describe('Projectile Spin', () => {
     let game: ShinobiClashGame;
@@ -36,7 +38,6 @@ describe('Projectile Spin', () => {
         } as unknown as HTMLCanvasElement;
 
         // Mock NetplayPlayer
-        // We create a mock object that looks like NetplayPlayer
         const netplayPlayer = {
             id: 0,
             isLocalPlayer: () => true,
@@ -56,7 +57,9 @@ describe('Projectile Spin', () => {
 
     test('Rasenshuriken projectile should rotate over time', () => {
         // Spawn projectile
-        CombatManager.spawnProjectile(game, player, 'rasenshuriken');
+        const skill = new RasenshurikenSkill();
+        // Provide dummy input and target
+        skill.cast(game, player, {} as DefaultInput, new Vec2(0, 0));
 
         expect(game.projectiles.length).toBe(1);
         const projectile = game.projectiles[0];
@@ -74,17 +77,17 @@ describe('Projectile Spin', () => {
         expect(projectile.rotation).toBeGreaterThan(rotationAfter1Tick);
     });
 
-    test('Other projectiles should not rotate', () => {
-         // Spawn fireball
-         player.character = 'sasuke';
-         CombatManager.spawnProjectile(game, player, 'fireball');
+    test('Other projectiles (Clone) should not rotate', () => {
+         // Spawn Clone
+         const skill = new CloneStrikeSkill();
+         skill.cast(game, player, {} as DefaultInput, new Vec2(0, 0));
 
-         const fireball = game.projectiles[0];
-         expect(fireball.rotation).toBe(0);
+         const clone = game.projectiles[0];
+         expect(clone.rotation).toBe(0);
 
          CombatManager.updateProjectiles(game);
 
          // Should stay 0
-         expect(fireball.rotation).toBe(0);
+         expect(clone.rotation).toBe(0);
     });
 });
