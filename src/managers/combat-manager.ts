@@ -52,61 +52,29 @@ export class CombatManager {
         if (p.cooldowns.sp > 0) p.cooldowns.sp--;
 
         // 4. Skills
-        if (input.keysPressed['q']) SkillRegistry.getSkill(p.character, 'q')?.cast(game, p, input, targetPos);
-
-        // Sasuke's Teleport (E) Logic
-        if (p.character === 'sasuke') {
-            const skillE = SkillRegistry.getSkill('sasuke', 'e');
-            if (skillE) {
-                if (input.keysHeld['e']) {
-                    // Charging
-                    if (!p.skillStates['e']) p.skillStates['e'] = {};
-                    p.skillStates['e'].charging = true;
-                    // Re-calculate target to clamp properly (we can just use targetPos but might want to re-clamp)
-                    // The TeleportSkill doesn't expose logic easily, but we can just store raw target
-                    // And let Cast handle clamping? Or we clamp here for visual indicator accuracy.
-                    // Let's rely on Cast for logic, but for Indicator we need a way to know where it will land.
-                    // For now, store raw. TeleportSkill currently clamps inside cast.
-                    // Ideally we refactor TeleportSkill to expose `calculateDestination`.
-                    // But to keep it simple, we store raw targetPos.
-                    // WAIT: User wanted indicator. If we store raw targetPos, indicator might be out of range.
-                    // We should replicate the clamp logic here or use a helper.
-                    // Hardcoding Teleport range (300) here is duplicated logic but safest for now.
-                    const maxRange = 300;
-                    const dx = targetPos.x - p.pos.x;
-                    const dy = targetPos.y - p.pos.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    let tx = targetPos.x;
-                    let ty = targetPos.y;
-                    if (dist > maxRange) {
-                        const angle = Math.atan2(dy, dx);
-                        tx = p.pos.x + Math.cos(angle) * maxRange;
-                        ty = p.pos.y + Math.sin(angle) * maxRange;
-                    }
-                    // Map Bounds
-                    const bounds = 1600 - PLAYER_RADIUS;
-                    tx = Math.max(PLAYER_RADIUS, Math.min(bounds, tx));
-                    ty = Math.max(PLAYER_RADIUS, Math.min(bounds, ty));
-
-                    p.skillStates['e'].target = new Vec2(tx, ty);
-
-                } else {
-                    // Released
-                    if (p.skillStates['e']?.charging) {
-                         // Cast!
-                         if (p.skillStates['e'].target) {
-                            skillE.cast(game, p, input, p.skillStates['e'].target);
-                         }
-                         delete p.skillStates['e'];
-                    }
-                }
-            }
-        } else {
-             // Normal Cast for others
-             if (input.keysPressed['e']) SkillRegistry.getSkill(p.character, 'e')?.cast(game, p, input, targetPos);
+        // Q
+        const skillQ = SkillRegistry.getSkill(p.character, 'q');
+        if (skillQ) {
+            if (skillQ.handleInput) skillQ.handleInput(game, p, input, targetPos);
+            if (input.keysPressed['q']) skillQ.cast(game, p, input, targetPos);
         }
 
-        if (input.keysPressed[' ']) SkillRegistry.getSkill(p.character, ' ')?.cast(game, p, input, targetPos);
+        // E
+        const skillE = SkillRegistry.getSkill(p.character, 'e');
+        if (skillE) {
+            if (skillE.handleInput) {
+                skillE.handleInput(game, p, input, targetPos);
+            } else if (input.keysPressed['e']) {
+                skillE.cast(game, p, input, targetPos);
+            }
+        }
+
+        // Space
+        const skillSp = SkillRegistry.getSkill(p.character, ' ');
+        if (skillSp) {
+            if (skillSp.handleInput) skillSp.handleInput(game, p, input, targetPos);
+            if (input.keysPressed[' ']) skillSp.cast(game, p, input, targetPos);
+        }
     }
 
     static handleMovement(game: ShinobiClashGame, p: PlayerState, input: DefaultInput) {

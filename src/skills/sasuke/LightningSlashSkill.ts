@@ -4,13 +4,13 @@ import { PlayerState, ProjectileState } from "../../types";
 import { Skill } from "../Skill";
 
 export class LightningSlashSkill implements Skill {
-    static readonly DAMAGE = 40;
+    static readonly DAMAGE = 14;
     static readonly LIFE = 2; // Logic duration (1 tick + 1 draw frame)
     static readonly VISUAL_LIFE = 15;
     static readonly RADIUS = 125;
     static readonly CAST_TIME = 20;
 
-    readonly cooldown = 30;
+    readonly cooldown = 45;
 
     cast(game: ShinobiClashGame, p: PlayerState, input: DefaultInput, targetPos: Vec2) {
         if (p.cooldowns.q > 0) return;

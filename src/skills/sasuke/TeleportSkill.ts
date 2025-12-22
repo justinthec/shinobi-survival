@@ -8,30 +8,50 @@ export class TeleportSkill implements Skill {
 
     readonly cooldown = 720;
 
+    handleInput(game: ShinobiClashGame, p: PlayerState, input: DefaultInput, targetPos: Vec2) {
+        // Charging Logic
+        if (input.keysHeld['e']) {
+            if (!p.skillStates['e']) p.skillStates['e'] = {};
+            p.skillStates['e'].charging = true;
+
+            const maxRange = TeleportSkill.RANGE;
+            const dx = targetPos.x - p.pos.x;
+            const dy = targetPos.y - p.pos.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            let tx = targetPos.x;
+            let ty = targetPos.y;
+
+            if (dist > maxRange) {
+                const angle = Math.atan2(dy, dx);
+                tx = p.pos.x + Math.cos(angle) * maxRange;
+                ty = p.pos.y + Math.sin(angle) * maxRange;
+            }
+
+            const bounds = 1600 - PLAYER_RADIUS;
+            tx = Math.max(PLAYER_RADIUS, Math.min(bounds, tx));
+            ty = Math.max(PLAYER_RADIUS, Math.min(bounds, ty));
+
+            p.skillStates['e'].target = new Vec2(tx, ty);
+        } else {
+            // Released
+            if (p.skillStates['e']?.charging) {
+                if (p.skillStates['e'].target) {
+                    this.cast(game, p, input, p.skillStates['e'].target);
+                }
+                delete p.skillStates['e'];
+            }
+        }
+    }
+
     cast(game: ShinobiClashGame, p: PlayerState, input: DefaultInput, targetPos: Vec2) {
         if (p.cooldowns.e > 0) return;
 
         p.cooldowns.e = this.cooldown;
 
-        const maxRange = TeleportSkill.RANGE;
-        const dx = targetPos.x - p.pos.x;
-        const dy = targetPos.y - p.pos.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
+        // Target is already calculated/clamped if coming from handleInput, but safe to use directly
         let tx = targetPos.x;
         let ty = targetPos.y;
-
-        if (dist > maxRange) {
-            const angle = Math.atan2(dy, dx);
-            tx = p.pos.x + Math.cos(angle) * maxRange;
-            ty = p.pos.y + Math.sin(angle) * maxRange;
-        }
-
-        // Clamp to map bounds (hardcoded in original as 20..1600-20)
-        // Ideally should come from MapState but for now hardcode to match
-        const bounds = 1600 - PLAYER_RADIUS;
-        tx = Math.max(PLAYER_RADIUS, Math.min(bounds, tx));
-        ty = Math.max(PLAYER_RADIUS, Math.min(bounds, ty));
 
         // Particles at start
         game.particles.push({

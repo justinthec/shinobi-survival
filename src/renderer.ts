@@ -73,23 +73,24 @@ export class Renderer {
              ctx.globalAlpha = p.life / p.maxLife;
 
              if (p.type === 'slash') {
-                 // Draw Slash Arc (Lightning Style)
+                 // Draw Slash Arc (Solid Crescent Swipe)
                  if (p.rotation !== undefined) {
                      ctx.rotate(p.rotation);
                  }
 
-                 // 1. Gradient Arc Background
-                 const grad = ctx.createRadialGradient(0, 0, p.size * 0.2, 0, 0, p.size);
-                 grad.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
-                 grad.addColorStop(0.5, 'rgba(138, 43, 226, 0.4)'); // Purple/Blue
-                 grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                 // Solid Crescent
+                 ctx.fillStyle = '#E6E6FA'; // Lavender/White
+                 ctx.shadowBlur = 15;
+                 ctx.shadowColor = '#8A2BE2'; // Purple Glow
 
-                 ctx.fillStyle = grad;
                  ctx.beginPath();
-                 ctx.moveTo(0, 0);
+                 // Outer Arc
                  ctx.arc(0, 0, p.size, -Math.PI / 3, Math.PI / 3);
-                 ctx.lineTo(0, 0);
+                 // Inner Curve (to make it crescent)
+                 ctx.quadraticCurveTo(0, 0, p.size * Math.cos(-Math.PI/3), p.size * Math.sin(-Math.PI/3));
                  ctx.fill();
+
+                 ctx.shadowBlur = 0; // Reset
 
                  // 2. Jagged Lightning Lines (Reduced intensity)
                  ctx.strokeStyle = 'white';
@@ -221,7 +222,7 @@ export class Renderer {
         this.drawNinjaBody(p.pos.x, p.pos.y, p.angle, p.character || 'naruto', p.hp, p.maxHp, p.name, time, false);
     }
 
-    drawNinjaBody(x: number, y: number, angle: number, type: string, hp: number, maxHp: number, name: string, time: number, isClone: boolean, opacity: number = 1, colorOverride: string | null = null) {
+    drawNinjaBody(x: number, y: number, angle: number, type: string, hp: number, maxHp: number, name: string, time: number, isClone: boolean, opacity: number = 1, colorOverride: string | null = null, actionState?: string) {
         const ctx = this.ctx;
         ctx.save();
         ctx.translate(x, y);
@@ -258,6 +259,13 @@ export class Renderer {
         // Body
         ctx.fillStyle = c.main;
         ctx.beginPath(); ctx.ellipse(-5, 0, 16, 12, 0, 0, Math.PI * 2); ctx.fill();
+
+        // Punch Arm
+        if (actionState === 'punch') {
+            ctx.fillStyle = c.main;
+            this.drawRoundedRectPath(ctx, 10, -3, 15, 6, 3);
+            ctx.fill();
+        }
 
         // Head
         ctx.fillStyle = c.skin;
@@ -311,7 +319,7 @@ export class Renderer {
 
         if (p.type === 'clone_strike') {
             // Draw as a Ninja
-            this.drawNinjaBody(p.pos.x, p.pos.y, p.angle, 'naruto', p.hp || 0, p.maxHp || 1, "Clone", time, true);
+            this.drawNinjaBody(p.pos.x, p.pos.y, p.angle, 'naruto', p.hp || 0, p.maxHp || 1, "Clone", time, true, 1, null, p.actionState);
             return;
         }
 
