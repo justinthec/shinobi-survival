@@ -71,10 +71,24 @@ export class Renderer {
              ctx.save();
              ctx.translate(p.pos.x, p.pos.y);
              ctx.globalAlpha = p.life / p.maxLife;
-             ctx.fillStyle = p.color;
-             ctx.beginPath();
-             ctx.arc(0, 0, p.size, 0, Math.PI * 2);
-             ctx.fill();
+
+             if (p.type === 'slash') {
+                 // Draw Slash Arc
+                 if (p.rotation !== undefined) {
+                     ctx.rotate(p.rotation);
+                 }
+                 ctx.fillStyle = 'rgba(200, 200, 255, 0.5)'; // Light blue/white arc
+                 ctx.beginPath();
+                 ctx.moveTo(0, 0);
+                 ctx.arc(0, 0, p.size, -Math.PI / 3, Math.PI / 3);
+                 ctx.lineTo(0, 0);
+                 ctx.fill();
+             } else {
+                 ctx.fillStyle = p.color;
+                 ctx.beginPath();
+                 ctx.arc(0, 0, p.size, 0, Math.PI * 2);
+                 ctx.fill();
+             }
              ctx.restore();
         });
 
@@ -297,10 +311,7 @@ export class Renderer {
             ctx.beginPath(); ctx.arc(0, 0, p.radius, 0, Math.PI * 2); ctx.fill();
             ctx.shadowBlur = 0;
         } else if (p.type === 'lightning_slash') {
-            ctx.rotate(p.rotation || 0);
-            if (SPRITES.sword_slash) {
-                ctx.drawImage(SPRITES.sword_slash as HTMLCanvasElement, -100, -100);
-            }
+            // Visuals handled by Particle 'slash'
         }
 
         ctx.restore();

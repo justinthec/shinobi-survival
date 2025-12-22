@@ -80,6 +80,7 @@ export interface ParticleState {
     maxLife: number;
     color: string;
     size: number;
+    rotation?: number;
 }
 
 export interface FloatingText {
