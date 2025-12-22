@@ -163,7 +163,7 @@ export class CombatManager {
             const proj = game.projectiles[i];
 
             if (proj.type === 'lightning_slash') {
-                if (proj.life === LightningSlashSkill.LIFE - 1) this.checkCollision(game, proj); // Hit once
+                if (proj.life === proj.maxLife) this.checkCollision(game, proj); // Hit once on first frame
                 proj.life--;
                 if (proj.life <= 0) game.projectiles.splice(i, 1);
                 continue;

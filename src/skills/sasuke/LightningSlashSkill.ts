@@ -5,7 +5,7 @@ import { Skill } from "../Skill";
 
 export class LightningSlashSkill implements Skill {
     static readonly DAMAGE = 25;
-    static readonly LIFE = 1; // Instant hit
+    static readonly LIFE = 15; // Visual duration
     static readonly RADIUS = 125;
     static readonly CAST_TIME = 20;
 
