@@ -1,5 +1,5 @@
 import { ShinobiClashGame } from "../multiplayer-game";
-import { PlayerState, ProjectileState, Vec2 } from "../types";
+import { PlayerState, ProjectileState } from "../types";
 
 export interface CharacterDefinition {
     name: string;
