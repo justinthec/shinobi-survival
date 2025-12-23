@@ -14,6 +14,15 @@ import {
 } from "./types";
 import { Renderer } from "./renderer";
 import { CombatManager } from "./managers/combat-manager";
+import { registerNaruto } from "./characters/naruto";
+import { registerSasuke } from "./characters/sasuke";
+import { registerGaara } from "./characters/gaara";
+import { SeededRNG } from "./core/utils";
+
+// Register Characters
+registerNaruto();
+registerSasuke();
+registerGaara();
 
 const MAP_SIZE = 1600;
 
@@ -68,12 +77,16 @@ export class ShinobiClashGame extends Game {
                 stats: { speed: 3, damageMult: 1, cooldownMult: 1 },
                 cooldowns: { q: 0, e: 0, sp: 0 },
                 casting: 0,
-                dash: { active: false, vx: 0, vy: 0, life: 0 }
+                stunned: 0,
+                dash: { active: false, vx: 0, vy: 0, life: 0 },
+                skillStates: {}
             };
         }
     }
 
     tick(playerInputs: Map<NetplayPlayer, DefaultInput>): void {
+        this.gameTime++; // Increment game time
+
         if (this.gamePhase === 'charSelect') {
             this.tickCharSelect(playerInputs);
         } else if (this.gamePhase === 'playing') {
@@ -105,7 +118,9 @@ export class ShinobiClashGame extends Game {
                     p.spectatorTargetId = undefined;
                         p.cooldowns = { q: 0, e: 0, sp: 0 };
                         p.casting = 0;
+                        p.stunned = 0;
                         p.dash = { active: false, vx: 0, vy: 0, life: 0 };
+                        p.skillStates = {};
                 }
                 this.projectiles = [];
                 this.particles = [];
@@ -129,6 +144,7 @@ export class ShinobiClashGame extends Game {
             // Character Selection Inputs
             if (input.keysPressed['1']) p.character = 'naruto';
             if (input.keysPressed['2']) p.character = 'sasuke';
+            if (input.keysPressed['3']) p.character = 'gaara';
 
             // Confirm
             if (input.keysPressed[' ']) {
@@ -145,11 +161,29 @@ export class ShinobiClashGame extends Game {
     }
 
     initializeMatch() {
-        // Reset positions
+        // Use deterministic RNG for spawn positions
+        const rng = new SeededRNG(this.gameTime);
         const pIds = Object.keys(this.players);
-        // Player 1 left, Player 2 right
-        if (this.players[0]) this.players[0].pos = new Vec2(200, MAP_SIZE / 2);
-        if (this.players[1]) this.players[1].pos = new Vec2(MAP_SIZE - 200, MAP_SIZE / 2);
+        const shuffledIds = rng.shuffle(pIds);
+
+        const center = new Vec2(MAP_SIZE / 2, MAP_SIZE / 2);
+        const radius = 600;
+        const count = shuffledIds.length;
+
+        shuffledIds.forEach((idStr, index) => {
+            const id = parseInt(idStr);
+            const p = this.players[id];
+            if (!p) return;
+
+            const angle = (2 * Math.PI * index) / count;
+            p.pos = new Vec2(
+                center.x + radius * Math.cos(angle),
+                center.y + radius * Math.sin(angle)
+            );
+
+            // Face center
+            p.angle = Math.atan2(center.y - p.pos.y, center.x - p.pos.x);
+        });
 
         // Init stats based on character
         for (let id in this.players) {
@@ -160,6 +194,9 @@ export class ShinobiClashGame extends Game {
             } else if (p.character === 'sasuke') {
                 p.maxHp = 130; p.hp = 130;
                 p.stats.speed = 3.25;
+            } else if (p.character === 'gaara') {
+                p.maxHp = 140; p.hp = 140;
+                p.stats.speed = 2.8;
             }
         }
     }

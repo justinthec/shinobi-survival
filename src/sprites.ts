@@ -393,6 +393,55 @@ export function initSprites() {
         ctx.fillStyle = 'rgba(255, 140, 0, 0.8)';
         ctx.beginPath(); ctx.arc(cx, cy, 12, 0, Math.PI * 2); ctx.fill();
     });
+
+    SPRITES.sand_hand_new = makeSprite(120, 160, (ctx, cx, cy) => {
+        ctx.fillStyle = '#d35400';
+        ctx.strokeStyle = '#a04000';
+        ctx.lineWidth = 4;
+        ctx.lineJoin = 'round';
+
+        // Palm
+        ctx.beginPath();
+        ctx.arc(cx, cy + 40, 30, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
+
+        // Fingers (Claws)
+        const fingers = [-0.6, -0.3, 0, 0.3, 0.6]; // Angles
+        fingers.forEach(a => {
+            ctx.save();
+            ctx.translate(cx, cy + 40);
+            ctx.rotate(a);
+            ctx.beginPath();
+            ctx.moveTo(0, -20);
+            ctx.quadraticCurveTo(0, -60, 10, -80); // Curved finger
+            ctx.lineTo(-10, -80);
+            ctx.quadraticCurveTo(-5, -60, 0, -20);
+            ctx.fill(); ctx.stroke();
+            ctx.restore();
+        });
+    });
+
+    SPRITES.sand_tsunami_new = makeSprite(160, 100, (ctx, cx, cy) => {
+         // Massive wave
+         ctx.fillStyle = 'rgba(210, 180, 140, 0.9)'; // Sand color
+         ctx.strokeStyle = '#8b4513';
+         ctx.lineWidth = 3;
+
+         ctx.beginPath();
+         ctx.moveTo(0, 100);
+         ctx.quadraticCurveTo(40, 20, 80, 80);
+         ctx.quadraticCurveTo(120, 0, 160, 60);
+         ctx.lineTo(160, 100);
+         ctx.closePath();
+         ctx.fill(); ctx.stroke();
+
+         // Detail lines
+         ctx.strokeStyle = 'rgba(139, 69, 19, 0.5)';
+         ctx.beginPath();
+         ctx.moveTo(20, 90); ctx.quadraticCurveTo(50, 40, 80, 90);
+         ctx.moveTo(100, 80); ctx.quadraticCurveTo(130, 30, 150, 80);
+         ctx.stroke();
+    });
 }
 
 function drawSpikyHair(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, color: string) {

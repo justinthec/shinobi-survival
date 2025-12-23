@@ -1,11 +1,9 @@
 import { DefaultInput, Vec2 } from "netplayjs";
 import { ShinobiClashGame } from "../multiplayer-game";
-import { PlayerState, ProjectileState } from "../types";
+import { PlayerState, ProjectileState, PLAYER_RADIUS } from "../types";
 import { SkillRegistry } from "../skills/SkillRegistry";
-import { RasenshurikenSkill } from "../skills/naruto/RasenshurikenSkill";
-import { CloneStrikeSkill } from "../skills/naruto/CloneStrikeSkill";
-import { LightningSlashSkill } from "../skills/sasuke/LightningSlashSkill";
-import { DashSkill } from "../skills/common/DashSkill";
+import { ProjectileRegistry } from "../core/registries";
+import { RasenshurikenSkill } from "../characters/naruto/skills/RasenshurikenSkill";
 
 export class CombatManager {
 
@@ -14,6 +12,11 @@ export class CombatManager {
             if (input.keysPressed['ArrowLeft']) this.cycleSpectator(game, p, -1);
             if (input.keysPressed['ArrowRight']) this.cycleSpectator(game, p, 1);
             return;
+        }
+
+        if (p.stunned > 0) {
+            p.stunned--;
+            return; // Stunned
         }
 
         if (p.casting > 0) {
@@ -52,9 +55,29 @@ export class CombatManager {
         if (p.cooldowns.sp > 0) p.cooldowns.sp--;
 
         // 4. Skills
-        if (input.keysPressed['q']) SkillRegistry.getSkill(p.character, 'q')?.cast(game, p, input, targetPos);
-        if (input.keysPressed['e']) SkillRegistry.getSkill(p.character, 'e')?.cast(game, p, input, targetPos);
-        if (input.keysPressed[' ']) SkillRegistry.getSkill(p.character, ' ')?.cast(game, p, input, targetPos);
+        // Q
+        const skillQ = SkillRegistry.getSkill(p.character, 'q');
+        if (skillQ) {
+            if (skillQ.handleInput) skillQ.handleInput(game, p, input, targetPos);
+            if (input.keysPressed['q']) skillQ.cast(game, p, input, targetPos);
+        }
+
+        // E
+        const skillE = SkillRegistry.getSkill(p.character, 'e');
+        if (skillE) {
+            if (skillE.handleInput) {
+                skillE.handleInput(game, p, input, targetPos);
+            } else if (input.keysPressed['e']) {
+                skillE.cast(game, p, input, targetPos);
+            }
+        }
+
+        // Space
+        const skillSp = SkillRegistry.getSkill(p.character, ' ');
+        if (skillSp) {
+            if (skillSp.handleInput) skillSp.handleInput(game, p, input, targetPos);
+            if (input.keysPressed[' ']) skillSp.cast(game, p, input, targetPos);
+        }
     }
 
     static handleMovement(game: ShinobiClashGame, p: PlayerState, input: DefaultInput) {
@@ -69,14 +92,22 @@ export class CombatManager {
                 return Math.abs(Math.sin(seed));
             };
 
+            let color = 'rgba(255,255,255,0.5)';
+            let type = 'smoke';
+
+            if (p.character === 'gaara') {
+                color = '#d35400';
+                type = 'sand';
+            }
+
             game.particles.push({
                 id: game.nextEntityId++,
-                type: 'smoke',
+                type: type,
                 pos: new Vec2(p.pos.x, p.pos.y),
                 vel: new Vec2((rand() - 0.5) * 1, (rand() - 0.5) * 1), // Slower spread
                 life: 30, // Longer life (was 15)
                 maxLife: 30,
-                color: 'rgba(255,255,255,0.5)',
+                color: color,
                 size: 4 + rand() * 4
             });
 
@@ -101,119 +132,30 @@ export class CombatManager {
             p.pos.y += vy;
 
             // Bounds
-            p.pos.x = Math.max(20, Math.min(1600 - 20, p.pos.x));
-            p.pos.y = Math.max(20, Math.min(1600 - 20, p.pos.y));
+            p.pos.x = Math.max(PLAYER_RADIUS, Math.min(1600 - PLAYER_RADIUS, p.pos.x));
+            p.pos.y = Math.max(PLAYER_RADIUS, Math.min(1600 - PLAYER_RADIUS, p.pos.y));
         }
     }
 
     static updateProjectiles(game: ShinobiClashGame) {
         for (let i = game.projectiles.length - 1; i >= 0; i--) {
             const proj = game.projectiles[i];
+            const def = ProjectileRegistry.get(proj.type);
 
-            if (proj.type === 'lightning_slash') {
-                if (proj.life === LightningSlashSkill.LIFE - 1) this.checkCollision(game, proj); // Hit once
+            if (def) {
+                def.update(game, proj);
+            } else {
+                // Fallback or Generic Projectiles if not registered (e.g. particles upgraded to projectiles?)
+                // For now, assume all projectiles are registered or handled generically if desired.
+                // We'll keep a minimal generic movement/expiration for safety?
+                // Or just expire them.
                 proj.life--;
                 if (proj.life <= 0) game.projectiles.splice(i, 1);
-                continue;
-            }
-
-            // 1. Amaterasu Logic
-            if (proj.type === 'amaterasu_buildup') {
-                proj.life--;
-                if (proj.life <= 0) {
-                    // Explode
-                    game.projectiles.push({
-                        ...proj, id: game.nextEntityId++,
-                        type: 'amaterasu_burn',
-                        life: 120, radius: 60, isAoe: true
-                    });
-                    game.projectiles.splice(i, 1);
-                }
-                continue;
-            }
-
-            // 2. Clone AI
-            if (proj.type === 'clone_strike') {
-                // Find nearest enemy
-                let nearest = null;
-                let minDst = Infinity;
-                for (let id in game.players) {
-                    const p = game.players[id];
-                    if (p.id === proj.ownerId || p.dead) continue;
-                    const d = Math.sqrt((p.pos.x - proj.pos.x)**2 + (p.pos.y - proj.pos.y)**2);
-                    if (d < minDst) { minDst = d; nearest = p; }
-                }
-
-                if (nearest) {
-                    const angle = Math.atan2(nearest.pos.y - proj.pos.y, nearest.pos.x - proj.pos.x);
-                    const speed = 2.5; // Slower than players
-                    proj.vel.x = Math.cos(angle) * speed;
-                    proj.vel.y = Math.sin(angle) * speed;
-                    proj.angle = angle; // Face enemy
-                    proj.actionState = 'run';
-                } else {
-                    proj.vel.x = 0; proj.vel.y = 0;
-                    proj.actionState = 'run'; // Idle
-                }
-
-                proj.pos.x += proj.vel.x;
-                proj.pos.y += proj.vel.y;
-                proj.life--;
-
-                // Check collision (Punch)
-                const hit = this.checkCollision(game, proj);
-                if (hit) {
-                     game.projectiles.splice(i, 1);
-                     continue;
-                }
-
-                if (proj.life <= 0 || (proj.hp !== undefined && proj.hp <= 0)) {
-                    game.projectiles.splice(i, 1);
-                    continue;
-                }
-
-                continue;
-            }
-
-            if (proj.state === 'exploding' || proj.isAoe) {
-                proj.life--;
-                if (proj.life % 10 === 0) this.checkCollision(game, proj);
-                if (proj.life <= 0) game.projectiles.splice(i, 1);
-                continue;
-            }
-
-            // Moving
-            proj.pos.x += proj.vel.x;
-            proj.pos.y += proj.vel.y;
-
-            // Spin
-            if (proj.type === 'rasenshuriken') {
-                proj.rotation = (proj.rotation || 0) + 0.15;
-            }
-
-            proj.life--;
-
-            // Collision
-            const hit = this.checkCollision(game, proj);
-
-            if (hit || proj.life <= 0) {
-                if (proj.type === 'rasenshuriken') {
-                    proj.state = 'exploding';
-                    proj.life = RasenshurikenSkill.EXPLOSION_LIFE;
-                    proj.radius = RasenshurikenSkill.EXPLOSION_RADIUS;
-                    proj.vel.x = 0; proj.vel.y = 0;
-                } else if (proj.type === 'fireball') {
-                    proj.state = 'exploding';
-                    proj.life = 20;
-                    proj.radius = 50;
-                    proj.vel.x = 0; proj.vel.y = 0;
-                } else {
-                    game.projectiles.splice(i, 1);
-                }
             }
         }
     }
 
+    // Exposed for Projectile Definitions to use
     static checkCollision(game: ShinobiClashGame, proj: ProjectileState): boolean {
         let hit = false;
 
@@ -224,45 +166,45 @@ export class CombatManager {
             if (target.dead) continue;
 
             // Radius check
-            // proj.radius should be correct from Skill.
             const dist = Math.sqrt((target.pos.x - proj.pos.x) ** 2 + (target.pos.y - proj.pos.y) ** 2);
-            if (dist < proj.radius + 20) {
+
+            if (dist < proj.radius + PLAYER_RADIUS) {
                 hit = true;
                 this.applyDamage(game, target, proj);
             }
         }
 
-        // Check Clones
-        if (proj.type !== 'clone_strike') {
-             for (let j = 0; j < game.projectiles.length; j++) {
-                const targetProj = game.projectiles[j];
-                if (targetProj.type !== 'clone_strike') continue;
-                if (targetProj.ownerId === proj.ownerId) continue;
+        // Check for projectiles colliding with other projectiles
+        // Note: ProjectileDefinitions must handle "don't hit self" logic if they iterate, but here we just check generic collisions
+        for (let j = 0; j < game.projectiles.length; j++) {
+            const targetProj = game.projectiles[j];
+            // Only hit things with HP
+            if (targetProj.hp === undefined) continue;
+            if (targetProj.ownerId === proj.ownerId) continue;
+            // Don't hit itself
+            if (targetProj === proj) continue;
 
-                const dist = Math.sqrt((targetProj.pos.x - proj.pos.x) ** 2 + (targetProj.pos.y - proj.pos.y) ** 2);
-                if (dist < proj.radius + targetProj.radius) {
-                    hit = true;
-                    this.applyDamageToClone(game, targetProj, proj);
-                }
-             }
+            const dist = Math.sqrt((targetProj.pos.x - proj.pos.x) ** 2 + (targetProj.pos.y - proj.pos.y) ** 2);
+
+            if (dist < proj.radius + targetProj.radius) {
+                hit = true;
+                this.applyDamage(game, targetProj, proj);
+            }
         }
 
         return hit;
     }
 
-    static applyDamage(game: ShinobiClashGame, target: PlayerState, proj: ProjectileState) {
+    static applyDamage(game: ShinobiClashGame, target: { hp?: number, dead?: boolean, pos: Vec2 }, proj: ProjectileState) {
         let dmg = 0;
-        if (proj.type === 'fireball') dmg = 15;
-        if (proj.type === 'rasenshuriken') dmg = RasenshurikenSkill.DAMAGE;
-        if (proj.type === 'clone_strike') dmg = CloneStrikeSkill.DAMAGE;
-        if (proj.type === 'amaterasu_burn') dmg = 2;
-        if (proj.state === 'exploding') {
-             if (proj.type === 'rasenshuriken') dmg = RasenshurikenSkill.EXPLOSION_DAMAGE;
-             else dmg = 2;
+        const def = ProjectileRegistry.get(proj.type);
+        if (def && def.calculateDamage) {
+            dmg = def.calculateDamage(game, proj);
+        } else {
+            dmg = proj.damage || 0;
         }
-        if (proj.type === 'lightning_slash') dmg = LightningSlashSkill.DAMAGE;
 
-        if (dmg > 0) {
+        if (dmg > 0 && target.hp !== undefined) {
             target.hp -= dmg;
             game.floatingTexts.push({
                 id: game.nextEntityId++,
@@ -274,26 +216,15 @@ export class CombatManager {
 
             if (target.hp <= 0) {
                 target.hp = 0;
-                target.dead = true;
+                if (target.dead !== undefined) target.dead = true;
             }
         }
-    }
 
-    static applyDamageToClone(game: ShinobiClashGame, clone: ProjectileState, proj: ProjectileState) {
-        let dmg = 0;
-        if (proj.type === 'fireball') dmg = 15;
-        if (proj.type === 'rasenshuriken') dmg = RasenshurikenSkill.DAMAGE;
-        if (proj.state === 'exploding') dmg = 2;
-
-        if (dmg > 0 && clone.hp !== undefined) {
-            clone.hp -= dmg;
-            game.floatingTexts.push({
-                 id: game.nextEntityId++,
-                 pos: new Vec2(clone.pos.x, clone.pos.y - 40),
-                 val: dmg.toString(),
-                 color: 'white',
-                 life: 60, maxLife: 60, vy: 0.5
-            });
+        if (def && def.onHit && target.hp !== undefined) {
+            // Safe cast as we assume target with HP in players list is PlayerState
+            // Note: If applyDamage is called on a Clone (Projectile), onHit needs to handle it or ignore it.
+            // PlayerState has more fields than ProjectileState, so we pass it as any or verify properties inside onHit.
+            def.onHit(game, target as PlayerState, proj);
         }
     }
 

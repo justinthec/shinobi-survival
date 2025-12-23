@@ -1,13 +1,13 @@
 import { DefaultInput, Vec2 } from "netplayjs";
-import { ShinobiClashGame } from "../../multiplayer-game";
-import { PlayerState, ProjectileState } from "../../types";
-import { Skill } from "../Skill";
+import { ShinobiClashGame } from "../../../multiplayer-game";
+import { PlayerState, ProjectileState } from "../../../types";
+import { Skill } from "../../../skills/Skill";
 
 export class RasenshurikenSkill implements Skill {
-    static readonly DAMAGE = 5;
-    static readonly EXPLOSION_DAMAGE = 2;
-    static readonly RADIUS = 25;
-    static readonly EXPLOSION_RADIUS = 80;
+    static readonly DAMAGE = 60;
+    static readonly EXPLOSION_DAMAGE = 5;
+    static readonly RADIUS = 32;
+    static readonly EXPLOSION_RADIUS = 100;
     static readonly EXPLOSION_LIFE = 80;
     static readonly SPEED = 9;
     static readonly LIFE = 120;
@@ -37,7 +37,8 @@ export class RasenshurikenSkill implements Skill {
             life: RasenshurikenSkill.LIFE,
             maxLife: RasenshurikenSkill.LIFE,
             radius: RasenshurikenSkill.RADIUS,
-            state: 'flying'
+            state: 'flying',
+            damage: RasenshurikenSkill.DAMAGE
         };
 
         game.projectiles.push(proj);

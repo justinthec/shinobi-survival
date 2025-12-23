@@ -1,7 +1,9 @@
 import { ShinobiClashGame } from "./multiplayer-game";
-import { PlayerState, ProjectileState } from "./types";
+import { PlayerState, ProjectileState, PLAYER_RADIUS } from "./types";
 import { initSprites, SPRITES } from "./sprites";
 import { SkillRegistry } from "./skills/SkillRegistry";
+import { CharacterRegistry, ProjectileRegistry } from "./core/registries";
+import { CharacterRendererHelper } from "./core/CharacterRendererHelper";
 
 export class Renderer {
     ctx: CanvasRenderingContext2D;
@@ -70,11 +72,55 @@ export class Renderer {
         game.particles.forEach(p => {
              ctx.save();
              ctx.translate(p.pos.x, p.pos.y);
+             ctx.scale(1.25, 1.25); // Apply consistent scale
              ctx.globalAlpha = p.life / p.maxLife;
-             ctx.fillStyle = p.color;
-             ctx.beginPath();
-             ctx.arc(0, 0, p.size, 0, Math.PI * 2);
-             ctx.fill();
+
+             if (p.type === 'slash') {
+                 // Draw Slash Arc (Solid Crescent Swipe)
+                 if (p.rotation !== undefined) {
+                     ctx.rotate(p.rotation);
+                 }
+
+                 // Solid Crescent
+                 ctx.fillStyle = '#E6E6FA'; // Lavender/White
+                 ctx.shadowBlur = 15;
+                 ctx.shadowColor = '#8A2BE2'; // Purple Glow
+
+                 ctx.beginPath();
+                 // Outer Arc
+                 ctx.arc(0, 0, p.size, -Math.PI / 3, Math.PI / 3);
+                 // Inner Curve (to make it crescent)
+                 ctx.quadraticCurveTo(0, 0, p.size * Math.cos(-Math.PI/3), p.size * Math.sin(-Math.PI/3));
+                 ctx.fill();
+
+                 ctx.shadowBlur = 0; // Reset
+
+                 // 2. Jagged Lightning Lines (Reduced intensity)
+                 ctx.strokeStyle = 'white';
+                 ctx.lineWidth = 2;
+                 ctx.beginPath();
+                 ctx.moveTo(0, 0);
+
+                 // Seed random based on particle ID/Life to flicker but be deterministic-ish for a frame
+                 // Single jagged bolt for less clutter
+                 let angle = -Math.PI / 6 + (Math.random() * Math.PI / 3);
+                 let dist = 0;
+                 let cx = 0, cy = 0;
+                 while (dist < p.size) {
+                     dist += 20 + Math.random() * 30;
+                     angle += (Math.random() - 0.5) * 0.8;
+                     cx += Math.cos(angle) * 25;
+                     cy += Math.sin(angle) * 25;
+                     ctx.lineTo(cx, cy);
+                 }
+                 ctx.stroke();
+
+             } else {
+                 ctx.fillStyle = p.color;
+                 ctx.beginPath();
+                 ctx.arc(0, 0, p.size, 0, Math.PI * 2);
+                 ctx.fill();
+             }
              ctx.restore();
         });
 
@@ -116,26 +162,28 @@ export class Renderer {
             const p = game.players[id];
             if (p.dead) continue;
             ctx.beginPath();
-            ctx.arc(p.pos.x, p.pos.y, 20, 0, Math.PI * 2);
+            ctx.arc(p.pos.x, p.pos.y, PLAYER_RADIUS, 0, Math.PI * 2);
             ctx.stroke();
         }
 
         // Projectiles
         for (const proj of game.projectiles) {
             ctx.beginPath();
-            ctx.arc(proj.pos.x, proj.pos.y, proj.radius, 0, Math.PI * 2);
+            if (proj.type === 'lightning_slash') {
+                // Draw Sector
+                ctx.moveTo(proj.pos.x, proj.pos.y);
+                ctx.arc(proj.pos.x, proj.pos.y, proj.radius, proj.angle - Math.PI / 3, proj.angle + Math.PI / 3);
+                ctx.lineTo(proj.pos.x, proj.pos.y);
+            } else {
+                ctx.arc(proj.pos.x, proj.pos.y, proj.radius, 0, Math.PI * 2);
+            }
             ctx.stroke();
         }
     }
 
     // Helper for safe roundRect
     drawRoundedRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-        ctx.beginPath();
-        if (typeof ctx.roundRect === 'function') {
-            ctx.roundRect(x, y, w, h, r);
-        } else {
-            ctx.rect(x, y, w, h);
-        }
+        CharacterRendererHelper.drawRoundedRectPath(ctx, x, y, w, h, r);
     }
 
     drawGrid(camX: number, camY: number, width: number, height: number) {
@@ -157,125 +205,25 @@ export class Renderer {
 
     drawPlayer(p: PlayerState, time: number) {
         if (p.dead) return;
-        this.drawNinjaBody(p.pos.x, p.pos.y, p.angle, p.character || 'naruto', p.hp, p.maxHp, p.name, time, false);
-    }
 
-    drawNinjaBody(x: number, y: number, angle: number, type: string, hp: number, maxHp: number, name: string, time: number, isClone: boolean) {
-        const ctx = this.ctx;
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.rotate(angle);
+        const charType = p.character || 'naruto';
+        const def = CharacterRegistry.get(charType);
 
-        // Shadow
-        ctx.fillStyle = 'rgba(0,0,0,0.4)';
-        ctx.beginPath(); ctx.ellipse(-2, 2, 16, 16, 0, 0, Math.PI * 2); ctx.fill();
-
-        // Visual Colors
-        const isNaruto = type === 'naruto';
-        const c = isNaruto ? {
-            skin: '#ffcba4', hair: '#ffdd00', main: '#ff6600', sub: '#1a1a1a', acc: '#0055aa'
-        } : {
-            skin: '#ffe0bd', hair: '#111122', main: '#9ca3af', sub: '#4b5563', acc: '#8b5cf6'
-        };
-
-        if (isClone) ctx.globalAlpha = 0.8;
-
-        // Body
-        ctx.fillStyle = c.main;
-        ctx.beginPath(); ctx.ellipse(-5, 0, 16, 12, 0, 0, Math.PI * 2); ctx.fill();
-
-        // Head
-        ctx.fillStyle = c.skin;
-        ctx.beginPath(); ctx.arc(2, 0, 11, 0, Math.PI * 2); ctx.fill();
-
-        // Hair
-        ctx.fillStyle = c.hair;
-        ctx.beginPath();
-        if (isNaruto) {
-            for (let i = 0; i < 14; i++) {
-                const a = (i / 14) * Math.PI * 2;
-                const len = 14;
-                const cx = 2 + Math.cos(a) * len;
-                const cy = Math.sin(a) * len;
-                if (i === 0) ctx.moveTo(cx, cy); else ctx.lineTo(cx, cy);
-            }
+        if (def) {
+            const isLocal = ShinobiClashGame.localPlayerId === p.id;
+            const isOffCooldown = p.cooldowns.e <= 0;
+            def.render(this.ctx, p, time, isLocal, isOffCooldown);
         } else {
-            ctx.moveTo(-5, 0); ctx.lineTo(-18, -10); ctx.lineTo(-12, 0); ctx.lineTo(-18, 10);
-        }
-        ctx.fill();
-
-        // Arms
-        ctx.fillStyle = c.main;
-        this.drawRoundedRectPath(ctx, 0, -16, 12, 6, 3); ctx.fill();
-        this.drawRoundedRectPath(ctx, 0, 10, 12, 6, 3); ctx.fill();
-
-        ctx.restore();
-
-        // Health Bar
-        if (maxHp > 0) {
-             ctx.save();
-             ctx.translate(x, y - 50);
-             ctx.fillStyle = 'rgba(0,0,0,0.8)';
-             this.drawRoundedRectPath(ctx, -20, 0, 40, 6, 3); ctx.fill();
-             const pct = Math.max(0, hp / maxHp);
-             ctx.fillStyle = pct > 0.5 ? '#48bb78' : '#f56565';
-             this.drawRoundedRectPath(ctx, -18, 1, 36 * pct, 4, 2); ctx.fill();
-
-             if (!isClone) {
-                 ctx.fillStyle = 'white';
-                 ctx.font = '10px Arial';
-                 ctx.textAlign = 'center';
-                 ctx.fillText(name, 0, -5);
-             }
-             ctx.restore();
+             // Fallback
+             CharacterRendererHelper.drawNinjaBody(this.ctx, p.pos.x, p.pos.y, p.angle, charType, p.hp, p.maxHp, p.name, time, false);
         }
     }
 
     drawProjectile(p: ProjectileState, time: number) {
-        const ctx = this.ctx;
-
-        if (p.type === 'clone_strike') {
-            // Draw as a Ninja
-            this.drawNinjaBody(p.pos.x, p.pos.y, p.angle, 'naruto', p.hp || 0, p.maxHp || 1, "Clone", time, true);
-            return;
+        const def = ProjectileRegistry.get(p.type);
+        if (def) {
+            def.render(this.ctx, p, time);
         }
-
-        ctx.save();
-        ctx.translate(p.pos.x, p.pos.y);
-
-        if (p.type === 'fireball') {
-            ctx.fillStyle = '#ed8936';
-            ctx.beginPath(); ctx.arc(0, 0, p.radius, 0, Math.PI * 2); ctx.fill();
-        } else if (p.type === 'rasenshuriken') {
-            ctx.rotate(p.rotation || 0);
-            ctx.fillStyle = '#4fd1c5';
-            ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill();
-            // Blades
-            ctx.fillStyle = 'rgba(255,255,255,0.8)';
-            for (let i = 0; i < 4; i++) {
-                ctx.rotate(Math.PI / 2);
-                ctx.beginPath(); ctx.moveTo(0, 0);
-                ctx.quadraticCurveTo(20, -10, 40, 0);
-                ctx.quadraticCurveTo(20, 10, 0, 0);
-                ctx.fill();
-            }
-        } else if (p.type === 'amaterasu_buildup') {
-            ctx.strokeStyle = 'black';
-            ctx.setLineDash([5, 5]);
-            ctx.beginPath(); ctx.arc(0, 0, p.radius, 0, Math.PI * 2); ctx.stroke();
-        } else if (p.type === 'amaterasu_burn') {
-            ctx.fillStyle = 'black';
-            ctx.shadowColor = 'purple'; ctx.shadowBlur = 10;
-            ctx.beginPath(); ctx.arc(0, 0, p.radius, 0, Math.PI * 2); ctx.fill();
-            ctx.shadowBlur = 0;
-        } else if (p.type === 'lightning_slash') {
-            ctx.rotate(p.rotation || 0);
-            if (SPRITES.sword_slash) {
-                ctx.drawImage(SPRITES.sword_slash as HTMLCanvasElement, -100, -100);
-            }
-        }
-
-        ctx.restore();
     }
 
     drawHUD(game: ShinobiClashGame, p: PlayerState) {
@@ -350,7 +298,7 @@ export class Renderer {
 
         ctx.font = '20px Arial';
         ctx.fillStyle = '#cbd5e0';
-        ctx.fillText("Press 1 for NARUTO | Press 2 for SASUKE", w / 2, 160);
+        ctx.fillText("Press 1: NARUTO | 2: SASUKE | 3: GAARA", w / 2, 160);
         ctx.fillText("Press SPACE to READY", w / 2, 190);
 
         // List players
