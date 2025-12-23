@@ -5,10 +5,10 @@ import { Skill } from "../../../skills/Skill";
 
 export class CloneStrikeSkill implements Skill {
     static readonly DAMAGE = 15;
-    static readonly LIFE = 600;
+    static readonly LIFE = 150;
     static readonly RADIUS = 25;
 
-    readonly cooldown = 720;
+    readonly cooldown = 180;
 
     cast(game: ShinobiClashGame, p: PlayerState, input: DefaultInput, targetPos: Vec2) {
         if (p.cooldowns.e > 0) return;

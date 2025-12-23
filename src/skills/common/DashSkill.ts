@@ -4,14 +4,14 @@ import { PlayerState } from "../../types";
 import { Skill } from "../Skill";
 
 export class DashSkill implements Skill {
-    readonly cooldown = 360;
+    readonly cooldown = 90;
 
     cast(game: ShinobiClashGame, p: PlayerState, input: DefaultInput, targetPos: Vec2) {
         if (p.cooldowns.sp > 0) return;
 
         p.cooldowns.sp = this.cooldown;
 
-        const dashSpeed = 12.5;
+        const dashSpeed = 50;
         let dx = 0; let dy = 0;
         if (input.keysHeld['a']) dx -= 1;
         if (input.keysHeld['d']) dx += 1;
@@ -32,7 +32,7 @@ export class DashSkill implements Skill {
 
         p.dash = {
             active: true,
-            life: 16,
+            life: 4,
             vx: vx,
             vy: vy
         };
@@ -47,8 +47,8 @@ export class DashSkill implements Skill {
                 id: game.nextEntityId++,
                 type: 'smoke',
                 pos: new Vec2(p.pos.x, p.pos.y),
-                vel: new Vec2((rand(i)-0.5)*2.5, (rand(i+10)-0.5)*2.5),
-                life: 40, maxLife: 40, color: 'white', size: 6
+                vel: new Vec2((rand(i)-0.5)*10, (rand(i+10)-0.5)*10),
+                life: 10, maxLife: 10, color: 'white', size: 6
             });
         }
     }

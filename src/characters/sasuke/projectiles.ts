@@ -13,7 +13,7 @@ export class LightningSlashProjectile implements ProjectileDefinition {
              // So we must implement the collision check here.
              this.checkSectorCollision(game, proj);
         }
-        proj.life--;
+        proj.life -= game.gameSpeed;
         if (proj.life <= 0) {
             const idx = game.projectiles.indexOf(proj);
             if (idx >= 0) game.projectiles.splice(idx, 1);

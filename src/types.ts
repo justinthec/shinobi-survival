@@ -67,6 +67,9 @@ export interface ProjectileState {
     isAoe?: boolean;
     damage?: number; // Pre-calculated damage for generic handling
 
+    // Timer for logic updates that rely on intervals (e.g. collision checks every N ticks)
+    tickTimer?: number;
+
     // Clone Stats
     hp?: number;
     maxHp?: number;
