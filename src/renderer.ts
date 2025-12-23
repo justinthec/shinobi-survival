@@ -2,6 +2,8 @@ import { ShinobiClashGame } from "./multiplayer-game";
 import { PlayerState, ProjectileState, PLAYER_RADIUS } from "./types";
 import { initSprites, SPRITES } from "./sprites";
 import { SkillRegistry } from "./skills/SkillRegistry";
+import { CharacterRegistry, ProjectileRegistry } from "./core/registries";
+import { CharacterRendererHelper } from "./core/CharacterRendererHelper";
 
 export class Renderer {
     ctx: CanvasRenderingContext2D;
@@ -181,12 +183,7 @@ export class Renderer {
 
     // Helper for safe roundRect
     drawRoundedRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-        ctx.beginPath();
-        if (typeof ctx.roundRect === 'function') {
-            ctx.roundRect(x, y, w, h, r);
-        } else {
-            ctx.rect(x, y, w, h);
-        }
+        CharacterRendererHelper.drawRoundedRectPath(ctx, x, y, w, h, r);
     }
 
     drawGrid(camX: number, camY: number, width: number, height: number) {
@@ -209,156 +206,24 @@ export class Renderer {
     drawPlayer(p: PlayerState, time: number) {
         if (p.dead) return;
 
-        // Draw Charging Indicator for Sasuke's Teleport
-        // Only if local player is holding it (or spectator logic matches? User said "Only the local player that is holding the E button down")
-        // And cooldown is 0.
-        const isLocal = ShinobiClashGame.localPlayerId === p.id;
-        const isOffCooldown = p.cooldowns.e <= 0;
+        const charType = p.character || 'naruto';
+        const def = CharacterRegistry.get(charType);
 
-        if (isLocal && isOffCooldown && p.character === 'sasuke' && p.skillStates && p.skillStates['e'] && p.skillStates['e'].charging && p.skillStates['e'].target) {
-            const target = p.skillStates['e'].target;
-            this.drawNinjaBody(target.x, target.y, p.angle, 'sasuke', 0, 0, "", time, false, 0.5, '#8A2BE2');
-        }
-
-        this.drawNinjaBody(p.pos.x, p.pos.y, p.angle, p.character || 'naruto', p.hp, p.maxHp, p.name, time, false);
-    }
-
-    drawNinjaBody(x: number, y: number, angle: number, type: string, hp: number, maxHp: number, name: string, time: number, isClone: boolean, opacity: number = 1, colorOverride: string | null = null, actionState?: string) {
-        const ctx = this.ctx;
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.scale(1.25, 1.25);
-        ctx.rotate(angle);
-
-        if (opacity < 1) ctx.globalAlpha = opacity;
-
-        // Shadow
-        ctx.fillStyle = 'rgba(0,0,0,0.4)';
-        ctx.beginPath(); ctx.ellipse(-2, 2, 16, 16, 0, 0, Math.PI * 2); ctx.fill();
-
-        // Visual Colors
-        const isNaruto = type === 'naruto';
-        const c = isNaruto ? {
-            skin: '#ffcba4', hair: '#ffdd00', main: '#ff6600', sub: '#1a1a1a', acc: '#0055aa'
-        } : {
-            skin: '#ffe0bd', hair: '#111122', main: '#9ca3af', sub: '#4b5563', acc: '#8b5cf6'
-        };
-
-        // Override if needed (e.g. purple ghost)
-        if (colorOverride) {
-            // Simplified tinted version
-            c.skin = colorOverride;
-            c.hair = colorOverride;
-            c.main = colorOverride;
-            c.sub = colorOverride;
-            c.acc = colorOverride;
-        }
-
-        if (isClone) ctx.globalAlpha = 0.8 * opacity;
-        else if (opacity < 1) ctx.globalAlpha = opacity;
-
-        // Body
-        ctx.fillStyle = c.main;
-        ctx.beginPath(); ctx.ellipse(-5, 0, 16, 12, 0, 0, Math.PI * 2); ctx.fill();
-
-        // Punch Arm
-        if (actionState === 'punch') {
-            ctx.fillStyle = c.main;
-            this.drawRoundedRectPath(ctx, 10, -3, 15, 6, 3);
-            ctx.fill();
-        }
-
-        // Head
-        ctx.fillStyle = c.skin;
-        ctx.beginPath(); ctx.arc(2, 0, 11, 0, Math.PI * 2); ctx.fill();
-
-        // Hair
-        ctx.fillStyle = c.hair;
-        ctx.beginPath();
-        if (isNaruto) {
-            for (let i = 0; i < 14; i++) {
-                const a = (i / 14) * Math.PI * 2;
-                const len = 14;
-                const cx = 2 + Math.cos(a) * len;
-                const cy = Math.sin(a) * len;
-                if (i === 0) ctx.moveTo(cx, cy); else ctx.lineTo(cx, cy);
-            }
+        if (def) {
+            const isLocal = ShinobiClashGame.localPlayerId === p.id;
+            const isOffCooldown = p.cooldowns.e <= 0;
+            def.render(this.ctx, p, time, isLocal, isOffCooldown);
         } else {
-            ctx.moveTo(-5, 0); ctx.lineTo(-18, -10); ctx.lineTo(-12, 0); ctx.lineTo(-18, 10);
-        }
-        ctx.fill();
-
-        // Arms
-        ctx.fillStyle = c.main;
-        this.drawRoundedRectPath(ctx, 0, -16, 12, 6, 3); ctx.fill();
-        this.drawRoundedRectPath(ctx, 0, 10, 12, 6, 3); ctx.fill();
-
-        ctx.restore();
-
-        // Health Bar
-        if (maxHp > 0) {
-             ctx.save();
-             ctx.translate(x, y - 50);
-             ctx.fillStyle = 'rgba(0,0,0,0.8)';
-             this.drawRoundedRectPath(ctx, -20, 0, 40, 6, 3); ctx.fill();
-             const pct = Math.max(0, hp / maxHp);
-             ctx.fillStyle = pct > 0.5 ? '#48bb78' : '#f56565';
-             this.drawRoundedRectPath(ctx, -18, 1, 36 * pct, 4, 2); ctx.fill();
-
-             if (!isClone) {
-                 ctx.fillStyle = 'white';
-                 ctx.font = '10px Arial';
-                 ctx.textAlign = 'center';
-                 ctx.fillText(name, 0, -5);
-             }
-             ctx.restore();
+             // Fallback
+             CharacterRendererHelper.drawNinjaBody(this.ctx, p.pos.x, p.pos.y, p.angle, charType, p.hp, p.maxHp, p.name, time, false);
         }
     }
 
     drawProjectile(p: ProjectileState, time: number) {
-        const ctx = this.ctx;
-
-        if (p.type === 'clone_strike') {
-            // Draw as a Ninja (drawNinjaBody handles scale internally)
-            this.drawNinjaBody(p.pos.x, p.pos.y, p.angle, 'naruto', p.hp || 0, p.maxHp || 1, "Clone", time, true, 1, null, p.actionState);
-            return;
+        const def = ProjectileRegistry.get(p.type);
+        if (def) {
+            def.render(this.ctx, p, time);
         }
-
-        ctx.save();
-        ctx.translate(p.pos.x, p.pos.y);
-        ctx.scale(1.25, 1.25); // Apply consistent scale for projectiles
-
-        if (p.type === 'rasenshuriken') {
-            if (p.state === 'exploding') {
-                 // Tornado Visual
-                 ctx.fillStyle = 'rgba(100, 200, 255, 0.4)';
-                 for(let i=0; i<3; i++) {
-                     ctx.beginPath();
-                     ctx.ellipse(0, 0, p.radius * (0.5 + i*0.2), 10, (time * 0.2) + i, 0, Math.PI*2);
-                     ctx.fill();
-                 }
-                 // Core
-                 ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-                 ctx.beginPath(); ctx.arc(0, 0, 20, 0, Math.PI*2); ctx.fill();
-            } else {
-                ctx.rotate(p.rotation || 0);
-                ctx.fillStyle = '#4fd1c5';
-                ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill();
-                // Blades
-                ctx.fillStyle = 'rgba(255,255,255,0.8)';
-                for (let i = 0; i < 4; i++) {
-                    ctx.rotate(Math.PI / 2);
-                    ctx.beginPath(); ctx.moveTo(0, 0);
-                    ctx.quadraticCurveTo(20, -10, 40, 0);
-                    ctx.quadraticCurveTo(20, 10, 0, 0);
-                    ctx.fill();
-                }
-            }
-        } else if (p.type === 'lightning_slash') {
-            // Visuals handled by Particle 'slash'
-        }
-
-        ctx.restore();
     }
 
     drawHUD(game: ShinobiClashGame, p: PlayerState) {

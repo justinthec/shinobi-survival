@@ -2,10 +2,8 @@ import { DefaultInput, Vec2 } from "netplayjs";
 import { ShinobiClashGame } from "../multiplayer-game";
 import { PlayerState, ProjectileState, PLAYER_RADIUS } from "../types";
 import { SkillRegistry } from "../skills/SkillRegistry";
-import { RasenshurikenSkill } from "../skills/naruto/RasenshurikenSkill";
-import { CloneStrikeSkill } from "../skills/naruto/CloneStrikeSkill";
-import { LightningSlashSkill } from "../skills/sasuke/LightningSlashSkill";
-import { DashSkill } from "../skills/common/DashSkill";
+import { ProjectileRegistry } from "../core/registries";
+import { RasenshurikenSkill } from "../characters/naruto/skills/RasenshurikenSkill";
 
 export class CombatManager {
 
@@ -129,101 +127,22 @@ export class CombatManager {
     static updateProjectiles(game: ShinobiClashGame) {
         for (let i = game.projectiles.length - 1; i >= 0; i--) {
             const proj = game.projectiles[i];
+            const def = ProjectileRegistry.get(proj.type);
 
-            if (proj.type === 'lightning_slash') {
-                if (proj.life === proj.maxLife) this.checkCollision(game, proj); // Hit once on first frame
+            if (def) {
+                def.update(game, proj);
+            } else {
+                // Fallback or Generic Projectiles if not registered (e.g. particles upgraded to projectiles?)
+                // For now, assume all projectiles are registered or handled generically if desired.
+                // We'll keep a minimal generic movement/expiration for safety?
+                // Or just expire them.
                 proj.life--;
                 if (proj.life <= 0) game.projectiles.splice(i, 1);
-                continue;
-            }
-
-
-            // 2. Clone AI
-            if (proj.type === 'clone_strike') {
-                // If punching, freeze and wait
-                if (proj.actionState === 'punch') {
-                    proj.life--;
-                    if (proj.life <= 0 || (proj.hp !== undefined && proj.hp <= 0)) game.projectiles.splice(i, 1);
-                    continue;
-                }
-
-                // Find nearest enemy
-                let nearest = null;
-                let minDst = Infinity;
-                for (let id in game.players) {
-                    const p = game.players[id];
-                    if (p.id === proj.ownerId || p.dead) continue;
-                    const d = Math.sqrt((p.pos.x - proj.pos.x)**2 + (p.pos.y - proj.pos.y)**2);
-                    if (d < minDst) { minDst = d; nearest = p; }
-                }
-
-                if (nearest) {
-                    const angle = Math.atan2(nearest.pos.y - proj.pos.y, nearest.pos.x - proj.pos.x);
-                    const speed = 2.5; // Slower than players
-                    proj.vel.x = Math.cos(angle) * speed;
-                    proj.vel.y = Math.sin(angle) * speed;
-                    proj.angle = angle; // Face enemy
-                    proj.actionState = 'run';
-                } else {
-                    proj.vel.x = 0; proj.vel.y = 0;
-                    proj.actionState = 'run'; // Idle
-                }
-
-                proj.pos.x += proj.vel.x;
-                proj.pos.y += proj.vel.y;
-                proj.life--;
-
-                // Check collision (Punch)
-                const hit = this.checkCollision(game, proj);
-                if (hit) {
-                     // Hit! Change to punch state for visual effect
-                     proj.actionState = 'punch';
-                     proj.life = 15; // Animation duration
-                     continue;
-                }
-
-                if (proj.life <= 0 || (proj.hp !== undefined && proj.hp <= 0)) {
-                    game.projectiles.splice(i, 1);
-                    continue;
-                }
-
-                continue;
-            }
-
-            if (proj.state === 'exploding' || proj.isAoe) {
-                proj.life--;
-                if (proj.life % 10 === 0) this.checkCollision(game, proj);
-                if (proj.life <= 0) game.projectiles.splice(i, 1);
-                continue;
-            }
-
-            // Moving
-            proj.pos.x += proj.vel.x;
-            proj.pos.y += proj.vel.y;
-
-            // Spin
-            if (proj.type === 'rasenshuriken') {
-                proj.rotation = (proj.rotation || 0) + 0.15;
-            }
-
-            proj.life--;
-
-            // Collision
-            const hit = this.checkCollision(game, proj);
-
-            if (hit || proj.life <= 0) {
-                if (proj.type === 'rasenshuriken') {
-                    proj.state = 'exploding';
-                    proj.life = RasenshurikenSkill.EXPLOSION_LIFE;
-                    proj.radius = RasenshurikenSkill.EXPLOSION_RADIUS;
-                    proj.vel.x = 0; proj.vel.y = 0;
-                } else {
-                    game.projectiles.splice(i, 1);
-                }
             }
         }
     }
 
+    // Exposed for Projectile Definitions to use
     static checkCollision(game: ShinobiClashGame, proj: ProjectileState): boolean {
         let hit = false;
 
@@ -236,71 +155,40 @@ export class CombatManager {
             // Radius check
             const dist = Math.sqrt((target.pos.x - proj.pos.x) ** 2 + (target.pos.y - proj.pos.y) ** 2);
 
-            if (proj.type === 'lightning_slash') {
-                // Sector Check
-                if (dist < proj.radius + PLAYER_RADIUS) {
-                    // Check Angle
-                    const angleToTarget = Math.atan2(target.pos.y - proj.pos.y, target.pos.x - proj.pos.x);
-                    let diff = angleToTarget - proj.angle;
-                    // Normalize to -PI..PI
-                    while (diff > Math.PI) diff -= Math.PI * 2;
-                    while (diff < -Math.PI) diff += Math.PI * 2;
-
-                    // 120 degrees total = +/- 60 degrees = +/- PI/3
-                    if (Math.abs(diff) < Math.PI / 3) {
-                         hit = true;
-                         this.applyDamage(game, target, proj);
-                    }
-                }
-            } else {
-                // Standard Circle Check
-                if (dist < proj.radius + PLAYER_RADIUS) {
-                    hit = true;
-                    this.applyDamage(game, target, proj);
-                }
+            if (dist < proj.radius + PLAYER_RADIUS) {
+                hit = true;
+                this.applyDamage(game, target, proj);
             }
         }
 
-        // Check Clones
-        if (proj.type !== 'clone_strike') {
-             for (let j = 0; j < game.projectiles.length; j++) {
-                const targetProj = game.projectiles[j];
-                if (targetProj.type !== 'clone_strike') continue;
-                if (targetProj.ownerId === proj.ownerId) continue;
+        // Check for projectiles colliding with other projectiles
+        // Note: ProjectileDefinitions must handle "don't hit self" logic if they iterate, but here we just check generic collisions
+        for (let j = 0; j < game.projectiles.length; j++) {
+            const targetProj = game.projectiles[j];
+            // Only hit things with HP
+            if (targetProj.hp === undefined) continue;
+            if (targetProj.ownerId === proj.ownerId) continue;
+            // Don't hit itself
+            if (targetProj === proj) continue;
 
-                const dist = Math.sqrt((targetProj.pos.x - proj.pos.x) ** 2 + (targetProj.pos.y - proj.pos.y) ** 2);
+            const dist = Math.sqrt((targetProj.pos.x - proj.pos.x) ** 2 + (targetProj.pos.y - proj.pos.y) ** 2);
 
-                if (proj.type === 'lightning_slash') {
-                    // Sector Check vs Clone
-                    if (dist < proj.radius + targetProj.radius) {
-                         const angleToTarget = Math.atan2(targetProj.pos.y - proj.pos.y, targetProj.pos.x - proj.pos.x);
-                         let diff = angleToTarget - proj.angle;
-                         while (diff > Math.PI) diff -= Math.PI * 2;
-                         while (diff < -Math.PI) diff += Math.PI * 2;
-                         if (Math.abs(diff) < Math.PI / 3) {
-                             hit = true;
-                             this.applyDamage(game, targetProj, proj);
-                         }
-                    }
-                } else {
-                    if (dist < proj.radius + targetProj.radius) {
-                        hit = true;
-                        this.applyDamage(game, targetProj, proj);
-                    }
-                }
-             }
+            if (dist < proj.radius + targetProj.radius) {
+                hit = true;
+                this.applyDamage(game, targetProj, proj);
+            }
         }
 
         return hit;
     }
 
     static applyDamage(game: ShinobiClashGame, target: { hp?: number, dead?: boolean, pos: Vec2 }, proj: ProjectileState) {
-        let dmg = proj.damage || 0;
-
-        // Handle special cases (explosions, etc.) if damage not pre-calc, or override
-        if (proj.state === 'exploding') {
-             if (proj.type === 'rasenshuriken') dmg = RasenshurikenSkill.EXPLOSION_DAMAGE;
-             else dmg = 2; // Generic explosion tick
+        let dmg = 0;
+        const def = ProjectileRegistry.get(proj.type);
+        if (def && def.calculateDamage) {
+            dmg = def.calculateDamage(game, proj);
+        } else {
+            dmg = proj.damage || 0;
         }
 
         if (dmg > 0 && target.hp !== undefined) {

@@ -1,7 +1,7 @@
 import { DefaultInput, Vec2 } from "netplayjs";
-import { ShinobiClashGame } from "../../multiplayer-game";
-import { PlayerState, ProjectileState } from "../../types";
-import { Skill } from "../Skill";
+import { ShinobiClashGame } from "../../../multiplayer-game";
+import { PlayerState, ProjectileState } from "../../../types";
+import { Skill } from "../../../skills/Skill";
 
 export class CloneStrikeSkill implements Skill {
     static readonly DAMAGE = 15;
@@ -18,7 +18,7 @@ export class CloneStrikeSkill implements Skill {
         const proj: ProjectileState = {
             id: game.nextEntityId++,
             type: 'clone_strike',
-            pos: new Vec2(p.pos.x, p.pos.y), // Starts at player?
+            pos: new Vec2(p.pos.x, p.pos.y),
             vel: new Vec2(0, 0),
             ownerId: p.id,
             angle: p.angle,
@@ -32,15 +32,6 @@ export class CloneStrikeSkill implements Skill {
             actionState: 'run',
             damage: CloneStrikeSkill.DAMAGE
         };
-
-        // Wait, original logic used targetPos for 'clone_strike'?
-        // CombatManager:
-        // if (type === 'clone_strike') { pos = p.pos; ... }
-        // Ah, it spawns at player and walks.
-        // But `tryCastE` calls `spawnProjectile(game, p, 'clone_strike', targetPos);`
-        // But `spawnProjectile` ignored `targetPos` for `clone_strike`.
-        // "pos = new Vec2(p.pos.x, p.pos.y);"
-        // So targetPos is irrelevant for casting, it finds enemies itself.
 
         game.projectiles.push(proj);
     }
