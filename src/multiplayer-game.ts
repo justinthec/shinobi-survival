@@ -257,7 +257,11 @@ export class ShinobiClashGame extends Game {
             this.kothState.occupantTimer = 0;
         } else if (playersInCircle.length > 1) {
             this.kothState.contested = true;
-            // No progress when contested
+            // No progress when contested.
+            // Explicitly clear occupant so that when one leaves, the remaining player
+            // is treated as a new occupant and must wait the delay.
+            this.kothState.occupantId = null;
+            this.kothState.occupantTimer = 0;
         } else {
             // Exactly one player
             const occupantId = playersInCircle[0];

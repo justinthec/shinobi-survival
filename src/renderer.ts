@@ -182,13 +182,10 @@ export class Renderer {
             const isCapturing = game.kothState.occupantTimer > delayFrames;
 
             if (isCapturing) {
-                // Pulse effect
-                const pulse = 1 + 0.1 * Math.sin(game.gameTime * 0.1);
-                ctx.scale(pulse, pulse);
-                fillColor = color; // Use full color (with some alpha via globalAlpha if needed, but let's just make it semi-transparent hex if we could, but here we just pass string)
-                // We need to convert hex to rgba manually or just rely on globalAlpha for everything?
-                // Let's just use the hex but set alpha
-                ctx.globalAlpha = 0.4;
+                // Pulse effect: Pulse intensity (alpha) instead of size
+                const pulseAlpha = 0.4 + 0.2 * Math.sin(game.gameTime * 0.1);
+                ctx.globalAlpha = Math.max(0.2, Math.min(0.8, pulseAlpha));
+                fillColor = color;
             } else {
                  // Charging up
                  ctx.globalAlpha = 0.2;
@@ -381,7 +378,7 @@ export class Renderer {
                  ctx.strokeText(text1, w / 2, 100);
                  ctx.fillText(text1, w / 2, 100);
 
-                 const text2 = "Press Left/Right to Switch";
+                 const text2 = "Cycle: Left/Right Arrows";
                  ctx.strokeText(text2, w / 2, 130);
                  ctx.fillText(text2, w / 2, 130);
              }
