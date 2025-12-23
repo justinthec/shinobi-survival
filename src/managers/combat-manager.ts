@@ -189,11 +189,6 @@ export class CombatManager {
             dmg = def.calculateDamage(game, proj);
         } else {
             dmg = proj.damage || 0;
-            // Fallback for special cases if not migrated, but we should migrate them.
-            // Keeping generic explosion fallback just in case
-            if (proj.state === 'exploding' && dmg === 0) {
-                 dmg = 2; // Generic explosion tick
-            }
         }
 
         if (dmg > 0 && target.hp !== undefined) {
