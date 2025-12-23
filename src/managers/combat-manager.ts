@@ -15,7 +15,7 @@ export class CombatManager {
         }
 
         if (p.casting > 0) {
-            p.casting--;
+            p.casting -= game.gameSpeed;
             return; // Stunned while casting
         }
 
@@ -45,9 +45,9 @@ export class CombatManager {
         }
 
         // 3. Cooldowns
-        if (p.cooldowns.q > 0) p.cooldowns.q--;
-        if (p.cooldowns.e > 0) p.cooldowns.e--;
-        if (p.cooldowns.sp > 0) p.cooldowns.sp--;
+        if (p.cooldowns.q > 0) p.cooldowns.q -= game.gameSpeed;
+        if (p.cooldowns.e > 0) p.cooldowns.e -= game.gameSpeed;
+        if (p.cooldowns.sp > 0) p.cooldowns.sp -= game.gameSpeed;
 
         // 4. Skills
         // Q
@@ -77,9 +77,9 @@ export class CombatManager {
 
     static handleMovement(game: ShinobiClashGame, p: PlayerState, input: DefaultInput) {
         if (p.dash.active) {
-            p.pos.x += p.dash.vx;
-            p.pos.y += p.dash.vy;
-            p.dash.life--;
+            p.pos.x += p.dash.vx * game.gameSpeed;
+            p.pos.y += p.dash.vy * game.gameSpeed;
+            p.dash.life -= game.gameSpeed;
 
             // Continuous Dash Trail (White Poof)
             const rand = () => {
@@ -115,8 +115,8 @@ export class CombatManager {
             const vx = (dx / len) * speed;
             const vy = (dy / len) * speed;
 
-            p.pos.x += vx;
-            p.pos.y += vy;
+            p.pos.x += vx * game.gameSpeed;
+            p.pos.y += vy * game.gameSpeed;
 
             // Bounds
             p.pos.x = Math.max(PLAYER_RADIUS, Math.min(1600 - PLAYER_RADIUS, p.pos.x));

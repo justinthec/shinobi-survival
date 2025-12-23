@@ -41,6 +41,7 @@ export class ShinobiClashGame extends Game {
 
     nextEntityId: number = 0;
     gameTime: number = 0;
+    gameSpeed: number = 1.0;
 
     // Renderer (Client-side only)
     renderer?: Renderer;
@@ -159,6 +160,7 @@ export class ShinobiClashGame extends Game {
         // Use deterministic RNG for spawn positions
         const rng = new SeededRNG(this.gameTime);
         const pIds = Object.keys(this.players);
+        this.gameSpeed = 1.0 / pIds.length;
         const shuffledIds = rng.shuffle(pIds);
 
         const center = new Vec2(MAP_SIZE / 2, MAP_SIZE / 2);
@@ -205,15 +207,15 @@ export class ShinobiClashGame extends Game {
 
         // 3. Update Particles & Text
         this.particles = this.particles.filter(p => {
-            p.life--;
-            p.pos.x += p.vel.x;
-            p.pos.y += p.vel.y;
+            p.life -= this.gameSpeed;
+            p.pos.x += p.vel.x * this.gameSpeed;
+            p.pos.y += p.vel.y * this.gameSpeed;
             return p.life > 0;
         });
 
         this.floatingTexts = this.floatingTexts.filter(t => {
-            t.life--;
-            t.pos.y -= t.vy; // Float up
+            t.life -= this.gameSpeed;
+            t.pos.y -= t.vy * this.gameSpeed; // Float up
             return t.life > 0;
         });
 

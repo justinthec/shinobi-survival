@@ -8,8 +8,17 @@ import { CharacterRendererHelper } from "../../core/CharacterRendererHelper";
 export class RasenshurikenProjectile implements ProjectileDefinition {
     update(game: ShinobiClashGame, proj: ProjectileState) {
         if (proj.state === 'exploding') {
-            proj.life--;
-            if (proj.life % 10 === 0) CombatManager.checkCollision(game, proj); // Re-using for now, will refactor
+            proj.life -= game.gameSpeed;
+
+            // Logic refactor for float-based life
+            if (proj.tickTimer === undefined) proj.tickTimer = 0;
+            proj.tickTimer += game.gameSpeed;
+
+            if (proj.tickTimer >= 10) {
+                 CombatManager.checkCollision(game, proj);
+                 proj.tickTimer -= 10;
+            }
+
             if (proj.life <= 0) {
                  const idx = game.projectiles.indexOf(proj);
                  if (idx >= 0) game.projectiles.splice(idx, 1);
@@ -18,13 +27,13 @@ export class RasenshurikenProjectile implements ProjectileDefinition {
         }
 
         // Moving
-        proj.pos.x += proj.vel.x;
-        proj.pos.y += proj.vel.y;
+        proj.pos.x += proj.vel.x * game.gameSpeed;
+        proj.pos.y += proj.vel.y * game.gameSpeed;
 
         // Spin
-        proj.rotation = (proj.rotation || 0) + 0.15;
+        proj.rotation = (proj.rotation || 0) + 0.15 * game.gameSpeed;
 
-        proj.life--;
+        proj.life -= game.gameSpeed;
 
         // Collision
         const hit = CombatManager.checkCollision(game, proj);
@@ -84,7 +93,7 @@ export class CloneStrikeProjectile implements ProjectileDefinition {
     update(game: ShinobiClashGame, proj: ProjectileState) {
         // If punching, freeze and wait
         if (proj.actionState === 'punch') {
-            proj.life--;
+            proj.life -= game.gameSpeed;
             if (proj.life <= 0 || (proj.hp !== undefined && proj.hp <= 0)) {
                  const idx = game.projectiles.indexOf(proj);
                  if (idx >= 0) game.projectiles.splice(idx, 1);
@@ -114,9 +123,9 @@ export class CloneStrikeProjectile implements ProjectileDefinition {
             proj.actionState = 'run'; // Idle
         }
 
-        proj.pos.x += proj.vel.x;
-        proj.pos.y += proj.vel.y;
-        proj.life--;
+        proj.pos.x += proj.vel.x * game.gameSpeed;
+        proj.pos.y += proj.vel.y * game.gameSpeed;
+        proj.life -= game.gameSpeed;
 
         // Check collision (Punch)
         const hit = CombatManager.checkCollision(game, proj);
