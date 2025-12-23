@@ -219,11 +219,21 @@ export class ShinobiClashGame extends Game {
 
         // Check Game Over
         let aliveCount = 0;
+        let totalPlayers = 0;
         for (let id in this.players) {
+            totalPlayers++;
             if (!this.players[id].dead) aliveCount++;
         }
-        if (aliveCount <= 1) {
-            this.gamePhase = 'gameOver';
+
+        if (totalPlayers > 1) {
+            if (aliveCount <= 1) {
+                this.gamePhase = 'gameOver';
+            }
+        } else {
+            // Single player mode, end only if dead
+            if (aliveCount === 0) {
+                this.gamePhase = 'gameOver';
+            }
         }
     }
 
