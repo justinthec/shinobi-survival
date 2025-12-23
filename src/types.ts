@@ -2,7 +2,7 @@ import { Vec2 } from "netplayjs";
 
 export type GamePhase = 'charSelect' | 'playing' | 'gameOver';
 
-export type CharacterType = 'naruto' | 'sasuke';
+export type CharacterType = 'naruto' | 'sasuke' | 'rock_lee';
 
 export const PLAYER_RADIUS = 25;
 
@@ -50,7 +50,7 @@ export interface PlayerState {
     skillStates: Record<string, SkillState>;
 }
 
-export type ProjectileType = 'rasenshuriken' | 'clone_strike' | 'lightning_slash';
+export type ProjectileType = 'rasenshuriken' | 'clone_strike' | 'lightning_slash' | 'leaf_hurricane';
 
 export interface ProjectileState {
     id: number;
