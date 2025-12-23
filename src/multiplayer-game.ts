@@ -53,6 +53,11 @@ export class ShinobiClashGame extends Game {
     // Renderer (Client-side only)
     renderer?: Renderer;
 
+    get gameSpeed(): number {
+        const count = Object.keys(this.players).length;
+        return count > 0 ? 1.0 / count : 1.0;
+    }
+
     constructor(canvas: HTMLCanvasElement, players: Array<NetplayPlayer>) {
         super();
 
@@ -213,6 +218,8 @@ export class ShinobiClashGame extends Game {
     }
 
     tickPlaying(playerInputs: Map<NetplayPlayer, DefaultInput>) {
+        const speed = this.gameSpeed;
+
         // 1. Process Inputs (Movement & Skills)
         for (const [player, input] of playerInputs.entries()) {
             const p = this.players[player.id];
@@ -224,19 +231,64 @@ export class ShinobiClashGame extends Game {
 
         // 3. Update Particles & Text
         this.particles = this.particles.filter(p => {
-            p.life--;
-            p.pos.x += p.vel.x;
-            p.pos.y += p.vel.y;
+            p.life -= speed;
+            p.pos.x += p.vel.x * speed;
+            p.pos.y += p.vel.y * speed;
             return p.life > 0;
         });
 
         this.floatingTexts = this.floatingTexts.filter(t => {
-            t.life--;
-            t.pos.y -= t.vy; // Float up
+            t.life -= speed;
+            t.pos.y -= t.vy * speed; // Float up
             return t.life > 0;
         });
 
         // 4. KOTH Logic
+        this.tickKothLogic(speed);
+
+        // 5. Respawn Logic
+        const corners = [
+            new Vec2(100, 100),
+            new Vec2(MAP_SIZE - 100, 100),
+            new Vec2(100, MAP_SIZE - 100),
+            new Vec2(MAP_SIZE - 100, MAP_SIZE - 100)
+        ];
+
+        for (const id in this.players) {
+            const p = this.players[id];
+            if (p.dead && p.respawnTimer > 0) {
+                p.respawnTimer -= speed;
+                if (p.respawnTimer <= 0) {
+                    // Respawn!
+                    p.dead = false;
+                    p.hp = p.maxHp;
+                    // Reset cooldowns
+                    p.cooldowns = { q: 0, e: 0, sp: 0 };
+                    p.casting = 0;
+                    p.dash = { active: false, vx: 0, vy: 0, life: 0 };
+                    p.skillStates = {};
+
+                    if (p.spawnCornerIndex >= 0 && p.spawnCornerIndex < corners.length) {
+                        p.pos = new Vec2(corners[p.spawnCornerIndex].x, corners[p.spawnCornerIndex].y);
+                    } else {
+                         // Fallback just in case
+                         p.pos = new Vec2(200, 200);
+                    }
+                    p.spawnCornerIndex = -1; // Free up the corner (logic handled in death, but good to reset)
+                }
+            }
+        }
+
+        // 6. Check Win Condition
+        for (const id in this.players) {
+            if (this.players[id].victoryProgress >= 100) {
+                this.gamePhase = 'gameOver';
+                break;
+            }
+        }
+    }
+
+    tickKothLogic(speed: number) {
         const center = new Vec2(MAP_SIZE / 2, MAP_SIZE / 2);
         const playersInCircle: number[] = [];
 
@@ -268,59 +320,18 @@ export class ShinobiClashGame extends Game {
             this.kothState.contested = false;
 
             if (this.kothState.occupantId === occupantId) {
-                this.kothState.occupantTimer++;
+                this.kothState.occupantTimer += speed;
                 const delayFrames = KOTH_SETTINGS.CAPTURE_DELAY_SECONDS * 60;
                 if (this.kothState.occupantTimer > delayFrames) {
                     // Progress
                     const p = this.players[occupantId];
                     const progressPerFrame = 100 / (KOTH_SETTINGS.WIN_TIME_SECONDS * 60);
-                    p.victoryProgress = Math.min(100, p.victoryProgress + progressPerFrame);
+                    p.victoryProgress = Math.min(100, p.victoryProgress + (progressPerFrame * speed));
                 }
             } else {
                 // New occupant
                 this.kothState.occupantId = occupantId;
                 this.kothState.occupantTimer = 0;
-            }
-        }
-
-        // 5. Respawn Logic
-        const corners = [
-            new Vec2(100, 100),
-            new Vec2(MAP_SIZE - 100, 100),
-            new Vec2(100, MAP_SIZE - 100),
-            new Vec2(MAP_SIZE - 100, MAP_SIZE - 100)
-        ];
-
-        for (const id in this.players) {
-            const p = this.players[id];
-            if (p.dead && p.respawnTimer > 0) {
-                p.respawnTimer--;
-                if (p.respawnTimer <= 0) {
-                    // Respawn!
-                    p.dead = false;
-                    p.hp = p.maxHp;
-                    // Reset cooldowns
-                    p.cooldowns = { q: 0, e: 0, sp: 0 };
-                    p.casting = 0;
-                    p.dash = { active: false, vx: 0, vy: 0, life: 0 };
-                    p.skillStates = {};
-
-                    if (p.spawnCornerIndex >= 0 && p.spawnCornerIndex < corners.length) {
-                        p.pos = new Vec2(corners[p.spawnCornerIndex].x, corners[p.spawnCornerIndex].y);
-                    } else {
-                         // Fallback just in case
-                         p.pos = new Vec2(200, 200);
-                    }
-                    p.spawnCornerIndex = -1; // Free up the corner (logic handled in death, but good to reset)
-                }
-            }
-        }
-
-        // 6. Check Win Condition
-        for (const id in this.players) {
-            if (this.players[id].victoryProgress >= 100) {
-                this.gamePhase = 'gameOver';
-                break;
             }
         }
     }
