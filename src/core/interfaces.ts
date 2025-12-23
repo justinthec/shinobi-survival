@@ -9,4 +9,5 @@ export interface CharacterDefinition {
 export interface ProjectileDefinition {
     update(game: ShinobiClashGame, proj: ProjectileState): void;
     render(ctx: CanvasRenderingContext2D, proj: ProjectileState, time: number): void;
+    calculateDamage?(game: ShinobiClashGame, proj: ProjectileState): number;
 }

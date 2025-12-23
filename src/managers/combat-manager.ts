@@ -161,7 +161,7 @@ export class CombatManager {
             }
         }
 
-        // Check Clones (Projectiles with HP)
+        // Check for projectiles colliding with other projectiles
         // Note: ProjectileDefinitions must handle "don't hit self" logic if they iterate, but here we just check generic collisions
         for (let j = 0; j < game.projectiles.length; j++) {
             const targetProj = game.projectiles[j];
@@ -183,13 +183,17 @@ export class CombatManager {
     }
 
     static applyDamage(game: ShinobiClashGame, target: { hp?: number, dead?: boolean, pos: Vec2 }, proj: ProjectileState) {
-        let dmg = proj.damage || 0;
-
-        // Handle special cases (explosions, etc.) if damage not pre-calc, or override
-        // NOTE: Ideally this should also be moved to definition, but let's keep basic override here or rely on proj.damage
-        if (proj.state === 'exploding') {
-             if (proj.type === 'rasenshuriken') dmg = RasenshurikenSkill.EXPLOSION_DAMAGE;
-             else dmg = 2; // Generic explosion tick
+        let dmg = 0;
+        const def = ProjectileRegistry.get(proj.type);
+        if (def && def.calculateDamage) {
+            dmg = def.calculateDamage(game, proj);
+        } else {
+            dmg = proj.damage || 0;
+            // Fallback for special cases if not migrated, but we should migrate them.
+            // Keeping generic explosion fallback just in case
+            if (proj.state === 'exploding' && dmg === 0) {
+                 dmg = 2; // Generic explosion tick
+            }
         }
 
         if (dmg > 0 && target.hp !== undefined) {

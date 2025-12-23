@@ -71,6 +71,13 @@ export class RasenshurikenProjectile implements ProjectileDefinition {
         }
         ctx.restore();
     }
+
+    calculateDamage(game: ShinobiClashGame, proj: ProjectileState): number {
+        if (proj.state === 'exploding') {
+            return RasenshurikenSkill.EXPLOSION_DAMAGE;
+        }
+        return proj.damage || 0;
+    }
 }
 
 export class CloneStrikeProjectile implements ProjectileDefinition {
