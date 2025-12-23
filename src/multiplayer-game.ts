@@ -10,7 +10,10 @@ import {
     ProjectileState,
     ParticleState,
     FloatingText,
-    CharacterType
+    CharacterType,
+    KOTH_SETTINGS,
+    PLAYER_RADIUS,
+    MAP_SIZE
 } from "./types";
 import { Renderer } from "./renderer";
 import { CombatManager } from "./managers/combat-manager";
@@ -21,8 +24,6 @@ import { SeededRNG } from "./core/utils";
 // Register Characters
 registerNaruto();
 registerSasuke();
-
-const MAP_SIZE = 1600;
 
 export class ShinobiClashGame extends Game {
     static timestep = 1000 / 60;
@@ -38,6 +39,13 @@ export class ShinobiClashGame extends Game {
     projectiles: ProjectileState[] = [];
     particles: ParticleState[] = [];
     floatingTexts: FloatingText[] = [];
+
+    // KOTH State
+    kothState = {
+        occupantId: null as number | null,
+        occupantTimer: 0,
+        contested: false
+    };
 
     nextEntityId: number = 0;
     gameTime: number = 0;
@@ -76,7 +84,10 @@ export class ShinobiClashGame extends Game {
                 cooldowns: { q: 0, e: 0, sp: 0 },
                 casting: 0,
                 dash: { active: false, vx: 0, vy: 0, life: 0 },
-                skillStates: {}
+                skillStates: {},
+                victoryProgress: 0,
+                respawnTimer: 0,
+                spawnCornerIndex: -1
             };
         }
     }
@@ -117,7 +128,11 @@ export class ShinobiClashGame extends Game {
                         p.casting = 0;
                         p.dash = { active: false, vx: 0, vy: 0, life: 0 };
                         p.skillStates = {};
+                        p.victoryProgress = 0;
+                        p.respawnTimer = 0;
+                        p.spawnCornerIndex = -1;
                 }
+                this.kothState = { occupantId: null, occupantTimer: 0, contested: false };
                 this.projectiles = [];
                 this.particles = [];
                 this.floatingTexts = [];
@@ -183,6 +198,10 @@ export class ShinobiClashGame extends Game {
         // Init stats based on character
         for (let id in this.players) {
             const p = this.players[id];
+            p.victoryProgress = 0;
+            p.respawnTimer = 0;
+            p.spawnCornerIndex = -1;
+
             if (p.character === 'naruto') {
                 p.maxHp = 150; p.hp = 150;
                 p.stats.speed = 3;
@@ -217,22 +236,99 @@ export class ShinobiClashGame extends Game {
             return t.life > 0;
         });
 
-        // Check Game Over
-        let aliveCount = 0;
-        let totalPlayers = 0;
-        for (let id in this.players) {
-            totalPlayers++;
-            if (!this.players[id].dead) aliveCount++;
+        // 4. KOTH Logic
+        this.tickKothLogic();
+
+        // 5. Respawn Logic
+        this.tickRespawnLogic();
+
+        // 6. Check Win Condition
+        for (const id in this.players) {
+            if (this.players[id].victoryProgress >= 100) {
+                this.gamePhase = 'gameOver';
+                break;
+            }
+        }
+    }
+
+    tickKothLogic() {
+        const center = new Vec2(MAP_SIZE / 2, MAP_SIZE / 2);
+        const playersInCircle: number[] = [];
+
+        for (const id in this.players) {
+            const p = this.players[id];
+            if (!p.dead) {
+                const dist = Math.sqrt(Math.pow(p.pos.x - center.x, 2) + Math.pow(p.pos.y - center.y, 2));
+                if (dist <= KOTH_SETTINGS.CIRCLE_RADIUS) {
+                    playersInCircle.push(p.id);
+                }
+            }
         }
 
-        if (totalPlayers > 1) {
-            if (aliveCount <= 1) {
-                this.gamePhase = 'gameOver';
-            }
+        // Handle Circle State
+        if (playersInCircle.length === 0) {
+            this.kothState.contested = false;
+            this.kothState.occupantId = null;
+            this.kothState.occupantTimer = 0;
+        } else if (playersInCircle.length > 1) {
+            this.kothState.contested = true;
+            // No progress when contested.
+            // Explicitly clear occupant so that when one leaves, the remaining player
+            // is treated as a new occupant and must wait the delay.
+            this.kothState.occupantId = null;
+            this.kothState.occupantTimer = 0;
         } else {
-            // Single player mode, end only if dead
-            if (aliveCount === 0) {
-                this.gamePhase = 'gameOver';
+            // Exactly one player
+            const occupantId = playersInCircle[0];
+            this.kothState.contested = false;
+
+            if (this.kothState.occupantId === occupantId) {
+                this.kothState.occupantTimer++;
+                const delayFrames = KOTH_SETTINGS.CAPTURE_DELAY_SECONDS * 60;
+                if (this.kothState.occupantTimer > delayFrames) {
+                    // Progress
+                    const p = this.players[occupantId];
+                    const progressPerFrame = 100 / (KOTH_SETTINGS.WIN_TIME_SECONDS * 60);
+                    p.victoryProgress = Math.min(100, p.victoryProgress + progressPerFrame);
+                }
+            } else {
+                // New occupant
+                this.kothState.occupantId = occupantId;
+                this.kothState.occupantTimer = 0;
+            }
+        }
+    }
+
+    tickRespawnLogic() {
+        const corners = [
+            new Vec2(100, 100),
+            new Vec2(MAP_SIZE - 100, 100),
+            new Vec2(100, MAP_SIZE - 100),
+            new Vec2(MAP_SIZE - 100, MAP_SIZE - 100)
+        ];
+
+        for (const id in this.players) {
+            const p = this.players[id];
+            if (p.dead && p.respawnTimer > 0) {
+                p.respawnTimer--;
+                if (p.respawnTimer <= 0) {
+                    // Respawn!
+                    p.dead = false;
+                    p.hp = p.maxHp;
+                    // Reset cooldowns
+                    p.cooldowns = { q: 0, e: 0, sp: 0 };
+                    p.casting = 0;
+                    p.dash = { active: false, vx: 0, vy: 0, life: 0 };
+                    p.skillStates = {};
+
+                    if (p.spawnCornerIndex >= 0 && p.spawnCornerIndex < corners.length) {
+                        p.pos = new Vec2(corners[p.spawnCornerIndex].x, corners[p.spawnCornerIndex].y);
+                    } else {
+                         // Fallback just in case
+                         p.pos = new Vec2(200, 200);
+                    }
+                    p.spawnCornerIndex = -1; // Free up the corner (logic handled in death, but good to reset)
+                }
             }
         }
     }

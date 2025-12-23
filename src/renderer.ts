@@ -1,5 +1,5 @@
 import { ShinobiClashGame } from "./multiplayer-game";
-import { PlayerState, ProjectileState, PLAYER_RADIUS } from "./types";
+import { PlayerState, ProjectileState, PLAYER_RADIUS, KOTH_SETTINGS, MAP_SIZE } from "./types";
 import { initSprites, SPRITES } from "./sprites";
 import { SkillRegistry } from "./skills/SkillRegistry";
 import { CharacterRegistry, ProjectileRegistry } from "./core/registries";
@@ -12,6 +12,12 @@ export class Renderer {
 
     static debugMode = false;
     static listenerAttached = false;
+
+    // Helper for colors
+    getPlayerColor(id: number): string {
+        const colors = ['#e53e3e', '#3182ce', '#ecc94b', '#d53f8c']; // Red, Blue, Yellow, Pink
+        return colors[id % colors.length];
+    }
 
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
@@ -67,6 +73,9 @@ export class Renderer {
         ctx.strokeStyle = '#e53e3e';
         ctx.lineWidth = 10;
         ctx.strokeRect(0, 0, 1600, 1600);
+
+        // --- DRAW KOTH CIRCLE ---
+        this.drawKothCircle(game, ctx);
 
         // Particles
         game.particles.forEach(p => {
@@ -152,6 +161,50 @@ export class Renderer {
         this.drawHUD(game, focusPlayer);
     }
 
+    drawKothCircle(game: ShinobiClashGame, ctx: CanvasRenderingContext2D) {
+        const center = { x: MAP_SIZE / 2, y: MAP_SIZE / 2 };
+
+        ctx.save();
+        ctx.translate(center.x, center.y);
+
+        let fillColor = 'rgba(255, 255, 255, 0.3)'; // Neutral White
+        let strokeColor = 'white';
+
+        if (game.kothState.contested) {
+            // Flash Grey/Purple if contested
+            const flash = Math.floor(game.gameTime / 10) % 2 === 0;
+            fillColor = flash ? 'rgba(100, 100, 100, 0.5)' : 'rgba(150, 0, 150, 0.5)';
+            strokeColor = '#a0aec0';
+        } else if (game.kothState.occupantId !== null) {
+            const color = this.getPlayerColor(game.kothState.occupantId);
+            // Check if captured (timer > delay) or just entered
+            const delayFrames = KOTH_SETTINGS.CAPTURE_DELAY_SECONDS * 60;
+            const isCapturing = game.kothState.occupantTimer > delayFrames;
+
+            if (isCapturing) {
+                // Pulse effect: Pulse intensity (alpha) instead of size
+                const pulseAlpha = 0.4 + 0.2 * Math.sin(game.gameTime * 0.1);
+                ctx.globalAlpha = Math.max(0.2, Math.min(0.8, pulseAlpha));
+                fillColor = color;
+            } else {
+                 // Charging up
+                 ctx.globalAlpha = 0.2;
+                 fillColor = color;
+            }
+        }
+
+        ctx.beginPath();
+        ctx.arc(0, 0, KOTH_SETTINGS.CIRCLE_RADIUS, 0, Math.PI * 2);
+        ctx.fillStyle = fillColor;
+        ctx.fill();
+
+        ctx.lineWidth = 5;
+        ctx.strokeStyle = strokeColor;
+        ctx.stroke();
+
+        ctx.restore();
+    }
+
     drawHitboxes(game: ShinobiClashGame) {
         const ctx = this.ctx;
         ctx.lineWidth = 1;
@@ -231,6 +284,45 @@ export class Renderer {
         const w = this.canvas.width;
         const h = this.canvas.height;
 
+        // --- VICTORY BARS (Top) ---
+        const barWidth = 300;
+        const barHeight = 20;
+        const startX = (w - barWidth * 2 - 20) / 2; // Center based on 2 players roughly, but handle dynamic
+        const topY = 20;
+
+        const playerIds = Object.keys(game.players).map(Number).sort((a,b) => a - b);
+        const totalW = playerIds.length * (barWidth / 2 + 10); // Condensed bars
+
+        let cx = w / 2 - (playerIds.length * 160) / 2;
+
+        playerIds.forEach((id) => {
+            const pl = game.players[id];
+            const color = this.getPlayerColor(id);
+
+            // Draw Name
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText(pl.name, cx, topY);
+
+            // Draw Bar BG
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillRect(cx, topY + 5, 150, 15);
+
+            // Draw Progress
+            ctx.fillStyle = color;
+            const progW = (pl.victoryProgress / 100) * 150;
+            ctx.fillRect(cx, topY + 5, progW, 15);
+
+            // Border
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(cx, topY + 5, 150, 15);
+
+            cx += 160;
+        });
+
+
         // Cooldowns
         const drawCD = (key: string, x: number, cd: number, max: number) => {
             ctx.fillStyle = 'rgba(0,0,0,0.5)';
@@ -261,25 +353,36 @@ export class Renderer {
         drawCD('E', w / 2, p.cooldowns.e, getMaxCD('e'));
         drawCD('SPC', w / 2 + 100, p.cooldowns.sp, getMaxCD(' '));
 
-        // Spectator UI
+        // Spectator / Respawn UI
         const localId = ShinobiClashGame.localPlayerId;
         const localPlayer = localId !== null ? game.players[localId] : null;
 
         if (localPlayer && localPlayer.dead) {
+             ctx.save();
              ctx.fillStyle = 'white';
              ctx.strokeStyle = 'black';
              ctx.lineWidth = 4;
-
-             ctx.font = 'bold 30px Arial';
              ctx.textAlign = 'center';
-             const text1 = `SPECTATING: ${p.name}`;
-             ctx.strokeText(text1, w / 2, 100);
-             ctx.fillText(text1, w / 2, 100);
 
-             ctx.font = '20px Arial';
-             const text2 = "Press Left/Right to Switch";
-             ctx.strokeText(text2, w / 2, 130);
-             ctx.fillText(text2, w / 2, 130);
+             // RESPAWN TIMER
+             const timeLeft = Math.ceil(localPlayer.respawnTimer / 60);
+             ctx.font = 'bold 40px Arial';
+             const respawnText = `RESPAWNING IN ${timeLeft}...`;
+             ctx.strokeText(respawnText, w / 2, h / 2 - 50);
+             ctx.fillText(respawnText, w / 2, h / 2 - 50);
+
+             if (localPlayer.spectatorTargetId !== undefined) {
+                 const spec = game.players[localPlayer.spectatorTargetId];
+                 ctx.font = '20px Arial';
+                 const text1 = `SPECTATING: ${spec ? spec.name : 'Unknown'}`;
+                 ctx.strokeText(text1, w / 2, 100);
+                 ctx.fillText(text1, w / 2, 100);
+
+                 const text2 = "Cycle: Left/Right Arrows";
+                 ctx.strokeText(text2, w / 2, 130);
+                 ctx.fillText(text2, w / 2, 130);
+             }
+             ctx.restore();
         }
     }
 
@@ -332,11 +435,18 @@ export class Renderer {
         ctx.textAlign = 'center';
         ctx.fillText("GAME OVER", w / 2, h / 2 - 50);
 
-        // Find winner
+        // Find winner based on victory progress
         let winner = "No One";
-        const alive = Object.values(game.players).filter(p => !p.dead);
-        if (alive.length > 0) winner = alive[0].name + " Wins!";
-        else winner = "Draw!";
+        const players = Object.values(game.players);
+        // Sort by progress desc
+        players.sort((a,b) => b.victoryProgress - a.victoryProgress);
+
+        if (players.length > 0 && players[0].victoryProgress >= 100) {
+            winner = players[0].name + " Wins!";
+        } else {
+            // Fallback
+            winner = "Draw!";
+        }
 
         ctx.font = '40px Arial';
         ctx.fillStyle = '#f1c40f';

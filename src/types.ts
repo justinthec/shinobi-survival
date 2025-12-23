@@ -5,6 +5,14 @@ export type GamePhase = 'charSelect' | 'playing' | 'gameOver';
 export type CharacterType = 'naruto' | 'sasuke';
 
 export const PLAYER_RADIUS = 25;
+export const MAP_SIZE = 1600;
+
+export const KOTH_SETTINGS = {
+    CIRCLE_RADIUS: 100,
+    CAPTURE_DELAY_SECONDS: 0.5,
+    WIN_TIME_SECONDS: 30,
+    RESPAWN_TIME_SECONDS: 5,
+};
 
 export interface SkillState {
     charging?: boolean;
@@ -22,6 +30,11 @@ export interface PlayerState {
     maxHp: number;
     dead: boolean;
     ready: boolean;
+
+    // KOTH State
+    victoryProgress: number; // 0 to 100
+    respawnTimer: number; // frames
+    spawnCornerIndex: number; // -1 if not queued
 
     // Combat Stats
     stats: {
