@@ -16,6 +16,7 @@ import { Renderer } from "./renderer";
 import { CombatManager } from "./managers/combat-manager";
 import { registerNaruto } from "./characters/naruto";
 import { registerSasuke } from "./characters/sasuke";
+import { SeededRNG } from "./core/utils";
 
 // Register Characters
 registerNaruto();
@@ -155,11 +156,29 @@ export class ShinobiClashGame extends Game {
     }
 
     initializeMatch() {
-        // Reset positions
+        // Use deterministic RNG for spawn positions
+        const rng = new SeededRNG(this.gameTime);
         const pIds = Object.keys(this.players);
-        // Player 1 left, Player 2 right
-        if (this.players[0]) this.players[0].pos = new Vec2(200, MAP_SIZE / 2);
-        if (this.players[1]) this.players[1].pos = new Vec2(MAP_SIZE - 200, MAP_SIZE / 2);
+        const shuffledIds = rng.shuffle(pIds);
+
+        const center = new Vec2(MAP_SIZE / 2, MAP_SIZE / 2);
+        const radius = 600;
+        const count = shuffledIds.length;
+
+        shuffledIds.forEach((idStr, index) => {
+            const id = parseInt(idStr);
+            const p = this.players[id];
+            if (!p) return;
+
+            const angle = (2 * Math.PI * index) / count;
+            p.pos = new Vec2(
+                center.x + radius * Math.cos(angle),
+                center.y + radius * Math.sin(angle)
+            );
+
+            // Face center
+            p.angle = Math.atan2(center.y - p.pos.y, center.x - p.pos.x);
+        });
 
         // Init stats based on character
         for (let id in this.players) {
