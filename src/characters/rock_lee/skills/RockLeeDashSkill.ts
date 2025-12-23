@@ -1,7 +1,7 @@
 import { DefaultInput, Vec2 } from "netplayjs";
-import { ShinobiClashGame } from "../../multiplayer-game";
-import { PlayerState } from "../../types";
-import { Skill } from "../../skills/Skill";
+import { ShinobiClashGame } from "../../../multiplayer-game";
+import { PlayerState } from "../../../types";
+import { Skill } from "../../../skills/Skill";
 
 export class RockLeeDashSkill implements Skill {
     readonly cooldown = 10; // Short internal cooldown between dashes (0.16s)

@@ -1,7 +1,7 @@
 import { DefaultInput, Vec2 } from "netplayjs";
-import { ShinobiClashGame } from "../../multiplayer-game";
-import { PlayerState } from "../../types";
-import { Skill } from "../../skills/Skill";
+import { ShinobiClashGame } from "../../../multiplayer-game";
+import { PlayerState } from "../../../types";
+import { Skill } from "../../../skills/Skill";
 
 export class LeafHurricaneSkill implements Skill {
     readonly cooldown = 300; // 5 seconds
