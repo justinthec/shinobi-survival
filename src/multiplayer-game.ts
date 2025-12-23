@@ -187,10 +187,10 @@ export class ShinobiClashGame extends Game {
             const p = this.players[id];
             if (p.character === 'naruto') {
                 p.maxHp = 150; p.hp = 150;
-                p.stats.speed = 3;
+                p.stats.speed = 12;
             } else if (p.character === 'sasuke') {
                 p.maxHp = 130; p.hp = 130;
-                p.stats.speed = 3.25;
+                p.stats.speed = 13;
             }
         }
     }

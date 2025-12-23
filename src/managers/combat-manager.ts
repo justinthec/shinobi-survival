@@ -91,9 +91,9 @@ export class CombatManager {
                 id: game.nextEntityId++,
                 type: 'smoke',
                 pos: new Vec2(p.pos.x, p.pos.y),
-                vel: new Vec2((rand() - 0.5) * 1, (rand() - 0.5) * 1), // Slower spread
-                life: 30, // Longer life (was 15)
-                maxLife: 30,
+                vel: new Vec2((rand() - 0.5) * 4, (rand() - 0.5) * 4), // Slower spread
+                life: 7.5, // Longer life (was 15)
+                maxLife: 7.5,
                 color: 'rgba(255,255,255,0.5)',
                 size: 4 + rand() * 4
             });
@@ -198,7 +198,7 @@ export class CombatManager {
                 pos: new Vec2(target.pos.x, target.pos.y - 40),
                 val: dmg.toString(),
                 color: 'red',
-                life: 60, maxLife: 60, vy: 0.5
+                life: 15, maxLife: 15, vy: 2.0
             });
 
             if (target.hp <= 0) {

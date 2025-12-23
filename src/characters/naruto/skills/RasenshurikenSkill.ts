@@ -8,12 +8,12 @@ export class RasenshurikenSkill implements Skill {
     static readonly EXPLOSION_DAMAGE = 5;
     static readonly RADIUS = 32;
     static readonly EXPLOSION_RADIUS = 100;
-    static readonly EXPLOSION_LIFE = 80;
-    static readonly SPEED = 9;
-    static readonly LIFE = 120;
-    static readonly CAST_TIME = 20;
+    static readonly EXPLOSION_LIFE = 20;
+    static readonly SPEED = 36;
+    static readonly LIFE = 30;
+    static readonly CAST_TIME = 5;
 
-    readonly cooldown = 240;
+    readonly cooldown = 60;
 
     cast(game: ShinobiClashGame, p: PlayerState, input: DefaultInput, targetPos: Vec2) {
         if (p.cooldowns.q > 0) return;

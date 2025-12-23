@@ -14,9 +14,9 @@ export class RasenshurikenProjectile implements ProjectileDefinition {
             if (proj.tickTimer === undefined) proj.tickTimer = 0;
             proj.tickTimer += game.gameSpeed;
 
-            if (proj.tickTimer >= 10) {
+            if (proj.tickTimer >= 2.5) {
                  CombatManager.checkCollision(game, proj);
-                 proj.tickTimer -= 10;
+                 proj.tickTimer -= 2.5;
             }
 
             if (proj.life <= 0) {
@@ -31,7 +31,7 @@ export class RasenshurikenProjectile implements ProjectileDefinition {
         proj.pos.y += proj.vel.y * game.gameSpeed;
 
         // Spin
-        proj.rotation = (proj.rotation || 0) + 0.15 * game.gameSpeed;
+        proj.rotation = (proj.rotation || 0) + 0.6 * game.gameSpeed;
 
         proj.life -= game.gameSpeed;
 
@@ -113,7 +113,7 @@ export class CloneStrikeProjectile implements ProjectileDefinition {
 
         if (nearest) {
             const angle = Math.atan2(nearest.pos.y - proj.pos.y, nearest.pos.x - proj.pos.x);
-            const speed = 2.5; // Slower than players
+            const speed = 10; // Slower than players
             proj.vel.x = Math.cos(angle) * speed;
             proj.vel.y = Math.sin(angle) * speed;
             proj.angle = angle; // Face enemy
@@ -132,7 +132,7 @@ export class CloneStrikeProjectile implements ProjectileDefinition {
         if (hit) {
              // Hit! Change to punch state for visual effect
              proj.actionState = 'punch';
-             proj.life = 15; // Animation duration
+             proj.life = 4; // Animation duration
              return;
         }
 

@@ -6,7 +6,7 @@ import { Skill } from "../../../skills/Skill";
 export class TeleportSkill implements Skill {
     static readonly RANGE = 300;
 
-    readonly cooldown = 720;
+    readonly cooldown = 180;
 
     handleInput(game: ShinobiClashGame, p: PlayerState, input: DefaultInput, targetPos: Vec2) {
         // Charging Logic
@@ -59,7 +59,7 @@ export class TeleportSkill implements Skill {
             type: 'teleport',
             pos: new Vec2(p.pos.x, p.pos.y),
             vel: new Vec2(0, 0),
-            life: 20, maxLife: 20, color: '#8A2BE2', size: 10
+            life: 5, maxLife: 5, color: '#8A2BE2', size: 10
         });
 
         // Move
@@ -72,7 +72,7 @@ export class TeleportSkill implements Skill {
             type: 'teleport',
             pos: new Vec2(p.pos.x, p.pos.y),
             vel: new Vec2(0, 0),
-            life: 20, maxLife: 20, color: '#8A2BE2', size: 10
+            life: 5, maxLife: 5, color: '#8A2BE2', size: 10
         });
     }
 }
