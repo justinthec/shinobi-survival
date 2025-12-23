@@ -16,11 +16,13 @@ import { Renderer } from "./renderer";
 import { CombatManager } from "./managers/combat-manager";
 import { registerNaruto } from "./characters/naruto";
 import { registerSasuke } from "./characters/sasuke";
+import { registerRockLee } from "./characters/rock_lee";
 import { SeededRNG } from "./core/utils";
 
 // Register Characters
 registerNaruto();
 registerSasuke();
+registerRockLee();
 
 const MAP_SIZE = 1600;
 
