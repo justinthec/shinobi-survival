@@ -1,9 +1,10 @@
 import { DefaultInput, Vec2 } from "netplayjs";
 import { ShinobiClashGame } from "../multiplayer-game";
-import { PlayerState, ProjectileState, PLAYER_RADIUS } from "../types";
+import { PlayerState, ProjectileState, PLAYER_RADIUS, KOTH_SETTINGS } from "../types";
 import { SkillRegistry } from "../skills/SkillRegistry";
 import { ProjectileRegistry } from "../core/registries";
 import { RasenshurikenSkill } from "../characters/naruto/skills/RasenshurikenSkill";
+import { SeededRNG } from "../core/utils";
 
 export class CombatManager {
 
@@ -182,7 +183,7 @@ export class CombatManager {
         return hit;
     }
 
-    static applyDamage(game: ShinobiClashGame, target: { hp?: number, dead?: boolean, pos: Vec2 }, proj: ProjectileState) {
+    static applyDamage(game: ShinobiClashGame, target: { hp?: number, dead?: boolean, pos: Vec2, respawnTimer?: number, spawnCornerIndex?: number, id?: number }, proj: ProjectileState) {
         let dmg = 0;
         const def = ProjectileRegistry.get(proj.type);
         if (def && def.calculateDamage) {
@@ -203,7 +204,40 @@ export class CombatManager {
 
             if (target.hp <= 0) {
                 target.hp = 0;
-                if (target.dead !== undefined) target.dead = true;
+                if (target.dead !== undefined) {
+                    // Check if it's a player
+                    if (target.respawnTimer !== undefined) {
+                        target.dead = true;
+                        target.respawnTimer = KOTH_SETTINGS.RESPAWN_TIME_SECONDS * 60;
+
+                        // Find available corner
+                        const corners = 4;
+                        const occupiedCorners = new Set<number>();
+                        for (const id in game.players) {
+                            const p = game.players[id];
+                            if (p.dead && p.spawnCornerIndex !== -1) {
+                                occupiedCorners.add(p.spawnCornerIndex);
+                            }
+                        }
+
+                        const available = [];
+                        for (let i = 0; i < corners; i++) {
+                            if (!occupiedCorners.has(i)) available.push(i);
+                        }
+
+                        if (available.length > 0) {
+                            const rng = new SeededRNG(game.gameTime + target.id); // Deterministic
+                            const idx = Math.floor(rng.next() * available.length);
+                            target.spawnCornerIndex = available[idx];
+                        } else {
+                             // Should not happen with 2-4 players and 4 corners easily, but fallback
+                             target.spawnCornerIndex = 0;
+                        }
+                    } else {
+                        // Clone or other entity
+                        target.dead = true;
+                    }
+                }
             }
         }
     }
