@@ -357,6 +357,6 @@ export class Renderer {
 
         ctx.fillStyle = 'white';
         ctx.font = 'bold 30px Arial';
-        ctx.fillText("PRESS SPACE", w / 2, btnY + 40);
+        ctx.fillText("PRESS ENTER", w / 2, btnY + 40);
     }
 }

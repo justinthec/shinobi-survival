@@ -103,8 +103,8 @@ export class ShinobiClashGame extends Game {
                 if (input.keysPressed['ArrowRight']) CombatManager.cycleSpectator(this, p, 1);
             }
 
-            // Restart on Space or Touch
-            if (input.keysPressed[' '] || (input.touches && input.touches.length > 0)) {
+            // Restart on Enter
+            if (input.keysPressed['Enter']) {
                 this.gamePhase = 'charSelect';
                 for (let id in this.players) {
                     const p = this.players[id];
