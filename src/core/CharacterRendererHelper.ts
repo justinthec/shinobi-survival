@@ -24,7 +24,8 @@ export class CharacterRendererHelper {
         isClone: boolean,
         opacity: number = 1,
         colorOverride: string | null = null,
-        actionState?: string
+        actionState?: string,
+        nameColor: string = 'white'
     ) {
         ctx.save();
         ctx.translate(x, y);
@@ -107,7 +108,7 @@ export class CharacterRendererHelper {
              this.drawRoundedRectPath(ctx, -18, 1, 36 * pct, 4, 2); ctx.fill();
 
              if (!isClone) {
-                 ctx.fillStyle = 'white';
+                 ctx.fillStyle = nameColor;
                  ctx.font = '10px Arial';
                  ctx.textAlign = 'center';
                  ctx.fillText(name, 0, -5);

@@ -4,6 +4,7 @@ import { initSprites, SPRITES } from "./sprites";
 import { SkillRegistry } from "./skills/SkillRegistry";
 import { CharacterRegistry, ProjectileRegistry } from "./core/registries";
 import { CharacterRendererHelper } from "./core/CharacterRendererHelper";
+import { getPlayerColor } from "./core/utils";
 
 export class Renderer {
     ctx: CanvasRenderingContext2D;
@@ -12,12 +13,6 @@ export class Renderer {
 
     static debugMode = false;
     static listenerAttached = false;
-
-    // Helper for colors
-    getPlayerColor(id: number): string {
-        const colors = ['#e53e3e', '#3182ce', '#ecc94b', '#d53f8c']; // Red, Blue, Yellow, Pink
-        return colors[id % colors.length];
-    }
 
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
@@ -176,7 +171,7 @@ export class Renderer {
             fillColor = flash ? 'rgba(100, 100, 100, 0.5)' : 'rgba(150, 0, 150, 0.5)';
             strokeColor = '#a0aec0';
         } else if (game.kothState.occupantId !== null) {
-            const color = this.getPlayerColor(game.kothState.occupantId);
+            const color = getPlayerColor(game.kothState.occupantId);
             // Check if captured (timer > delay) or just entered
             const delayFrames = KOTH_SETTINGS.CAPTURE_DELAY_SECONDS * 60;
             const isCapturing = game.kothState.occupantTimer > delayFrames;
@@ -268,7 +263,7 @@ export class Renderer {
             def.render(this.ctx, p, time, isLocal, isOffCooldown);
         } else {
              // Fallback
-             CharacterRendererHelper.drawNinjaBody(this.ctx, p.pos.x, p.pos.y, p.angle, charType, p.hp, p.maxHp, p.name, time, false);
+             CharacterRendererHelper.drawNinjaBody(this.ctx, p.pos.x, p.pos.y, p.angle, charType, p.hp, p.maxHp, p.name, time, false, 1, null, undefined, getPlayerColor(p.id));
         }
     }
 
@@ -297,7 +292,7 @@ export class Renderer {
 
         playerIds.forEach((id) => {
             const pl = game.players[id];
-            const color = this.getPlayerColor(id);
+            const color = getPlayerColor(id);
 
             // Draw Name
             ctx.fillStyle = color;
@@ -419,7 +414,7 @@ export class Renderer {
 
             // Draw Player Color Circle
             const textWidth = ctx.measureText(text).width;
-            ctx.fillStyle = this.getPlayerColor(p.id);
+            ctx.fillStyle = getPlayerColor(p.id);
             ctx.beginPath();
             ctx.arc(w / 2 - textWidth / 2 - 20, y - 8, 8, 0, Math.PI * 2);
             ctx.fill();
