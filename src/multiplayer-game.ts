@@ -157,8 +157,13 @@ export class ShinobiClashGame extends Game {
             if (!p) continue;
 
             // Character Selection Inputs
-            if (input.keysPressed['1']) p.character = 'naruto';
-            if (input.keysPressed['2']) p.character = 'sasuke';
+            for (let i = 0; i < availableChars.length; i++) {
+                // '1' corresponds to index 0
+                const key = (i + 1).toString();
+                if (input.keysPressed[key]) {
+                    p.character = availableChars[i] as any;
+                }
+            }
 
             // Confirm
             if (input.keysPressed[' ']) {
