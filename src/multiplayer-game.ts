@@ -19,11 +19,14 @@ import { Renderer } from "./renderer";
 import { CombatManager } from "./managers/combat-manager";
 import { registerNaruto } from "./characters/naruto";
 import { registerSasuke } from "./characters/sasuke";
+import { registerRockLee } from "./characters/rocklee";
 import { SeededRNG } from "./core/utils";
+import { ROCK_LEE_CONSTANTS } from "./characters/rocklee/constants";
 
 // Register Characters
 registerNaruto();
 registerSasuke();
+registerRockLee();
 
 export class ShinobiClashGame extends Game {
     static timestep = 1000 / 60;
@@ -155,6 +158,7 @@ export class ShinobiClashGame extends Game {
             // Character Selection Inputs
             if (input.keysPressed['1']) p.character = 'naruto';
             if (input.keysPressed['2']) p.character = 'sasuke';
+            if (input.keysPressed['3']) p.character = 'rocklee';
 
             // Confirm
             if (input.keysPressed[' ']) {
@@ -208,6 +212,9 @@ export class ShinobiClashGame extends Game {
             } else if (p.character === 'sasuke') {
                 p.maxHp = 130; p.hp = 130;
                 p.stats.speed = 3.25;
+            } else if (p.character === 'rocklee') {
+                p.maxHp = ROCK_LEE_CONSTANTS.STATS.HP; p.hp = ROCK_LEE_CONSTANTS.STATS.HP;
+                p.stats.speed = ROCK_LEE_CONSTANTS.STATS.SPEED;
             }
         }
     }
