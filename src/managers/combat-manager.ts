@@ -4,6 +4,7 @@ import { PlayerState, ProjectileState, PLAYER_RADIUS, KOTH_SETTINGS } from "../t
 import { SkillRegistry } from "../skills/SkillRegistry";
 import { ProjectileRegistry } from "../core/registries";
 import { RasenshurikenSkill } from "../characters/naruto/skills/RasenshurikenSkill";
+import { PrimaryLotusSkill } from "../characters/rocklee/skills/PrimaryLotusSkill";
 import { SeededRNG } from "../core/utils";
 
 export class CombatManager {
@@ -49,6 +50,18 @@ export class CombatManager {
         if (p.cooldowns.q > 0) p.cooldowns.q--;
         if (p.cooldowns.e > 0) p.cooldowns.e--;
         if (p.cooldowns.sp > 0) p.cooldowns.sp--;
+
+        // 3.5 Skills Buff Update (Rock Lee Primary Lotus)
+        const lotusBuff = p.skillStates['e'];
+        if (lotusBuff && lotusBuff.active) {
+            lotusBuff.timer--;
+            if (lotusBuff.timer <= 0) {
+                lotusBuff.active = false;
+                // Cooldown was short during buff activation, but if it expires, do we put full cooldown?
+                // Logic: You missed your chance.
+                p.cooldowns.e = PrimaryLotusSkill.COOLDOWN;
+            }
+        }
 
         // 4. Skills
         // Q
@@ -111,7 +124,12 @@ export class CombatManager {
 
         if (dx !== 0 || dy !== 0) {
             const len = Math.sqrt(dx * dx + dy * dy);
-            const speed = p.stats.speed;
+            let speed = p.stats.speed;
+
+            // Apply Buffs
+            if (p.skillStates['e']?.active) {
+                speed *= PrimaryLotusSkill.SPEED_MULT;
+            }
 
             const vx = (dx / len) * speed;
             const vy = (dy / len) * speed;

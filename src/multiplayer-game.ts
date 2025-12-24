@@ -17,13 +17,16 @@ import {
 } from "./types";
 import { Renderer } from "./renderer";
 import { CombatManager } from "./managers/combat-manager";
+import { CharacterRegistry } from "./core/registries";
 import { registerNaruto } from "./characters/naruto";
 import { registerSasuke } from "./characters/sasuke";
+import { registerRockLee } from "./characters/rocklee";
 import { SeededRNG } from "./core/utils";
 
 // Register Characters
 registerNaruto();
 registerSasuke();
+registerRockLee();
 
 export class ShinobiClashGame extends Game {
     static timestep = 1000 / 60;
@@ -144,6 +147,7 @@ export class ShinobiClashGame extends Game {
     tickCharSelect(playerInputs: Map<NetplayPlayer, DefaultInput>) {
         let allReady = true;
         let playerCount = 0;
+        const availableChars = CharacterRegistry.getKeys();
 
         for (const [player, input] of playerInputs.entries()) {
             playerCount++;
@@ -153,8 +157,13 @@ export class ShinobiClashGame extends Game {
             if (!p) continue;
 
             // Character Selection Inputs
-            if (input.keysPressed['1']) p.character = 'naruto';
-            if (input.keysPressed['2']) p.character = 'sasuke';
+            for (let i = 0; i < availableChars.length; i++) {
+                // '1' corresponds to index 0
+                const key = (i + 1).toString();
+                if (input.keysPressed[key]) {
+                    p.character = availableChars[i] as any;
+                }
+            }
 
             // Confirm
             if (input.keysPressed[' ']) {
@@ -208,6 +217,9 @@ export class ShinobiClashGame extends Game {
             } else if (p.character === 'sasuke') {
                 p.maxHp = 130; p.hp = 130;
                 p.stats.speed = 3.25;
+            } else if (p.character === 'rocklee') {
+                p.maxHp = 160; p.hp = 160;
+                p.stats.speed = 3.5; // Faster base speed
             }
         }
     }
