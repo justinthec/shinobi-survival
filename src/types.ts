@@ -2,7 +2,7 @@ import { Vec2 } from "netplayjs";
 
 export type GamePhase = 'charSelect' | 'playing' | 'gameOver';
 
-export type CharacterType = 'naruto' | 'sasuke';
+export type CharacterType = 'naruto' | 'sasuke' | 'rocklee';
 
 export const PLAYER_RADIUS = 25;
 export const MAP_SIZE = 1600;
