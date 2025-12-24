@@ -73,7 +73,7 @@ export class CharacterRendererHelper {
             ctx.fill();
         }
 
-        // Kick Leg (Right)
+        // Kick Leg (Right) - Side/Roundhouse
         if (actionState === 'kick') {
             ctx.save();
             ctx.fillStyle = c.main;
@@ -84,6 +84,32 @@ export class CharacterRendererHelper {
             // Leg warmer / foot
             ctx.fillStyle = c.sub; // Orange
             this.drawRoundedRectPath(ctx, 14, -1, 8, 8, 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // Kick Leg (Up) - Vertical High Kick
+        if (actionState === 'kick_up') {
+            ctx.save();
+            ctx.fillStyle = c.main;
+            ctx.translate(8, 0); // Center right side
+            // Rotate to point straight up relative to body logic?
+            // Body is facing right (0). Up is -PI/2.
+            // But we are in body local space where x is forward.
+            // So "Upwards kick" usually means kicking "up" in Z? No, 2D top down.
+            // "Upwards" probably means a vertical split or axe kick.
+            // Let's draw it extending straight forward but visibly "high" (maybe larger/overlapping head?).
+            // Or maybe actually rotated -90 deg?
+            // "Upwards kick right in front of him" -> This implies Knock Up.
+            // Let's draw leg extending forward.
+            ctx.translate(0, -5);
+            ctx.rotate(-Math.PI / 6); // Angled slightly up
+            this.drawRoundedRectPath(ctx, 0, 0, 24, 7, 3); // Longer leg
+            ctx.fill();
+
+            // Foot
+            ctx.fillStyle = c.sub;
+            this.drawRoundedRectPath(ctx, 18, -1, 8, 9, 2);
             ctx.fill();
             ctx.restore();
         }

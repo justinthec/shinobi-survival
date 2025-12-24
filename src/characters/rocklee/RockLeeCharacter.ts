@@ -25,14 +25,29 @@ export class RockLeeCharacter implements CharacterDefinition {
         // Check if casting / stunned (often implies mid-animation)
         if (state.casting > 0) {
             // Heuristic:
-            // If cooldown E is HIGH (just cast) and casting > 0 -> Lotus Kick
+            // If cooldown E is HIGH (just cast) and casting > 0 -> Lotus Kick (Upwards)
             if (state.cooldowns.e > 850) {
-                actionState = 'kick';
+                actionState = 'kick_up';
             }
             // If cooldown Q is HIGH -> Leaf Hurricane Dive
             else if (state.cooldowns.q > 400) { // Cooldown is 480
-                 // Reuse kick visual but maybe we rely on the angle being aligned with movement
+                 // Standard Side Kick for Dash
                  actionState = 'kick';
+
+                 // Q Glow / Trail
+                 ctx.save();
+                 ctx.translate(state.pos.x, state.pos.y);
+                 ctx.rotate(state.angle);
+                 ctx.fillStyle = 'rgba(0, 255, 0, 0.6)';
+                 ctx.shadowBlur = 10;
+                 ctx.shadowColor = '#00ff00';
+                 // Draw a streak behind
+                 ctx.beginPath();
+                 ctx.moveTo(-10, -10);
+                 ctx.lineTo(-40, 0);
+                 ctx.lineTo(-10, 10);
+                 ctx.fill();
+                 ctx.restore();
             }
         }
 

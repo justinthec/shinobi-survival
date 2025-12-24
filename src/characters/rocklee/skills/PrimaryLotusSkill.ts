@@ -9,7 +9,7 @@ export class PrimaryLotusSkill implements Skill {
     static readonly COOLDOWN = 900; // 15 seconds
 
     static readonly KICK_SPEED = 20;
-    static readonly KICK_RANGE_FRAMES = 15; // 300 range
+    static readonly KICK_RANGE_FRAMES = 5; // 100 range (Short kick)
     static readonly KICK_DAMAGE = 35;
     static readonly STUN_DURATION = 60; // 1 second stun
 
