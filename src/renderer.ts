@@ -300,7 +300,7 @@ export class Renderer {
             const color = this.getPlayerColor(id);
 
             // Draw Name
-            ctx.fillStyle = 'white';
+            ctx.fillStyle = color;
             ctx.font = 'bold 14px Arial';
             ctx.textAlign = 'left';
             ctx.fillText(pl.name, cx, topY);
@@ -414,9 +414,18 @@ export class Renderer {
 
             ctx.fillStyle = p.ready ? '#48bb78' : '#cbd5e0';
             ctx.font = '24px Arial';
-            ctx.fillText(`${p.name}: ${charName}`, w / 2, y);
+            const text = `${p.name}: ${charName}`;
+            ctx.fillText(text, w / 2, y);
+
+            // Draw Player Color Circle
+            const textWidth = ctx.measureText(text).width;
+            ctx.fillStyle = this.getPlayerColor(p.id);
+            ctx.beginPath();
+            ctx.arc(w / 2 - textWidth / 2 - 20, y - 8, 8, 0, Math.PI * 2);
+            ctx.fill();
 
             ctx.font = '18px Arial';
+            ctx.fillStyle = p.ready ? '#48bb78' : '#cbd5e0'; // Reset fill for status
             ctx.fillText(status, w / 2, y + 25);
 
             y += 80;
