@@ -6,7 +6,7 @@ import { Skill } from "../../../skills/Skill";
 export class TeleportSkill implements Skill {
     static readonly RANGE = 300;
 
-    readonly cooldown = 720;
+    readonly cooldown = 600;
 
     handleInput(game: ShinobiClashGame, p: PlayerState, input: DefaultInput, targetPos: Vec2) {
         // Charging Logic

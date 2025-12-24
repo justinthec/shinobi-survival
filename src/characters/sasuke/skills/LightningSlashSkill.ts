@@ -4,7 +4,7 @@ import { PlayerState, ProjectileState } from "../../../types";
 import { Skill } from "../../../skills/Skill";
 
 export class LightningSlashSkill implements Skill {
-    static readonly DAMAGE = 40;
+    static readonly DAMAGE = 50;
     static readonly LIFE = 2; // Logic duration (1 tick + 1 draw frame)
     static readonly VISUAL_LIFE = 15;
     static readonly RADIUS = 125;
