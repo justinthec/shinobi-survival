@@ -111,9 +111,12 @@ export class CharacterRendererHelper {
                  ctx.font = 'bold 12px Arial';
                  ctx.textAlign = 'center';
 
-                 ctx.strokeStyle = 'black';
-                 ctx.lineWidth = 3;
-                 ctx.strokeText(name, 0, -5);
+                 const width = ctx.measureText(name).width;
+                 const padding = 6;
+
+                 ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                 this.drawRoundedRectPath(ctx, -width / 2 - padding, -18, width + padding * 2, 18, 5);
+                 ctx.fill();
 
                  ctx.fillStyle = nameColor;
                  ctx.fillText(name, 0, -5);
