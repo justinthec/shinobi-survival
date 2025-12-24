@@ -43,3 +43,4 @@ Before pushing your code, please run `npm run build` to create the production bu
 - Improve UI and HUD.
 - Add sound effects.
 - Implement more complex map features.
+- Figure out how to add mouse click support to the DefaultInput or custom Input

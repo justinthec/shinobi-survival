@@ -371,16 +371,17 @@ export class Renderer {
              ctx.strokeText(respawnText, w / 2, h / 2 - 50);
              ctx.fillText(respawnText, w / 2, h / 2 - 50);
 
+             // Always show instructions if dead
+             const text2 = "Cycle: Left/Right Arrows";
+             ctx.font = '20px Arial';
+             ctx.strokeText(text2, w / 2, 130);
+             ctx.fillText(text2, w / 2, 130);
+
              if (localPlayer.spectatorTargetId !== undefined) {
                  const spec = game.players[localPlayer.spectatorTargetId];
-                 ctx.font = '20px Arial';
                  const text1 = `SPECTATING: ${spec ? spec.name : 'Unknown'}`;
                  ctx.strokeText(text1, w / 2, 100);
                  ctx.fillText(text1, w / 2, 100);
-
-                 const text2 = "Cycle: Left/Right Arrows";
-                 ctx.strokeText(text2, w / 2, 130);
-                 ctx.fillText(text2, w / 2, 130);
              }
              ctx.restore();
         }
