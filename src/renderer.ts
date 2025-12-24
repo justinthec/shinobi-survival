@@ -4,6 +4,7 @@ import { initSprites, SPRITES } from "./sprites";
 import { SkillRegistry } from "./skills/SkillRegistry";
 import { CharacterRegistry, ProjectileRegistry } from "./core/registries";
 import { CharacterRendererHelper } from "./core/CharacterRendererHelper";
+import { getPlayerColor } from "./core/utils";
 
 export class Renderer {
     ctx: CanvasRenderingContext2D;
@@ -12,12 +13,6 @@ export class Renderer {
 
     static debugMode = false;
     static listenerAttached = false;
-
-    // Helper for colors
-    getPlayerColor(id: number): string {
-        const colors = ['#e53e3e', '#3182ce', '#ecc94b', '#d53f8c']; // Red, Blue, Yellow, Pink
-        return colors[id % colors.length];
-    }
 
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
@@ -176,7 +171,7 @@ export class Renderer {
             fillColor = flash ? 'rgba(100, 100, 100, 0.5)' : 'rgba(150, 0, 150, 0.5)';
             strokeColor = '#a0aec0';
         } else if (game.kothState.occupantId !== null) {
-            const color = this.getPlayerColor(game.kothState.occupantId);
+            const color = getPlayerColor(game.kothState.occupantId);
             // Check if captured (timer > delay) or just entered
             const delayFrames = KOTH_SETTINGS.CAPTURE_DELAY_SECONDS * 60;
             const isCapturing = game.kothState.occupantTimer > delayFrames;
@@ -268,7 +263,7 @@ export class Renderer {
             def.render(this.ctx, p, time, isLocal, isOffCooldown);
         } else {
              // Fallback
-             CharacterRendererHelper.drawNinjaBody(this.ctx, p.pos.x, p.pos.y, p.angle, charType, p.hp, p.maxHp, p.name, time, false);
+             CharacterRendererHelper.drawNinjaBody(this.ctx, p.pos.x, p.pos.y, p.angle, charType, p.hp, p.maxHp, p.name, time, false, 1, null, undefined, getPlayerColor(p.id));
         }
     }
 
@@ -297,10 +292,10 @@ export class Renderer {
 
         playerIds.forEach((id) => {
             const pl = game.players[id];
-            const color = this.getPlayerColor(id);
+            const color = getPlayerColor(id);
 
             // Draw Name
-            ctx.fillStyle = 'white';
+            ctx.fillStyle = color;
             ctx.font = 'bold 14px Arial';
             ctx.textAlign = 'left';
             ctx.fillText(pl.name, cx, topY);
@@ -371,16 +366,17 @@ export class Renderer {
              ctx.strokeText(respawnText, w / 2, h / 2 - 50);
              ctx.fillText(respawnText, w / 2, h / 2 - 50);
 
+             // Always show instructions if dead
+             const text2 = "Cycle: Left/Right Arrows";
+             ctx.font = '20px Arial';
+             ctx.strokeText(text2, w / 2, 130);
+             ctx.fillText(text2, w / 2, 130);
+
              if (localPlayer.spectatorTargetId !== undefined) {
                  const spec = game.players[localPlayer.spectatorTargetId];
-                 ctx.font = '20px Arial';
                  const text1 = `SPECTATING: ${spec ? spec.name : 'Unknown'}`;
                  ctx.strokeText(text1, w / 2, 100);
                  ctx.fillText(text1, w / 2, 100);
-
-                 const text2 = "Cycle: Left/Right Arrows";
-                 ctx.strokeText(text2, w / 2, 130);
-                 ctx.fillText(text2, w / 2, 130);
              }
              ctx.restore();
         }
@@ -413,9 +409,18 @@ export class Renderer {
 
             ctx.fillStyle = p.ready ? '#48bb78' : '#cbd5e0';
             ctx.font = '24px Arial';
-            ctx.fillText(`${p.name}: ${charName}`, w / 2, y);
+            const text = `${p.name}: ${charName}`;
+            ctx.fillText(text, w / 2, y);
+
+            // Draw Player Color Circle
+            const textWidth = ctx.measureText(text).width;
+            ctx.fillStyle = getPlayerColor(p.id);
+            ctx.beginPath();
+            ctx.arc(w / 2 - textWidth / 2 - 20, y - 8, 8, 0, Math.PI * 2);
+            ctx.fill();
 
             ctx.font = '18px Arial';
+            ctx.fillStyle = p.ready ? '#48bb78' : '#cbd5e0'; // Reset fill for status
             ctx.fillText(status, w / 2, y + 25);
 
             y += 80;

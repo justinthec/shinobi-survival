@@ -320,6 +320,7 @@ export class ShinobiClashGame extends Game {
                     p.casting = 0;
                     p.dash = { active: false, vx: 0, vy: 0, life: 0 };
                     p.skillStates = {};
+                    p.spectatorTargetId = undefined;
 
                     if (p.spawnCornerIndex >= 0 && p.spawnCornerIndex < corners.length) {
                         p.pos = new Vec2(corners[p.spawnCornerIndex].x, corners[p.spawnCornerIndex].y);
