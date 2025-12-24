@@ -39,12 +39,15 @@ export class CharacterRendererHelper {
         ctx.beginPath(); ctx.ellipse(-2, 2, 16, 16, 0, 0, Math.PI * 2); ctx.fill();
 
         // Visual Colors
-        const isNaruto = type === 'naruto';
-        const c = isNaruto ? {
-            skin: '#ffcba4', hair: '#ffdd00', main: '#ff6600', sub: '#1a1a1a', acc: '#0055aa'
-        } : {
+        let c = {
             skin: '#ffe0bd', hair: '#111122', main: '#9ca3af', sub: '#4b5563', acc: '#8b5cf6'
         };
+
+        if (type === 'naruto') {
+            c = { skin: '#ffcba4', hair: '#ffdd00', main: '#ff6600', sub: '#1a1a1a', acc: '#0055aa' };
+        } else if (type === 'rocklee') {
+            c = { skin: '#ffe0bd', hair: '#000000', main: '#00aa00', sub: '#ff6600', acc: '#eeeeee' }; // Green suit, orange leg warmers
+        }
 
         // Override if needed (e.g. purple ghost)
         if (colorOverride) {
@@ -70,6 +73,21 @@ export class CharacterRendererHelper {
             ctx.fill();
         }
 
+        // Kick Leg (Right)
+        if (actionState === 'kick') {
+            ctx.save();
+            ctx.fillStyle = c.main;
+            ctx.translate(5, 5);
+            ctx.rotate(-Math.PI / 4);
+            this.drawRoundedRectPath(ctx, 0, 0, 20, 6, 3);
+            ctx.fill();
+            // Leg warmer / foot
+            ctx.fillStyle = c.sub; // Orange
+            this.drawRoundedRectPath(ctx, 14, -1, 8, 8, 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
         // Head
         ctx.fillStyle = c.skin;
         ctx.beginPath(); ctx.arc(2, 0, 11, 0, Math.PI * 2); ctx.fill();
@@ -77,7 +95,7 @@ export class CharacterRendererHelper {
         // Hair
         ctx.fillStyle = c.hair;
         ctx.beginPath();
-        if (isNaruto) {
+        if (type === 'naruto') {
             for (let i = 0; i < 14; i++) {
                 const a = (i / 14) * Math.PI * 2;
                 const len = 14;
@@ -85,10 +103,22 @@ export class CharacterRendererHelper {
                 const cy = Math.sin(a) * len;
                 if (i === 0) ctx.moveTo(cx, cy); else ctx.lineTo(cx, cy);
             }
+        } else if (type === 'rocklee') {
+            // Bowl Cut (Shiny)
+            ctx.arc(2, 0, 12, 0, Math.PI * 2);
+            // Highlight
         } else {
             ctx.moveTo(-5, 0); ctx.lineTo(-18, -10); ctx.lineTo(-12, 0); ctx.lineTo(-18, 10);
         }
         ctx.fill();
+
+        if (type === 'rocklee') {
+            // Shine on bowl cut
+            ctx.fillStyle = 'rgba(255,255,255,0.3)';
+            ctx.beginPath();
+            ctx.ellipse(0, -5, 6, 3, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
 
         // Arms
         ctx.fillStyle = c.main;

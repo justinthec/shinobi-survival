@@ -397,7 +397,7 @@ export class Renderer {
 
         ctx.font = '20px Arial';
         ctx.fillStyle = '#cbd5e0';
-        ctx.fillText("Press 1 for NARUTO | Press 2 for SASUKE", w / 2, 160);
+        ctx.fillText("Press 1 for NARUTO | Press 2 for SASUKE | Press 3 for ROCK LEE", w / 2, 160);
         ctx.fillText("Press SPACE to READY", w / 2, 190);
 
         // List players
