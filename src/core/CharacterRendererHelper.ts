@@ -108,9 +108,14 @@ export class CharacterRendererHelper {
              this.drawRoundedRectPath(ctx, -18, 1, 36 * pct, 4, 2); ctx.fill();
 
              if (!isClone) {
-                 ctx.fillStyle = nameColor;
-                 ctx.font = '10px Arial';
+                 ctx.font = 'bold 12px Arial';
                  ctx.textAlign = 'center';
+
+                 ctx.strokeStyle = 'black';
+                 ctx.lineWidth = 3;
+                 ctx.strokeText(name, 0, -5);
+
+                 ctx.fillStyle = nameColor;
                  ctx.fillText(name, 0, -5);
              }
              ctx.restore();

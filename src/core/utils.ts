@@ -38,6 +38,6 @@ export class SeededRNG {
 }
 
 export function getPlayerColor(id: number): string {
-    const colors = ['#e53e3e', '#3182ce', '#ecc94b', '#d53f8c']; // Red, Blue, Yellow, Pink
+    const colors = ['#e53e3e', '#3182ce', '#ecc94b', '#FF69B4']; // Red, Blue, Yellow, HotPink
     return colors[id % colors.length];
 }
