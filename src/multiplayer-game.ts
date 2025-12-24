@@ -17,6 +17,7 @@ import {
 } from "./types";
 import { Renderer } from "./renderer";
 import { CombatManager } from "./managers/combat-manager";
+import { CharacterRegistry } from "./core/registries";
 import { registerNaruto } from "./characters/naruto";
 import { registerSasuke } from "./characters/sasuke";
 import { registerRockLee } from "./characters/rocklee";
@@ -146,6 +147,7 @@ export class ShinobiClashGame extends Game {
     tickCharSelect(playerInputs: Map<NetplayPlayer, DefaultInput>) {
         let allReady = true;
         let playerCount = 0;
+        const availableChars = CharacterRegistry.getKeys();
 
         for (const [player, input] of playerInputs.entries()) {
             playerCount++;
