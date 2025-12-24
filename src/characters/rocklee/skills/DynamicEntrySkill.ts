@@ -35,5 +35,10 @@ export class DynamicEntrySkill implements Skill {
 
         p.cooldowns.e = this.cooldown;
         p.angle = Math.atan2(dy, dx); // Face target
+
+        // Store target for rendering
+        p.skillStates['dynamic_entry'] = {
+            target: new Vec2(targetPos.x, targetPos.y)
+        };
     }
 }
