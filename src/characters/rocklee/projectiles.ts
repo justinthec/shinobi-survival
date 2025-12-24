@@ -12,20 +12,19 @@ export class LeafHurricaneProjectile implements ProjectileDefinition {
             proj.pos.x = owner.pos.x;
             proj.pos.y = owner.pos.y;
         } else {
-            // If owner dead, expire immediately? Or just stay at last pos?
-            // "Spinning kick around him". If dead, he stops kicking.
+            // If owner dead, expire immediately
             proj.life = 0;
         }
 
         proj.life--;
         if (proj.life <= 0) {
-            // Cleanup handled by CombatManager
+            // CRITICAL FIX: Explicitly remove projectile from game array
+            const idx = game.projectiles.indexOf(proj);
+            if (idx !== -1) {
+                game.projectiles.splice(idx, 1);
+            }
         } else {
              // Collision Check
-             // Since it's attached to player, we check collision every frame it's active
-             // To prevent multi-hit on same target, we might need tracking.
-             // But simpler design: Tick rate or single hit.
-
              // Use `rotation` field as a tick timer if available, or just use life % rate
              if (proj.life % ROCK_LEE_CONSTANTS.LEAF_HURRICANE.TICK_RATE === 0) {
                  CombatManager.checkCollision(game, proj);
@@ -38,22 +37,41 @@ export class LeafHurricaneProjectile implements ProjectileDefinition {
         ctx.translate(proj.pos.x, proj.pos.y);
 
         // Spin effect
-        // 2 or 3 swirling lines/arcs
         const rotation = (time * 0.5) % (Math.PI * 2);
 
         ctx.rotate(rotation);
+
+        // Draw spiral/swirl - Scaled to Radius
+        // Radius is now 80.
+        const radius = proj.radius;
 
         ctx.beginPath();
         ctx.strokeStyle = "rgba(0, 255, 0, 0.6)";
         ctx.lineWidth = 4;
 
-        // Draw spiral/swirl
+        // Draw 3 spiraling "legs" or wind slashes
         for(let i = 0; i < 3; i++) {
             ctx.rotate((Math.PI * 2) / 3);
             ctx.beginPath();
-            ctx.arc(0, 0, proj.radius, 0, Math.PI * 0.8);
+            // Start near center
+            ctx.moveTo(0,0);
+            // Curve out to radius
+            // Control point for curve
+            ctx.quadraticCurveTo(radius / 2, radius / 2, radius, 0);
             ctx.stroke();
+
+            // Draw "Foot" at end for visual clarity of a kick
+            ctx.fillStyle = "orange";
+            ctx.beginPath();
+            ctx.arc(radius, 0, 5, 0, Math.PI * 2);
+            ctx.fill();
         }
+
+        // Outer faint circle for hitbox clarity
+        ctx.strokeStyle = "rgba(0, 255, 0, 0.2)";
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        ctx.stroke();
 
         ctx.restore();
     }

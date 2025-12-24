@@ -2,8 +2,8 @@ export const ROCK_LEE_CONSTANTS = {
     // Q: Leaf Hurricane
     LEAF_HURRICANE: {
         COOLDOWN: 5 * 60, // 5 seconds
-        DURATION: 30, // 0.5 seconds
-        RADIUS: 60,
+        DURATION: 45, // Increased from 30 (0.75s)
+        RADIUS: 80, // Increased from 60
         DAMAGE: 15,
         TICK_RATE: 5 // Damage every 5 frames
     },
@@ -18,7 +18,7 @@ export const ROCK_LEE_CONSTANTS = {
     DASH: {
         COOLDOWN: 60, // 1 second recharge for a charge
         MAX_CHARGES: 2,
-        DURATION: 5, // Shorter than standard (standard is usually ~10-15)
+        DURATION: 8, // Increased from 5 to cover more distance
         SPEED: 15, // Fast burst
     },
 
