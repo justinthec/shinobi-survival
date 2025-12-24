@@ -9,20 +9,30 @@ export class RockLeeCharacter implements CharacterDefinition {
     render(ctx: CanvasRenderingContext2D, state: PlayerState, time: number, isLocal: boolean, isOffCooldown: boolean) {
         let actionState: string | undefined = undefined;
 
+        // Visual Aura for Speed Buff (E Phase 1)
+        if (state.skillStates['e']?.active) {
+            ctx.save();
+            ctx.translate(state.pos.x, state.pos.y);
+            const scale = 1 + Math.sin(time * 0.2) * 0.1;
+            ctx.scale(scale, scale);
+            ctx.fillStyle = 'rgba(0, 255, 0, 0.3)'; // Green Chakra
+            ctx.beginPath();
+            ctx.arc(0, 0, 35, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
         // Check if casting / stunned (often implies mid-animation)
         if (state.casting > 0) {
-            // How to distinguish Kick vs Dive vs Stunned?
-            // We can check cooldowns or infer from context?
-            // Better: Check if there is an active projectile owned by this player that implies an action.
-            // But we don't have access to 'game' here, only 'state'.
-            // Wait, we assume 'state' is self-contained. It doesn't contain the projectiles list.
-            // However, PlayerState usually doesn't know about projectiles.
-
             // Heuristic:
-            // If cooldown E is HIGH (just cast) and casting > 0 -> Kick
-            // Lotus Kick Cooldown is 900.
+            // If cooldown E is HIGH (just cast) and casting > 0 -> Lotus Kick
             if (state.cooldowns.e > 850) {
                 actionState = 'kick';
+            }
+            // If cooldown Q is HIGH -> Leaf Hurricane Dive
+            else if (state.cooldowns.q > 400) { // Cooldown is 480
+                 // Reuse kick visual but maybe we rely on the angle being aligned with movement
+                 actionState = 'kick';
             }
         }
 
