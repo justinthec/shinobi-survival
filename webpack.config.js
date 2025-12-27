@@ -35,6 +35,7 @@ module.exports = {
                 { from: "game.html", to: "." },
                 { from: "profiler.html", to: "." },
                 { from: "grass.png", to: "." },
+                { from: "assets", to: "assets" },
             ],
         }),
     ],

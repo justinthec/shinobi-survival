@@ -39,6 +39,7 @@ export class ShinobiClashGame extends Game {
     projectiles: ProjectileState[] = [];
     particles: ParticleState[] = [];
     floatingTexts: FloatingText[] = [];
+    soundQueue: string[] = [];
 
     // KOTH State
     kothState = {
@@ -94,6 +95,7 @@ export class ShinobiClashGame extends Game {
 
     tick(playerInputs: Map<NetplayPlayer, DefaultInput>): void {
         this.gameTime++; // Increment game time
+        this.soundQueue = []; // Clear sound queue at start of tick
 
         if (this.gamePhase === 'charSelect') {
             this.tickCharSelect(playerInputs);
