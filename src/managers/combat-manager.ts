@@ -194,6 +194,7 @@ export class CombatManager {
 
         if (dmg > 0 && target.hp !== undefined) {
             target.hp -= dmg;
+            game.soundQueue.push('hit');
             game.floatingTexts.push({
                 id: game.nextEntityId++,
                 pos: new Vec2(target.pos.x, target.pos.y - 40),

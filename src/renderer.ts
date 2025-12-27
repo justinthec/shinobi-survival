@@ -5,11 +5,13 @@ import { SkillRegistry } from "./skills/SkillRegistry";
 import { CharacterRegistry, ProjectileRegistry } from "./core/registries";
 import { CharacterRendererHelper } from "./core/CharacterRendererHelper";
 import { getPlayerColor } from "./core/utils";
+import { AudioManager } from "./core/AudioManager";
 
 export class Renderer {
     ctx: CanvasRenderingContext2D;
     canvas: HTMLCanvasElement;
     bgPattern: CanvasPattern | null = null;
+    lastSoundTime: number = -1;
 
     static debugMode = false;
     static listenerAttached = false;
@@ -18,6 +20,11 @@ export class Renderer {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d')!;
         initSprites();
+
+        // Init Audio
+        if (typeof window !== 'undefined') {
+            AudioManager.getInstance();
+        }
 
         if (typeof window !== 'undefined' && !Renderer.listenerAttached) {
             window.addEventListener('keydown', (e) => {
@@ -30,6 +37,15 @@ export class Renderer {
     }
 
     draw(game: ShinobiClashGame, focusPlayer: PlayerState) {
+        // Sound Processing
+        if (game.gameTime > this.lastSoundTime) {
+            this.lastSoundTime = game.gameTime;
+            const audio = AudioManager.getInstance();
+            for (const sound of game.soundQueue) {
+                if (sound === 'hit') audio.playHit();
+            }
+        }
+
         const ctx = this.ctx;
         const width = this.canvas.width;
         const height = this.canvas.height;
