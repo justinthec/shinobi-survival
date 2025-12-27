@@ -18,11 +18,12 @@ export class RockLeeCharacter implements CharacterDefinition {
             warmers: 'orange'
         };
 
-        // Render Dynamic Entry Target Indicator (Underneath everything)
-        // Check if dashing and if we have a stored target for dynamic entry
-        // We use speed check to differentiate from normal dash if needed, but checking skillState is safer
-        const isDynamicEntry = state.dash.active && Math.abs(state.dash.vx) > 10;
+        // Determine if performing Dynamic Entry
+        // CRITICAL: Check both dash active AND the specific skill state marker
+        const activeSkill = state.skillStates['active_dash_skill'];
+        const isDynamicEntry = state.dash.active && activeSkill && activeSkill.type === 'dynamic_entry';
 
+        // Render Dynamic Entry Target Indicator (Underneath everything)
         if (isDynamicEntry && state.skillStates['dynamic_entry'] && state.skillStates['dynamic_entry'].target) {
             const target = state.skillStates['dynamic_entry'].target;
             const dx = target.x - pos.x;
@@ -30,9 +31,6 @@ export class RockLeeCharacter implements CharacterDefinition {
             const dist = Math.sqrt(dx * dx + dy * dy);
 
             // Opacity: Starts light, gets dark as we get closer.
-            // Max distance could be screen width, but let's map roughly 0-600.
-            // Closer (0) -> 0.8 opacity
-            // Far (600) -> 0.1 opacity
             const maxDist = 600;
             const opacity = Math.max(0.2, 0.8 * (1 - Math.min(dist, maxDist) / maxDist));
 
@@ -46,11 +44,21 @@ export class RockLeeCharacter implements CharacterDefinition {
             ctx.restore();
         }
 
-
         ctx.save();
         ctx.translate(pos.x, pos.y);
         ctx.scale(1.25, 1.25); // Match scale of other chars
-        ctx.rotate(angle);
+
+        // Q Animation: Spin the WHOLE BODY context if Q is active
+        const isQActive = state.cooldowns.q > (ROCK_LEE_CONSTANTS.LEAF_HURRICANE.COOLDOWN - ROCK_LEE_CONSTANTS.LEAF_HURRICANE.DURATION);
+        let effectiveAngle = angle;
+
+        if (isQActive) {
+            // Spin speed: Slower than before (was * 0.8)
+            const spin = (time * 0.4) % (Math.PI * 2);
+            effectiveAngle = spin;
+        }
+
+        ctx.rotate(effectiveAngle);
 
         // Dynamic Entry Aura/Glow
         if (isDynamicEntry) {
@@ -109,10 +117,8 @@ export class RockLeeCharacter implements CharacterDefinition {
         ctx.fillRect(5, -13, 8, 8);
 
         // 4. Animations based on State
-        // Check for Dynamic Entry (E) - high velocity dash
         if (isDynamicEntry) {
             // Flying Kick Pose Overrides
-            // Draw a big leg extending forward
             ctx.strokeStyle = c.warmers;
             ctx.lineWidth = 8;
             ctx.beginPath();
@@ -130,27 +136,22 @@ export class RockLeeCharacter implements CharacterDefinition {
              ctx.lineTo(-40, 10);
              ctx.stroke();
 
-        } else if (state.cooldowns.q > (ROCK_LEE_CONSTANTS.LEAF_HURRICANE.COOLDOWN - ROCK_LEE_CONSTANTS.LEAF_HURRICANE.DURATION)) {
-             // Q active (Leaf Hurricane)
-             // Draw spinning legs
-             const spin = (time * 0.8) % (Math.PI * 2);
-             ctx.save();
-             ctx.rotate(spin);
-
+        } else if (isQActive) {
+             // Q Active: Character body is already rotating (ctx.rotate above)
+             // Just draw the extended leg rigidly relative to body, so it spins with it
              ctx.strokeStyle = c.warmers;
              ctx.lineWidth = 6;
-             // Leg 1
+             // Extended leg for spin kick
              ctx.beginPath();
              ctx.moveTo(0,0);
-             ctx.lineTo(25, 10);
-             ctx.stroke();
-             // Leg 2
-             ctx.beginPath();
-             ctx.moveTo(0,0);
-             ctx.lineTo(-25, -10);
+             ctx.lineTo(25, 0); // Stick straight out
              ctx.stroke();
 
-             ctx.restore();
+             // Other leg tucked
+             ctx.beginPath();
+             ctx.moveTo(0,0);
+             ctx.lineTo(-10, 10);
+             ctx.stroke();
         }
 
         ctx.restore();

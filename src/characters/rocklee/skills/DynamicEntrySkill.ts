@@ -36,9 +36,10 @@ export class DynamicEntrySkill implements Skill {
         p.cooldowns.e = this.cooldown;
         p.angle = Math.atan2(dy, dx); // Face target
 
-        // Store target for rendering
+        // Store target for rendering and mark the type of dash
         p.skillStates['dynamic_entry'] = {
             target: new Vec2(targetPos.x, targetPos.y)
         };
+        p.skillStates['active_dash_skill'] = { type: 'dynamic_entry' };
     }
 }

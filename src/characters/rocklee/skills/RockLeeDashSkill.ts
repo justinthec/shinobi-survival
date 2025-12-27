@@ -63,6 +63,9 @@ export class RockLeeDashSkill implements Skill {
             p.dash.vx = vx;
             p.dash.vy = vy;
             p.dash.life = ROCK_LEE_CONSTANTS.DASH.DURATION;
+
+            // Mark this as a normal dash to override any previous E state
+            p.skillStates['active_dash_skill'] = { type: 'dash' };
         }
     }
 }
