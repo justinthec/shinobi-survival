@@ -2,10 +2,10 @@ export const ROCK_LEE_CONSTANTS = {
     // Q: Leaf Hurricane
     LEAF_HURRICANE: {
         COOLDOWN: 5 * 60,
-        DURATION: 250,
+        DURATION: 150, // Increased to 150 (2.5 seconds)
         RADIUS: 80,
-        MIN_DAMAGE: 1,
-        MAX_DAMAGE: 5,
+        MIN_DAMAGE: 5,
+        MAX_DAMAGE: 20,
         TICK_RATE: 5
     },
 
@@ -24,7 +24,7 @@ export const ROCK_LEE_CONSTANTS = {
     },
 
     STATS: {
-        HP: 130,
-        SPEED: 3.25,
+        HP: 140,
+        SPEED: 3.5,
     }
 };
