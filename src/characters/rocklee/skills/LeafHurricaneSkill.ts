@@ -8,11 +8,26 @@ export class LeafHurricaneSkill implements Skill {
     id = "leaf_hurricane";
     type = "active";
     name = "Leaf Hurricane";
-    description = "Spinning kick that damages enemies around you.";
+    description = "Spinning kick that damages enemies around you. Press Q to cancel early.";
     icon = "leaf_hurricane";
     cooldown = ROCK_LEE_CONSTANTS.LEAF_HURRICANE.COOLDOWN;
 
     cast(game: ShinobiClashGame, p: PlayerState, input: DefaultInput, targetPos: Vec2) {
+        // Toggle/Cancel Logic
+        // If cooldown is active (skill is running), check if we should cancel
+        if (p.cooldowns.q > 0) {
+            // Find existing projectile
+            const proj = game.projectiles.find(pr => pr.ownerId === p.id && pr.type === 'leaf_hurricane');
+            if (proj) {
+                // Cancel it
+                proj.life = 0;
+                // Optional: Reset cooldown or leave it? Leaving it prevents spam-toggling.
+                // Standard: Cancel ends the effect, but cooldown remains or is set to a partial value.
+                // For simplicity, just kill projectile.
+                return;
+            }
+        }
+
         if (p.cooldowns.q > 0) return;
 
         // Spawn attached projectile
