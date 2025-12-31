@@ -390,41 +390,125 @@ export class Renderer {
         ctx.fillStyle = '#1a202c';
         ctx.fillRect(0, 0, w, h);
 
+        // Title
         ctx.fillStyle = 'white';
         ctx.font = 'bold 40px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText("SHINOBI CLASH", w / 2, 100);
+        ctx.fillText("SHINOBI CLASH", w / 2, 60);
 
-        ctx.font = '20px Arial';
-        ctx.fillStyle = '#cbd5e0';
-        ctx.fillText("Press 1 for NARUTO | Press 2 for SASUKE", w / 2, 160);
-        ctx.fillText("Press SPACE to READY", w / 2, 190);
+        // --- Left Side: Character List ---
+        const charListX = 150;
+        let charListY = 150;
+        const keys = CharacterRegistry.getKeys();
 
-        // List players
-        let y = 300;
+        ctx.textAlign = 'left';
+        ctx.font = 'bold 24px Arial';
+        ctx.fillStyle = '#e2e8f0';
+        ctx.fillText("SELECT CHARACTER:", 50, 110);
+
+        keys.forEach((key, index) => {
+            const numKey = index + 1;
+            const charName = key.toUpperCase();
+
+            // Background box for item
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+            this.drawRoundedRectPath(ctx, 50, charListY - 40, 300, 80, 10);
+            ctx.fill();
+
+            // Key Hint
+            ctx.fillStyle = '#f6e05e';
+            ctx.font = 'bold 30px Arial';
+            ctx.fillText(`${numKey}`, 70, charListY + 10);
+
+            // Character Name
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 20px Arial';
+            ctx.fillText(charName, 120, charListY + 5);
+
+            // Character Preview (Miniature)
+            // Draw relative to a preview box on the right of the text
+            const previewX = 280;
+            const previewY = charListY;
+
+            // Draw Character Head/Body
+            // We use the helper directly
+            CharacterRendererHelper.drawNinjaBody(
+                ctx,
+                previewX,
+                previewY + 10, // Shift down slightly
+                Math.PI / 2, // Face right
+                key,
+                100, 100, // Full HP
+                "", // No name tag
+                game.gameTime,
+                false,
+                1, // Opacity
+                null,
+                undefined,
+                undefined
+            );
+
+            charListY += 100;
+        });
+
+
+        // --- Right Side: Player Status ---
+        const statusX = w - 400;
+        let statusY = 150;
+
+        ctx.textAlign = 'left';
+        ctx.font = 'bold 24px Arial';
+        ctx.fillStyle = '#e2e8f0';
+        ctx.fillText("LOBBY STATUS:", statusX, 110);
+
         for (let id in game.players) {
             const p = game.players[id];
             const charName = p.character ? p.character.toUpperCase() : "SELECTING...";
-            const status = p.ready ? "READY" : "WAITING";
+            const isReady = p.ready;
 
-            ctx.fillStyle = p.ready ? '#48bb78' : '#cbd5e0';
-            ctx.font = '24px Arial';
-            const text = `${p.name}: ${charName}`;
-            ctx.fillText(text, w / 2, y);
+            // Box
+            ctx.fillStyle = isReady ? 'rgba(72, 187, 120, 0.2)' : 'rgba(255, 255, 255, 0.05)';
+            ctx.strokeStyle = isReady ? '#48bb78' : 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 2;
 
-            // Draw Player Color Circle
-            const textWidth = ctx.measureText(text).width;
+            this.drawRoundedRectPath(ctx, statusX, statusY, 350, 80, 10);
+            ctx.fill();
+            ctx.stroke();
+
+            // Player Name & Color
             ctx.fillStyle = getPlayerColor(p.id);
             ctx.beginPath();
-            ctx.arc(w / 2 - textWidth / 2 - 20, y - 8, 8, 0, Math.PI * 2);
+            ctx.arc(statusX + 30, statusY + 40, 10, 0, Math.PI * 2);
             ctx.fill();
 
-            ctx.font = '18px Arial';
-            ctx.fillStyle = p.ready ? '#48bb78' : '#cbd5e0'; // Reset fill for status
-            ctx.fillText(status, w / 2, y + 25);
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 20px Arial';
+            ctx.fillText(p.name, statusX + 50, statusY + 30);
 
-            y += 80;
+            // Selection Status
+            ctx.fillStyle = '#cbd5e0';
+            ctx.font = '16px Arial';
+            ctx.fillText(charName, statusX + 50, statusY + 55);
+
+            // Ready Badge
+            if (isReady) {
+                ctx.fillStyle = '#48bb78';
+                ctx.font = 'bold 16px Arial';
+                ctx.fillText("READY", statusX + 280, statusY + 45);
+            } else {
+                ctx.fillStyle = '#e53e3e'; // Red-ish
+                ctx.font = 'bold 16px Arial';
+                ctx.fillText("WAITING", statusX + 270, statusY + 45);
+            }
+
+            statusY += 100;
         }
+
+        // Instructions Footer
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#cbd5e0';
+        ctx.font = '20px Arial';
+        ctx.fillText("Press NUMBER keys to Select Character | Press SPACE to Toggle Ready", w / 2, h - 50);
     }
 
     drawGameOver(game: ShinobiClashGame) {

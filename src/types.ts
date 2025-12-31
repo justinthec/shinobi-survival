@@ -80,6 +80,9 @@ export interface ProjectileState {
     isAoe?: boolean;
     damage?: number; // Pre-calculated damage for generic handling
 
+    // Pass-through logic
+    hitEntities?: number[];
+
     // Clone Stats
     hp?: number;
     maxHp?: number;

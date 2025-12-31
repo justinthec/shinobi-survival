@@ -39,12 +39,13 @@ export class CharacterRendererHelper {
         ctx.beginPath(); ctx.ellipse(-2, 2, 16, 16, 0, 0, Math.PI * 2); ctx.fill();
 
         // Visual Colors
-        const isNaruto = type === 'naruto';
-        const c = isNaruto ? {
-            skin: '#ffcba4', hair: '#ffdd00', main: '#ff6600', sub: '#1a1a1a', acc: '#0055aa'
-        } : {
+        let c = {
             skin: '#ffe0bd', hair: '#111122', main: '#9ca3af', sub: '#4b5563', acc: '#8b5cf6'
         };
+
+        if (type === 'naruto') {
+            c = { skin: '#ffcba4', hair: '#ffdd00', main: '#ff6600', sub: '#1a1a1a', acc: '#0055aa' };
+        }
 
         // Override if needed (e.g. purple ghost)
         if (colorOverride) {
@@ -77,7 +78,7 @@ export class CharacterRendererHelper {
         // Hair
         ctx.fillStyle = c.hair;
         ctx.beginPath();
-        if (isNaruto) {
+        if (type === 'naruto') {
             for (let i = 0; i < 14; i++) {
                 const a = (i / 14) * Math.PI * 2;
                 const len = 14;
