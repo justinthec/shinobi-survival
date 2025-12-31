@@ -198,7 +198,7 @@ export class CombatManager {
             game.floatingTexts.push({
                 id: game.nextEntityId++,
                 pos: new Vec2(target.pos.x, target.pos.y - 40),
-                val: dmg.toString(),
+                val: Math.round(dmg).toString(),
                 color: 'red',
                 life: 60, maxLife: 60, vy: 0.5
             });
