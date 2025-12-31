@@ -17,6 +17,7 @@ import {
 } from "./types";
 import { Renderer } from "./renderer";
 import { CombatManager } from "./managers/combat-manager";
+import { CharacterRegistry } from "./core/registries";
 import { registerNaruto } from "./characters/naruto";
 import { registerSasuke } from "./characters/sasuke";
 import { registerRockLee } from "./characters/rocklee";
@@ -147,6 +148,7 @@ export class ShinobiClashGame extends Game {
     tickCharSelect(playerInputs: Map<NetplayPlayer, DefaultInput>) {
         let allReady = true;
         let playerCount = 0;
+        const availableChars = CharacterRegistry.getKeys();
 
         for (const [player, input] of playerInputs.entries()) {
             playerCount++;
@@ -156,9 +158,13 @@ export class ShinobiClashGame extends Game {
             if (!p) continue;
 
             // Character Selection Inputs
-            if (input.keysPressed['1']) p.character = 'naruto';
-            if (input.keysPressed['2']) p.character = 'sasuke';
-            if (input.keysPressed['3']) p.character = 'rocklee';
+            for (let i = 0; i < availableChars.length; i++) {
+                // '1' corresponds to index 0
+                const key = (i + 1).toString();
+                if (input.keysPressed[key]) {
+                    p.character = availableChars[i] as any;
+                }
+            }
 
             // Confirm
             if (input.keysPressed[' ']) {
@@ -327,6 +333,7 @@ export class ShinobiClashGame extends Game {
                     p.casting = 0;
                     p.dash = { active: false, vx: 0, vy: 0, life: 0 };
                     p.skillStates = {};
+                    p.spectatorTargetId = undefined;
 
                     if (p.spawnCornerIndex >= 0 && p.spawnCornerIndex < corners.length) {
                         p.pos = new Vec2(corners[p.spawnCornerIndex].x, corners[p.spawnCornerIndex].y);
