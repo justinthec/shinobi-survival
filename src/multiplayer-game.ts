@@ -20,13 +20,11 @@ import { CombatManager } from "./managers/combat-manager";
 import { CharacterRegistry } from "./core/registries";
 import { registerNaruto } from "./characters/naruto";
 import { registerSasuke } from "./characters/sasuke";
-import { registerRockLee } from "./characters/rocklee";
 import { SeededRNG } from "./core/utils";
 
 // Register Characters
 registerNaruto();
 registerSasuke();
-registerRockLee();
 
 export class ShinobiClashGame extends Game {
     static timestep = 1000 / 60;
@@ -217,9 +215,6 @@ export class ShinobiClashGame extends Game {
             } else if (p.character === 'sasuke') {
                 p.maxHp = 130; p.hp = 130;
                 p.stats.speed = 3.25;
-            } else if (p.character === 'rocklee') {
-                p.maxHp = 160; p.hp = 160;
-                p.stats.speed = 3.5; // Faster base speed
             }
         }
     }
