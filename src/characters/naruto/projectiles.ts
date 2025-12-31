@@ -134,20 +134,76 @@ export class CloneStrikeProjectile implements ProjectileDefinition {
     }
 
     render(ctx: CanvasRenderingContext2D, proj: ProjectileState, time: number) {
-        CharacterRendererHelper.drawNinjaBody(
-            ctx,
-            proj.pos.x,
-            proj.pos.y,
-            proj.angle,
-            'naruto',
-            proj.hp || 0,
-            proj.maxHp || 1,
-            "Clone",
-            time,
-            true,
-            1,
-            null,
-            proj.actionState
-        );
+        // Render Clone (Manual)
+        const x = proj.pos.x;
+        const y = proj.pos.y;
+        const angle = proj.angle;
+        const hp = proj.hp || 0;
+        const maxHp = proj.maxHp || 1;
+        const actionState = proj.actionState;
+
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(1.25, 1.25);
+        ctx.rotate(angle);
+
+        // Clone Opacity
+        ctx.globalAlpha = 0.8;
+
+        // Shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        ctx.beginPath(); ctx.ellipse(-2, 2, 16, 16, 0, 0, Math.PI * 2); ctx.fill();
+
+        // Colors (Naruto)
+        const c = {
+            skin: '#ffcba4', hair: '#ffdd00', main: '#ff6600', sub: '#1a1a1a', acc: '#0055aa'
+        };
+
+        // Body
+        ctx.fillStyle = c.main;
+        ctx.beginPath(); ctx.ellipse(-5, 0, 16, 12, 0, 0, Math.PI * 2); ctx.fill();
+
+        // Punch Arm
+        if (actionState === 'punch') {
+            ctx.fillStyle = c.main;
+            CharacterRendererHelper.drawRoundedRectPath(ctx, 10, -3, 15, 6, 3);
+            ctx.fill();
+        }
+
+        // Head
+        ctx.fillStyle = c.skin;
+        ctx.beginPath(); ctx.arc(2, 0, 11, 0, Math.PI * 2); ctx.fill();
+
+        // Hair (Spiky)
+        ctx.fillStyle = c.hair;
+        ctx.beginPath();
+        for (let i = 0; i < 14; i++) {
+            const a = (i / 14) * Math.PI * 2;
+            const len = 14;
+            const cx = 2 + Math.cos(a) * len;
+            const cy = Math.sin(a) * len;
+            if (i === 0) ctx.moveTo(cx, cy); else ctx.lineTo(cx, cy);
+        }
+        ctx.fill();
+
+        // Arms (if not punching both, but here we just draw both if not punch? or just one?)
+        // Standard arms:
+        ctx.fillStyle = c.main;
+        CharacterRendererHelper.drawRoundedRectPath(ctx, 0, -16, 12, 6, 3); ctx.fill();
+        CharacterRendererHelper.drawRoundedRectPath(ctx, 0, 10, 12, 6, 3); ctx.fill();
+
+        ctx.restore();
+
+        // Health Bar (Clone)
+        if (maxHp > 0) {
+             ctx.save();
+             ctx.translate(x, y - 50);
+             ctx.fillStyle = 'rgba(0,0,0,0.8)';
+             CharacterRendererHelper.drawRoundedRectPath(ctx, -20, 0, 40, 6, 3); ctx.fill();
+             const pct = Math.max(0, hp / maxHp);
+             ctx.fillStyle = pct > 0.5 ? '#48bb78' : '#f56565';
+             CharacterRendererHelper.drawRoundedRectPath(ctx, -18, 1, 36 * pct, 4, 2); ctx.fill();
+             ctx.restore();
+        }
     }
 }
