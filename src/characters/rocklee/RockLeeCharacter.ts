@@ -1,10 +1,17 @@
-import { CharacterDefinition } from "../../core/interfaces";
+import { CharacterDefinition, AbilityDefinition } from "../../core/interfaces";
 import { PlayerState } from "../../types";
 import { CharacterRendererHelper } from "../../core/CharacterRendererHelper";
 import { ROCK_LEE_CONSTANTS } from "./constants";
+import { getPlayerColor } from "../../core/utils";
 
 export class RockLeeCharacter implements CharacterDefinition {
     name = "Rock Lee";
+    description = "A taijutsu specialist who relies on speed and physical attacks.";
+    abilities: AbilityDefinition[] = [
+        { key: "Q", name: "Leaf Hurricane", description: "Spinning kick that damages enemies around you.", type: "active" },
+        { key: "E", name: "Dynamic Entry", description: "Flying kick towards target. Stuns on impact.", type: "active" },
+        { key: "SPC", name: "Dash", description: "Quickly dash. Has multiple charges.", type: "active" }
+    ];
 
     render(ctx: CanvasRenderingContext2D, state: PlayerState, time: number, isLocal: boolean, isOffCooldown: boolean) {
         const { pos, angle, hp, maxHp, name } = state;
@@ -181,9 +188,18 @@ export class RockLeeCharacter implements CharacterDefinition {
              ctx.fillStyle = pct > 0.5 ? '#48bb78' : '#f56565';
              CharacterRendererHelper.drawRoundedRectPath(ctx, -18, 1, 36 * pct, 4, 2); ctx.fill();
 
-             ctx.fillStyle = 'white';
-             ctx.font = '10px Arial';
+             ctx.fillStyle = 'white'; // Rock Lee has white name in helper if I recall, but let's check.
+                                      // Actually helper default is white. Rock Lee logic used white explicitly too.
+                                      // Wait, I should probably use getPlayerColor to match standard style.
+
+             ctx.font = 'bold 12px Arial';
              ctx.textAlign = 'center';
+
+             ctx.strokeStyle = 'black';
+             ctx.lineWidth = 3;
+             ctx.strokeText(name, 0, -5);
+
+             ctx.fillStyle = getPlayerColor(state.id); // Updated to use player color
              ctx.fillText(name, 0, -5);
 
              // Dash Charges

@@ -1,10 +1,12 @@
 import { ShinobiClashGame } from "./multiplayer-game";
-import { PlayerState, ProjectileState, PLAYER_RADIUS, KOTH_SETTINGS, MAP_SIZE } from "./types";
+import { PlayerState, ProjectileState, PLAYER_RADIUS, KOTH_SETTINGS, MAP_SIZE, CharacterType } from "./types";
 import { initSprites, SPRITES } from "./sprites";
 import { SkillRegistry } from "./skills/SkillRegistry";
 import { CharacterRegistry, ProjectileRegistry } from "./core/registries";
 import { CharacterRendererHelper } from "./core/CharacterRendererHelper";
 import { getPlayerColor } from "./core/utils";
+import { CharacterDefinition } from "./core/interfaces";
+import { Vec2 } from "netplayjs";
 
 export class Renderer {
     ctx: CanvasRenderingContext2D;
@@ -262,8 +264,9 @@ export class Renderer {
             const isOffCooldown = p.cooldowns.e <= 0;
             def.render(this.ctx, p, time, isLocal, isOffCooldown);
         } else {
-             // Fallback
-             CharacterRendererHelper.drawNinjaBody(this.ctx, p.pos.x, p.pos.y, p.angle, charType, p.hp, p.maxHp, p.name, time, false, 1, null, undefined, getPlayerColor(p.id));
+            // No Fallback, assume registry is complete or handle error
+            // Previously used drawNinjaBody as fallback.
+            // Since we updated all characters, we should be fine.
         }
     }
 
@@ -401,6 +404,11 @@ export class Renderer {
         let charListY = 150;
         const keys = CharacterRegistry.getKeys();
 
+        // Find Local Player's Selected Character
+        const localId = ShinobiClashGame.localPlayerId;
+        const localPlayer = localId !== null ? game.players[localId] : null;
+        const selectedChar = localPlayer ? localPlayer.character : null;
+
         ctx.textAlign = 'left';
         ctx.font = 'bold 24px Arial';
         ctx.fillStyle = '#e2e8f0';
@@ -409,11 +417,21 @@ export class Renderer {
         keys.forEach((key, index) => {
             const numKey = index + 1;
             const charName = key.toUpperCase();
+            const isSelected = selectedChar === key;
+
+            const def: CharacterDefinition = CharacterRegistry.get(key);
+
+            // Determine Box Height (Expand if selected)
+            const boxHeight = isSelected ? 300 : 80;
 
             // Background box for item
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
-            this.drawRoundedRectPath(ctx, 50, charListY - 40, 300, 80, 10);
+            ctx.fillStyle = isSelected ? 'rgba(72, 187, 120, 0.1)' : 'rgba(255, 255, 255, 0.05)';
+            ctx.strokeStyle = isSelected ? '#48bb78' : 'rgba(255, 255, 255, 0.05)';
+            ctx.lineWidth = 2;
+
+            this.drawRoundedRectPath(ctx, 50, charListY - 40, 500, boxHeight, 10);
             ctx.fill();
+            if (isSelected) ctx.stroke();
 
             // Key Hint
             ctx.fillStyle = '#f6e05e';
@@ -425,30 +443,74 @@ export class Renderer {
             ctx.font = 'bold 20px Arial';
             ctx.fillText(charName, 120, charListY + 5);
 
-            // Character Preview (Miniature)
-            // Draw relative to a preview box on the right of the text
-            const previewX = 280;
+            // Character Preview (Render using actual character render method)
+            const previewX = 400;
             const previewY = charListY;
 
-            // Draw Character Head/Body
-            // We use the helper directly
-            CharacterRendererHelper.drawNinjaBody(
-                ctx,
-                previewX,
-                previewY + 10, // Shift down slightly
-                Math.PI / 2, // Face right
-                key,
-                100, 100, // Full HP
-                "", // No name tag
-                game.gameTime,
-                false,
-                1, // Opacity
-                null,
-                undefined,
-                undefined
-            );
+            ctx.save();
+            // Create a dummy player state for preview
+            // We ensure hp is full.
+            const dummyState: PlayerState = {
+                id: -1, // Dummy ID
+                name: "",
+                pos: new Vec2(previewX, previewY),
+                angle: Math.PI / 2, // Face right
+                hp: 100,
+                maxHp: 100,
+                character: key as CharacterType,
+                ready: false,
+                dead: false,
+                respawnTimer: 0,
+                spectatorTargetId: undefined,
+                victoryProgress: 0,
+                spawnCornerIndex: 0,
+                cooldowns: { q: 0, e: 0, sp: 0 },
+                skillStates: {},
+                dash: { active: false, vx: 0, vy: 0, life: 0 },
+                stats: { speed: 1, damageMult: 1, cooldownMult: 1 },
+                casting: 0
+            };
 
-            charListY += 100;
+            // Invoke render
+            // Note: Some renderers might use `game.gameTime` for animations.
+            // We pass game.gameTime.
+            if (def) {
+                def.render(ctx, dummyState, game.gameTime, false, true);
+            }
+            ctx.restore();
+
+            // If selected, draw abilities below
+            if (isSelected && def && def.abilities) {
+                let textY = charListY + 40;
+
+                // Description
+                if (def.description) {
+                    ctx.fillStyle = '#a0aec0';
+                    ctx.font = 'italic 16px Arial';
+                    ctx.fillText(def.description, 70, textY);
+                    textY += 30;
+                }
+
+                ctx.fillStyle = '#e2e8f0';
+                ctx.font = 'bold 16px Arial';
+                ctx.fillText("ABILITIES:", 70, textY);
+                textY += 25;
+
+                def.abilities.forEach(ab => {
+                    ctx.fillStyle = '#f6e05e'; // Key color
+                    ctx.font = 'bold 14px Arial';
+                    ctx.fillText(`[${ab.key}] ${ab.name}`, 80, textY);
+
+                    ctx.fillStyle = '#cbd5e0'; // Desc color
+                    ctx.font = '14px Arial';
+                    ctx.fillText(`- ${ab.description}`, 250, textY); // Align description to the right
+
+                    textY += 20;
+                });
+            }
+
+            // Adjust Y offset for next item
+            charListY += isSelected ? 320 : 100;
         });
 
 
