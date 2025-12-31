@@ -1,7 +1,6 @@
 import { CharacterDefinition } from "../../core/interfaces";
 import { PlayerState } from "../../types";
 import { CharacterRendererHelper } from "../../core/CharacterRendererHelper";
-import { getPlayerColor } from "../../core/utils";
 import { ShinobiClashGame } from "../../multiplayer-game";
 
 export class SasukeCharacter implements CharacterDefinition {
@@ -25,8 +24,7 @@ export class SasukeCharacter implements CharacterDefinition {
             state.maxHp,
             state.name,
             time,
-            false,
-            1, null, undefined, getPlayerColor(state.id)
+            false
         );
     }
 }
