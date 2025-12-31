@@ -44,22 +44,23 @@ export class RockLeeCharacter implements CharacterDefinition {
         ctx.translate(pos.x, pos.y);
         ctx.scale(1.25, 1.25);
 
-        // Q Animation: Spin Logic (Matches Projectile)
-        // Check if Q is active
-        // Cooldown starts at DURATION + COOLDOWN? Or just COOLDOWN?
-        // Usually, cooldown is set to COOLDOWN. Active while cooldown > (COOLDOWN - DURATION).
-        // Let's assume standard behavior.
-        const duration = ROCK_LEE_CONSTANTS.LEAF_HURRICANE.DURATION;
-        const totalCooldown = ROCK_LEE_CONSTANTS.LEAF_HURRICANE.COOLDOWN;
-        const timeRemaining = state.cooldowns.q - (totalCooldown - duration);
-        const isQActive = timeRemaining > 0;
+        // Q Animation: Spin Logic
+        // Check active state
+        const qState = state.skillStates['leaf_hurricane'];
+        const isQActive = qState && qState.active;
 
         let effectiveAngle = angle;
 
         if (isQActive) {
-            // Calculate progress (0 to 1)
-            // timeRemaining goes from duration down to 0.
-            const progress = 1 - (timeRemaining / duration);
+            // Calculate progress based on stored start time
+            // Assuming current 'time' passed to render matches gameTime roughly
+            // However, render 'time' is usually frame ticks or timestamp.
+            // The renderer receives `this.gameTime` from `ShinobiClashGame.draw`.
+            // So we can use qState.startTime.
+
+            const elapsed = time - (qState.startTime || time);
+            const duration = ROCK_LEE_CONSTANTS.LEAF_HURRICANE.DURATION;
+            const progress = Math.min(1, Math.max(0, elapsed / duration));
 
             // Quadratic Rotation
             const totalSpins = 5;

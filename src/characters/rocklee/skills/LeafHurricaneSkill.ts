@@ -14,16 +14,15 @@ export class LeafHurricaneSkill implements Skill {
 
     cast(game: ShinobiClashGame, p: PlayerState, input: DefaultInput, targetPos: Vec2) {
         // Toggle/Cancel Logic
-        // If cooldown is active (skill is running), check if we should cancel
-        if (p.cooldowns.q > 0) {
+        // We now check skill state instead of cooldown to know if it's active
+        const state = p.skillStates['leaf_hurricane'];
+
+        if (state && state.active) {
             // Find existing projectile
             const proj = game.projectiles.find(pr => pr.ownerId === p.id && pr.type === 'leaf_hurricane');
             if (proj) {
-                // Cancel it
+                // Cancel it - The Projectile's update loop handles the cleanup and cooldown reset
                 proj.life = 0;
-                // Optional: Reset cooldown or leave it? Leaving it prevents spam-toggling.
-                // Standard: Cancel ends the effect, but cooldown remains or is set to a partial value.
-                // For simplicity, just kill projectile.
                 return;
             }
         }
@@ -34,8 +33,8 @@ export class LeafHurricaneSkill implements Skill {
         game.projectiles.push({
             id: game.nextEntityId++,
             type: 'leaf_hurricane',
-            pos: new Vec2(p.pos.x, p.pos.y), // Initial pos
-            vel: new Vec2(0, 0), // Follows player
+            pos: new Vec2(p.pos.x, p.pos.y),
+            vel: new Vec2(0, 0),
             ownerId: p.id,
             angle: 0,
             life: ROCK_LEE_CONSTANTS.LEAF_HURRICANE.DURATION,
@@ -46,6 +45,14 @@ export class LeafHurricaneSkill implements Skill {
             damage: ROCK_LEE_CONSTANTS.LEAF_HURRICANE.MIN_DAMAGE
         });
 
-        p.cooldowns.q = this.cooldown;
+        // Set cooldown to a high value to lock input while active
+        // The real cooldown is applied when the projectile ends.
+        p.cooldowns.q = 9999;
+
+        // Mark skill as active and store start time for animation
+        p.skillStates['leaf_hurricane'] = {
+            active: true,
+            startTime: game.gameTime
+        };
     }
 }

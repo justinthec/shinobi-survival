@@ -22,6 +22,15 @@ export class LeafHurricaneProjectile implements ProjectileDefinition {
             if (idx !== -1) {
                 game.projectiles.splice(idx, 1);
             }
+
+            // CRITICAL: Reset cooldown and clear state on end
+            if (owner) {
+                owner.cooldowns.q = ROCK_LEE_CONSTANTS.LEAF_HURRICANE.COOLDOWN;
+                if (owner.skillStates['leaf_hurricane']) {
+                    owner.skillStates['leaf_hurricane'].active = false;
+                    // Or delete it? Keeping it false is fine/safer for types
+                }
+            }
         } else {
              // Collision Check
              if (proj.life % ROCK_LEE_CONSTANTS.LEAF_HURRICANE.TICK_RATE === 0) {
@@ -35,14 +44,9 @@ export class LeafHurricaneProjectile implements ProjectileDefinition {
         ctx.translate(proj.pos.x, proj.pos.y);
 
         // Quadratic Windup Rotation
-        // Progress goes from 0.0 (start) to 1.0 (end)
-        // life counts DOWN from maxLife to 0.
         const maxLife = proj.maxLife || ROCK_LEE_CONSTANTS.LEAF_HURRICANE.DURATION;
         const progress = 1 - (Math.max(0, proj.life) / maxLife);
 
-        // Total rotations we want over the duration (e.g., 4 full spins)
-        // If speed winds up linearly, angle scales with square of time.
-        // Angle = k * t^2
         const totalSpins = 5;
         const rotation = (totalSpins * Math.PI * 2) * (progress * progress);
 
@@ -50,8 +54,7 @@ export class LeafHurricaneProjectile implements ProjectileDefinition {
 
         const radius = proj.radius;
 
-        // 1. Green Sweep/Blur (The "Kick" trail)
-        // Opacity increases with speed (progress)
+        // 1. Green Sweep
         const opacity = 0.1 + (0.3 * progress);
         const gradient = ctx.createRadialGradient(0, 0, radius * 0.2, 0, 0, radius);
         gradient.addColorStop(0, "rgba(0, 255, 0, 0)");
@@ -64,21 +67,18 @@ export class LeafHurricaneProjectile implements ProjectileDefinition {
         ctx.arc(0, 0, radius, 0, Math.PI * 2);
         ctx.fill();
 
-        // 2. Wind Lines - More dynamic
-        // Intensity scales with progress
+        // 2. Wind Lines
         ctx.strokeStyle = `rgba(255, 255, 255, ${0.4 + 0.4 * progress})`;
         ctx.lineWidth = 2 + 2 * progress;
 
-        const numLines = 3 + Math.floor(progress * 4); // More lines as it gets faster
+        const numLines = 3 + Math.floor(progress * 4);
 
         for(let i = 0; i < numLines; i++) {
             ctx.save();
-            // Offset rotation for lines so they don't look static relative to each other
             ctx.rotate((Math.PI * 2 * i) / numLines + Math.sin(time * 0.1 + i));
 
             ctx.beginPath();
             const rOffset = Math.sin(time * 0.2 + i * 10) * 10;
-            // Arc length increases with speed
             const arcLen = Math.PI * (0.3 + 0.5 * progress);
             ctx.arc(0, 0, radius * 0.7 + rOffset, 0, arcLen);
             ctx.stroke();
@@ -86,7 +86,6 @@ export class LeafHurricaneProjectile implements ProjectileDefinition {
         }
 
         // 3. Dust Particles
-        // More particles at high speed
         if (progress > 0.3) {
             ctx.fillStyle = "rgba(200, 200, 200, 0.5)";
             for(let j = 0; j < 6; j++) {
@@ -94,7 +93,6 @@ export class LeafHurricaneProjectile implements ProjectileDefinition {
                 const angleOffset = (Math.PI * 2 * j) / 6;
                 ctx.rotate(angleOffset);
 
-                // Particles spiral out?
                 const dist = radius * 0.9 + Math.sin(time * 0.5 + j) * 5;
                 const size = (2 + Math.sin(time * 0.3 + j) * 2) * progress;
 
