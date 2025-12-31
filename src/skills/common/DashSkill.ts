@@ -2,6 +2,7 @@ import { DefaultInput, Vec2 } from "netplayjs";
 import { ShinobiClashGame } from "../../multiplayer-game";
 import { PlayerState } from "../../types";
 import { Skill } from "../Skill";
+import { isKeyHeld } from "../../core/input";
 
 export class DashSkill implements Skill {
     readonly cooldown = 360;
@@ -13,10 +14,10 @@ export class DashSkill implements Skill {
 
         const dashSpeed = 12.5;
         let dx = 0; let dy = 0;
-        if (input.keysHeld['a']) dx -= 1;
-        if (input.keysHeld['d']) dx += 1;
-        if (input.keysHeld['w']) dy -= 1;
-        if (input.keysHeld['s']) dy += 1;
+        if (isKeyHeld(input, 'a')) dx -= 1;
+        if (isKeyHeld(input, 'd')) dx += 1;
+        if (isKeyHeld(input, 'w')) dy -= 1;
+        if (isKeyHeld(input, 's')) dy += 1;
 
         let vx = 0;
         let vy = 0;

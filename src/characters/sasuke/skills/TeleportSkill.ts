@@ -2,6 +2,7 @@ import { DefaultInput, Vec2 } from "netplayjs";
 import { ShinobiClashGame } from "../../../multiplayer-game";
 import { PlayerState, PLAYER_RADIUS } from "../../../types";
 import { Skill } from "../../../skills/Skill";
+import { isKeyHeld } from "../../../core/input";
 
 export class TeleportSkill implements Skill {
     static readonly RANGE = 300;
@@ -10,7 +11,7 @@ export class TeleportSkill implements Skill {
 
     handleInput(game: ShinobiClashGame, p: PlayerState, input: DefaultInput, targetPos: Vec2) {
         // Charging Logic
-        if (input.keysHeld['e']) {
+        if (isKeyHeld(input, 'e')) {
             if (!p.skillStates['e']) p.skillStates['e'] = {};
             p.skillStates['e'].charging = true;
 

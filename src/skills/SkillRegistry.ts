@@ -13,6 +13,6 @@ export class SkillRegistry {
 
     static getSkill(character: CharacterType | null, key: string): Skill | null {
         if (!character) return null;
-        return this.skills[character]?.[key] || null;
+        return this.skills[character]?.[key.toLowerCase()] || null;
     }
 }
