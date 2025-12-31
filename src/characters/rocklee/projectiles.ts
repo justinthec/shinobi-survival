@@ -34,36 +34,62 @@ export class LeafHurricaneProjectile implements ProjectileDefinition {
         ctx.save();
         ctx.translate(proj.pos.x, proj.pos.y);
 
-        // Slower spin for wind effects
-        const rotation = (time * 0.2) % (Math.PI * 2);
+        // Spin logic - match Character spin mostly
+        const rotation = (time * 0.4) % (Math.PI * 2);
         ctx.rotate(rotation);
 
         const radius = proj.radius;
 
-        // Draw "Wind" lines (Arcs)
-        ctx.strokeStyle = "rgba(200, 200, 200, 0.5)"; // Grey/White wind
+        // 1. Green Sweep/Blur (The "Kick" trail)
+        // Draw a semi-transparent green arc trailing the "leg"
+        const gradient = ctx.createRadialGradient(0, 0, radius * 0.2, 0, 0, radius);
+        gradient.addColorStop(0, "rgba(0, 255, 0, 0)");
+        gradient.addColorStop(0.5, "rgba(0, 255, 0, 0.1)");
+        gradient.addColorStop(1, "rgba(0, 255, 0, 0.3)");
+
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        // Assume leg is at angle 0 relative to context rotation
+        // Draw a wide arc
+        ctx.moveTo(0,0);
+        ctx.arc(0, 0, radius, 0, Math.PI * 2); // Full circle sweep for "Hurricane" feel
+        ctx.fill();
+
+        // 2. Wind Lines - More dynamic
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
         ctx.lineWidth = 2;
 
-        for(let i = 0; i < 4; i++) {
-            ctx.rotate((Math.PI * 2) / 4);
+        for(let i = 0; i < 5; i++) {
+            ctx.save();
+            ctx.rotate((Math.PI * 2 * i) / 5 + Math.sin(time * 0.1 + i)); // Varying rotation
+
             ctx.beginPath();
-            // Draw arc segment
-            ctx.arc(0, 0, radius * 0.8, 0, Math.PI * 0.5);
+            // Spiral-ish lines
+            const rOffset = Math.sin(time * 0.2 + i * 10) * 10;
+            ctx.arc(0, 0, radius * 0.7 + rOffset, 0, Math.PI * 0.6);
             ctx.stroke();
+            ctx.restore();
         }
 
-        // Draw "Dust" particles (Static relative to spin, or moving out?)
-        // Let's just draw some small circles near the edge that rotate with context
-        ctx.fillStyle = "rgba(150, 150, 150, 0.6)";
-        for(let j = 0; j < 6; j++) {
-            ctx.rotate((Math.PI * 2) / 6);
+        // 3. Dust Particles - Cloud effect
+        ctx.fillStyle = "rgba(200, 200, 200, 0.5)";
+        for(let j = 0; j < 8; j++) {
+            ctx.save();
+            // Random-ish placement that rotates
+            const angleOffset = (Math.PI * 2 * j) / 8;
+            ctx.rotate(angleOffset);
+
+            const dist = radius * 0.9 + Math.sin(time * 0.5 + j) * 5;
+            const size = 3 + Math.sin(time * 0.3 + j) * 2;
+
             ctx.beginPath();
-            ctx.arc(radius * 0.9, 0, 3 + Math.sin(time * 0.5 + j) * 2, 0, Math.PI * 2);
+            ctx.arc(dist, 0, size, 0, Math.PI * 2);
             ctx.fill();
+            ctx.restore();
         }
 
         // Faint outer boundary
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
+        ctx.strokeStyle = "rgba(50, 205, 50, 0.3)";
         ctx.beginPath();
         ctx.arc(0, 0, radius, 0, Math.PI * 2);
         ctx.stroke();

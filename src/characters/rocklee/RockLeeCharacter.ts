@@ -140,14 +140,22 @@ export class RockLeeCharacter implements CharacterDefinition {
              // Q Active: Character body is already rotating (ctx.rotate above)
              // Just draw the extended leg rigidly relative to body, so it spins with it
              ctx.strokeStyle = c.warmers;
-             ctx.lineWidth = 6;
-             // Extended leg for spin kick
+             ctx.lineWidth = 8; // Slightly thicker
+             // Extended leg for spin kick - Extended much further now (60)
              ctx.beginPath();
              ctx.moveTo(0,0);
-             ctx.lineTo(25, 0); // Stick straight out
+             ctx.lineTo(60, 0); // Stick straight out to match radius 80 (with body)
              ctx.stroke();
 
+             // Foot
+             ctx.fillStyle = c.warmers;
+             ctx.beginPath();
+             ctx.arc(60, 0, 5, 0, Math.PI*2);
+             ctx.fill();
+
              // Other leg tucked
+             ctx.strokeStyle = c.warmers;
+             ctx.lineWidth = 6;
              ctx.beginPath();
              ctx.moveTo(0,0);
              ctx.lineTo(-10, 10);
