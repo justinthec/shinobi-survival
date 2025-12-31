@@ -28,7 +28,7 @@ export class LeafHurricaneSkill implements Skill {
             radius: ROCK_LEE_CONSTANTS.LEAF_HURRICANE.RADIUS,
             state: 'flying',
             isAoe: true,
-            damage: ROCK_LEE_CONSTANTS.LEAF_HURRICANE.DAMAGE
+            damage: ROCK_LEE_CONSTANTS.LEAF_HURRICANE.MIN_DAMAGE
         });
 
         p.cooldowns.q = this.cooldown;
