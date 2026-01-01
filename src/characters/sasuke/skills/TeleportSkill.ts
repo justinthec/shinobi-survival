@@ -5,6 +5,7 @@ import { Skill } from "../../../skills/Skill";
 
 export class TeleportSkill implements Skill {
     static readonly RANGE = 300;
+    static readonly SWAP_RADIUS = 50;
 
     readonly cooldown = 600;
 
@@ -33,6 +34,21 @@ export class TeleportSkill implements Skill {
             ty = Math.max(PLAYER_RADIUS, Math.min(bounds, ty));
 
             p.skillStates['e'].target = new Vec2(tx, ty);
+
+            // Check for Swap Target
+            let swapTargetId = undefined;
+            for (const id in game.players) {
+                const other = game.players[id];
+                if (other.id !== p.id && !other.dead) {
+                    const distSq = (other.pos.x - tx) ** 2 + (other.pos.y - ty) ** 2;
+                    if (distSq < TeleportSkill.SWAP_RADIUS ** 2) {
+                        swapTargetId = other.id;
+                        break;
+                    }
+                }
+            }
+            p.skillStates['e'].swapTargetId = swapTargetId;
+
         } else {
             // Released
             if (p.skillStates['e']?.charging) {
@@ -53,20 +69,52 @@ export class TeleportSkill implements Skill {
         let tx = targetPos.x;
         let ty = targetPos.y;
 
-        // Particles at start
+        const swapTargetId = p.skillStates['e']?.swapTargetId;
+        let swapped = false;
+
+        // Capture original position for particle (before move)
+        const startPos = new Vec2(p.pos.x, p.pos.y);
+
+        if (swapTargetId !== undefined) {
+            const enemy = game.players[swapTargetId];
+            if (enemy && !enemy.dead) {
+                // Perform Swap
+                const myOldPos = { x: p.pos.x, y: p.pos.y };
+                p.pos.x = enemy.pos.x;
+                p.pos.y = enemy.pos.y;
+
+                enemy.pos.x = myOldPos.x;
+                enemy.pos.y = myOldPos.y;
+
+                // Particles for enemy (Orange/Red to signify aggressive swap)
+                game.particles.push({
+                    id: game.nextEntityId++,
+                    type: 'teleport',
+                    pos: new Vec2(enemy.pos.x, enemy.pos.y),
+                    vel: new Vec2(0, 0),
+                    life: 20, maxLife: 20, color: '#FF4500', size: 10
+                });
+
+                swapped = true;
+            }
+        }
+
+        if (!swapped) {
+            // Standard Teleport
+            p.pos.x = tx;
+            p.pos.y = ty;
+        }
+
+        // Particles for self (start pos)
         game.particles.push({
             id: game.nextEntityId++,
             type: 'teleport',
-            pos: new Vec2(p.pos.x, p.pos.y),
+            pos: startPos,
             vel: new Vec2(0, 0),
             life: 20, maxLife: 20, color: '#8A2BE2', size: 10
         });
 
-        // Move
-        p.pos.x = tx;
-        p.pos.y = ty;
-
-        // Particles at end
+        // Particles for self (end pos)
         game.particles.push({
             id: game.nextEntityId++,
             type: 'teleport',
