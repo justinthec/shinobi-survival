@@ -86,6 +86,9 @@ export class TeleportSkill implements Skill {
                 enemy.pos.x = myOldPos.x;
                 enemy.pos.y = myOldPos.y;
 
+                // Create Particle Trail for Enemy
+                this.createTrail(game, new Vec2(enemy.pos.x, enemy.pos.y), new Vec2(myOldPos.x, myOldPos.y), '#FF4500');
+
                 // Particles for enemy (Orange/Red to signify aggressive swap)
                 game.particles.push({
                     id: game.nextEntityId++,
@@ -105,6 +108,9 @@ export class TeleportSkill implements Skill {
             p.pos.y = ty;
         }
 
+        // Create Particle Trail for Self
+        this.createTrail(game, startPos, new Vec2(p.pos.x, p.pos.y), '#8A2BE2');
+
         // Particles for self (start pos)
         game.particles.push({
             id: game.nextEntityId++,
@@ -122,5 +128,23 @@ export class TeleportSkill implements Skill {
             vel: new Vec2(0, 0),
             life: 20, maxLife: 20, color: '#8A2BE2', size: 10
         });
+    }
+
+    createTrail(game: ShinobiClashGame, start: Vec2, end: Vec2, color: string) {
+        const dx = end.x - start.x;
+        const dy = end.y - start.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const steps = Math.floor(dist / 20); // One particle every 20 units
+
+        for (let i = 0; i < steps; i++) {
+            const t = i / steps;
+            game.particles.push({
+                id: game.nextEntityId++,
+                type: 'trail', // Generic type, renderer handles same as teleport usually
+                pos: new Vec2(start.x + dx * t, start.y + dy * t),
+                vel: new Vec2(0, 0),
+                life: 10, maxLife: 10, color: color, size: 5
+            });
+        }
     }
 }
