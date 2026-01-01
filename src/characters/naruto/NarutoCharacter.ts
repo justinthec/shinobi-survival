@@ -101,7 +101,7 @@ export class NarutoCharacter implements CharacterDefinition {
         if (opacity < 1) ctx.globalAlpha = 1; // Reset
     }
 
-    render(ctx: CanvasRenderingContext2D, state: PlayerState, time: number, isLocal: boolean, isOffCooldown: boolean) {
+    render(ctx: CanvasRenderingContext2D, state: PlayerState, time: number, isLocal: boolean, isOffCooldown: boolean, showHealthBar: boolean = true) {
         const { pos, angle, hp, maxHp, name } = state;
 
         ctx.save();
@@ -115,7 +115,7 @@ export class NarutoCharacter implements CharacterDefinition {
         ctx.restore();
 
         // Health Bar
-        if (maxHp > 0) {
+        if (maxHp > 0 && showHealthBar) {
              ctx.save();
              ctx.translate(pos.x, pos.y - 50);
              ctx.fillStyle = 'rgba(0,0,0,0.8)';

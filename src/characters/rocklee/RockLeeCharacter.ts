@@ -13,7 +13,7 @@ export class RockLeeCharacter implements CharacterDefinition {
         { key: "SPC", name: "Dash", description: "Quickly dash. Has multiple charges.", type: "active" }
     ];
 
-    render(ctx: CanvasRenderingContext2D, state: PlayerState, time: number, isLocal: boolean, isOffCooldown: boolean) {
+    render(ctx: CanvasRenderingContext2D, state: PlayerState, time: number, isLocal: boolean, isOffCooldown: boolean, showHealthBar: boolean = true) {
         const { pos, angle, hp, maxHp, name } = state;
 
         // Colors
@@ -154,7 +154,7 @@ export class RockLeeCharacter implements CharacterDefinition {
         ctx.restore();
 
         // Health Bar & Info
-        if (maxHp > 0) {
+        if (maxHp > 0 && showHealthBar) {
              ctx.save();
              ctx.translate(pos.x, pos.y - 50);
              ctx.fillStyle = 'rgba(0,0,0,0.8)';

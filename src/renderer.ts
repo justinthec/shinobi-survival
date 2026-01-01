@@ -401,23 +401,26 @@ export class Renderer {
 
         // --- Layout Constants ---
         const keys = CharacterRegistry.getKeys();
-        const gridX = 50;
+
+        // 1. Character Grid (Left)
+        const gridX = 40;
         const gridY = 120;
-        const cardW = 200;
+        const cardW = 180;
         const cardH = 80;
-        const gap = 20;
+        const gap = 15;
         const columns = 2;
+        const gridWidth = (cardW * columns) + (gap * (columns - 1));
 
-        // Right Panel (Details)
-        const detailsX = gridX + (cardW * columns) + gap * 2 + 50;
-        const detailsY = gridY;
-        const detailsW = 400;
-        const detailsH = 400;
-
-        // Lobby Status
-        const statusX = w - 350;
+        // 3. Lobby Status (Right) - Compact
+        const statusW = 200;
+        const statusX = w - statusW - 40;
         const statusY = 120;
 
+        // 2. Details Panel (Center) - Fills space between Grid and Status
+        const detailsX = gridX + gridWidth + 40;
+        const detailsW = (statusX - 40) - detailsX;
+        const detailsH = h - 200;
+        const detailsY = gridY;
 
         // --- Draw Character Grid ---
         ctx.textAlign = 'left';
@@ -462,7 +465,7 @@ export class Renderer {
             ctx.fillText(def.name.toUpperCase(), x + 15, y + 55);
 
             // Mini Icon Preview (Right side of card)
-            const iconX = x + cardW - 40;
+            const iconX = x + cardW - 30;
             const iconY = y + cardH / 2;
             ctx.save();
             // Tiny static preview
@@ -474,10 +477,10 @@ export class Renderer {
                 stats: { speed: 1, damageMult: 1, cooldownMult: 1 }, casting: 0
             };
             ctx.translate(iconX, iconY);
-            ctx.scale(0.6, 0.6); // Mini scale
+            ctx.scale(0.5, 0.5); // Mini scale
             ctx.translate(-iconX, -iconY);
 
-            if (def) def.render(ctx, dummyState, game.gameTime, false, true);
+            if (def) def.render(ctx, dummyState, game.gameTime, false, true, false);
             ctx.restore();
         });
 
@@ -496,7 +499,7 @@ export class Renderer {
 
             // Large Render
             const previewX = detailsX + detailsW / 2;
-            const previewY = detailsY + 100;
+            const previewY = detailsY + 80;
 
             ctx.save();
             const largeState: PlayerState = {
@@ -512,14 +515,13 @@ export class Renderer {
             ctx.scale(2.5, 2.5); // BIG
             ctx.translate(-previewX, -previewY);
 
-            // Use 0 time to prevent animation if "static" is desired, or gameTime if subtle idles exist
-            // User requested "minimal/static" for preview.
-            def.render(ctx, largeState, 0, false, true);
+            // Show preview without health bar
+            def.render(ctx, largeState, 0, false, true, false);
             ctx.restore();
 
 
             // Info Text
-            let textY = previewY + 80;
+            let textY = previewY + 60;
             ctx.textAlign = 'center';
 
             // Name
@@ -528,25 +530,11 @@ export class Renderer {
             ctx.fillText(def.name.toUpperCase(), detailsX + detailsW / 2, textY);
             textY += 30;
 
-            // Description
+            // Description (Wrapped)
             ctx.fillStyle = '#cbd5e0';
             ctx.font = 'italic 16px Arial';
-            // Simple word wrap
-            const words = def.description.split(' ');
-            let line = '';
-            words.forEach(word => {
-                const testLine = line + word + ' ';
-                const metrics = ctx.measureText(testLine);
-                if (metrics.width > detailsW - 40) {
-                    ctx.fillText(line, detailsX + detailsW / 2, textY);
-                    line = word + ' ';
-                    textY += 20;
-                } else {
-                    line = testLine;
-                }
-            });
-            ctx.fillText(line, detailsX + detailsW / 2, textY);
-            textY += 40;
+            const descHeight = this.wrapText(ctx, def.description, detailsX + detailsW / 2, textY, detailsW - 40, 20);
+            textY += descHeight + 20;
 
             // Abilities
             ctx.fillStyle = 'white';
@@ -560,12 +548,13 @@ export class Renderer {
                 ctx.font = 'bold 16px Arial';
                 ctx.fillText(`[${ab.key}] ${ab.name}`, detailsX + 40, textY);
 
-                // Ability Desc
+                // Ability Desc (Wrapped)
                 ctx.fillStyle = '#a0aec0';
                 ctx.font = '14px Arial';
-                ctx.fillText(ab.description, detailsX + 40, textY + 20);
+                // wrapText helper returns height used
+                const h = this.wrapText(ctx, ab.description, detailsX + 40, textY + 20, detailsW - 80, 18, 'left');
 
-                textY += 50;
+                textY += 20 + h + 15;
             });
 
         } else {
@@ -581,54 +570,48 @@ export class Renderer {
         }
 
 
-        // --- Lobby Status (Far Right) ---
+        // --- Lobby Status (Far Right - Compact) ---
         ctx.textAlign = 'left';
-        ctx.font = 'bold 24px Arial';
+        ctx.font = 'bold 20px Arial';
         ctx.fillStyle = '#e2e8f0';
-        ctx.fillText("LOBBY STATUS:", statusX, 100);
+        ctx.fillText("LOBBY:", statusX, gridY - 20);
 
         let sY = statusY;
         for (let id in game.players) {
             const p = game.players[id];
-            const charName = p.character ? p.character.toUpperCase() : "SELECTING...";
             const isReady = p.ready;
 
-            // Box
+            // Compact Box
             ctx.fillStyle = isReady ? 'rgba(72, 187, 120, 0.2)' : 'rgba(255, 255, 255, 0.05)';
             ctx.strokeStyle = isReady ? '#48bb78' : 'rgba(255, 255, 255, 0.1)';
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 1;
 
-            this.drawRoundedRectPath(ctx, statusX, sY, 300, 80, 10);
+            this.drawRoundedRectPath(ctx, statusX, sY, statusW, 50, 6);
             ctx.fill();
             ctx.stroke();
 
             // Player Name & Color
             ctx.fillStyle = getPlayerColor(p.id);
             ctx.beginPath();
-            ctx.arc(statusX + 30, sY + 40, 10, 0, Math.PI * 2);
+            ctx.arc(statusX + 20, sY + 25, 8, 0, Math.PI * 2);
             ctx.fill();
 
             ctx.fillStyle = 'white';
-            ctx.font = 'bold 20px Arial';
-            ctx.fillText(p.name, statusX + 50, sY + 30);
+            ctx.font = 'bold 16px Arial';
+            ctx.fillText(p.name, statusX + 35, sY + 30);
 
-            // Selection Status
-            ctx.fillStyle = '#cbd5e0';
-            ctx.font = '16px Arial';
-            ctx.fillText(charName, statusX + 50, sY + 55);
-
-            // Ready Badge
+            // Ready Icon
             if (isReady) {
                 ctx.fillStyle = '#48bb78';
-                ctx.font = 'bold 16px Arial';
-                ctx.fillText("READY", statusX + 230, sY + 45);
+                ctx.font = 'bold 12px Arial';
+                ctx.fillText("READY", statusX + statusW - 50, sY + 30);
             } else {
-                ctx.fillStyle = '#e53e3e'; // Red-ish
-                ctx.font = 'bold 16px Arial';
-                ctx.fillText("WAITING", statusX + 220, sY + 45);
+                ctx.fillStyle = '#e53e3e';
+                ctx.font = 'bold 12px Arial';
+                ctx.fillText("WAIT", statusX + statusW - 40, sY + 30);
             }
 
-            sY += 100;
+            sY += 60;
         }
 
         // Instructions Footer
@@ -636,6 +619,34 @@ export class Renderer {
         ctx.fillStyle = '#cbd5e0';
         ctx.font = '20px Arial';
         ctx.fillText("Press NUMBER keys to Select Character | Press SPACE to Toggle Ready", w / 2, h - 50);
+    }
+
+    wrapText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number, align: CanvasTextAlign = 'center'): number {
+        const words = text.split(' ');
+        let line = '';
+        let startY = y;
+
+        // Save current alignment
+        const originalAlign = ctx.textAlign;
+        ctx.textAlign = align;
+
+        for(let n = 0; n < words.length; n++) {
+          const testLine = line + words[n] + ' ';
+          const metrics = ctx.measureText(testLine);
+          const testWidth = metrics.width;
+          if (testWidth > maxWidth && n > 0) {
+            ctx.fillText(line, x, y);
+            line = words[n] + ' ';
+            y += lineHeight;
+          }
+          else {
+            line = testLine;
+          }
+        }
+        ctx.fillText(line, x, y);
+
+        ctx.textAlign = originalAlign; // Restore
+        return y - startY + lineHeight; // Return total height used
     }
 
     drawGameOver(game: ShinobiClashGame) {
