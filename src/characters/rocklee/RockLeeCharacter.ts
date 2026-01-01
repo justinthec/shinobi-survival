@@ -21,10 +21,8 @@ export class RockLeeCharacter implements CharacterDefinition {
             skin: '#ffe0bd',
             hair: '#111111', // Dark shiny black
             suit: '#32CD32', // Brighter green for anime look
-            vest: '#006400', // Dark Green flak jacket (if we want to add it, though Lee usually just has the jumpsuit)
-                             // Actually Lee usually doesn't wear the vest in Part 1/Shippuden default, just jumpsuit.
-                             // But let's stick to jumpsuit.
-            belt: '#d3d3d3', // Red belt/sash or bandages? Lee has a red sash usually.
+            vest: '#006400', // Dark Green
+            belt: '#d3d3d3',
             sash: '#FF0000',
             warmers: '#FF8C00', // Orange leg warmers
             bandages: '#eeeeee'
@@ -65,7 +63,8 @@ export class RockLeeCharacter implements CharacterDefinition {
             const duration = ROCK_LEE_CONSTANTS.LEAF_HURRICANE.DURATION;
             const progress = Math.min(1, Math.max(0, elapsed / duration));
             const totalSpins = 5;
-            effectiveAngle = (totalSpins * Math.PI * 2) * (progress * progress);
+            // Linear rotation for constant high speed, or ease-out to start fast
+            effectiveAngle = (totalSpins * Math.PI * 2) * progress;
         }
         ctx.rotate(effectiveAngle);
 
@@ -85,92 +84,48 @@ export class RockLeeCharacter implements CharacterDefinition {
         ctx.fillStyle = 'rgba(0,0,0,0.4)';
         ctx.beginPath(); ctx.ellipse(-2, 2, 16, 16, 0, 0, Math.PI * 2); ctx.fill();
 
-        // --- Body (Jumpsuit) ---
+        // --- Body (Top Down: Shoulders) ---
         ctx.fillStyle = c.suit;
-        // Torso
+        // Shoulders Oval
         ctx.beginPath();
-        ctx.ellipse(-5, 0, 14, 11, 0, 0, Math.PI * 2);
+        ctx.ellipse(-4, 0, 16, 12, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Red Sash
+        // Red Sash (Visible on waist/back)
         ctx.fillStyle = c.sash;
-        ctx.fillRect(-8, -4, 5, 8); // Belt around waist area (sideways in top down?)
-        // Let's draw a small rect across the back
         ctx.fillRect(-10, -5, 4, 10);
 
-        // --- Head ---
+        // --- Head (Top Down) ---
+        // Hair covers almost everything from top down
+
+        // Skin visible on sides of head or back neck? Minimal.
         ctx.fillStyle = c.skin;
         ctx.beginPath(); ctx.arc(2, 0, 11, 0, Math.PI * 2); ctx.fill();
 
-        // --- Hair (Bowl Cut) ---
+        // --- Hair (Bowl Cut - Top Down) ---
         ctx.fillStyle = c.hair;
         ctx.beginPath();
-        // Bowl shape: Rounded top, straight cut bottom/sides
-        ctx.arc(2, 0, 12, Math.PI * 0.8, Math.PI * 3.2); // Most of the head
-        ctx.closePath();
+        // Perfectly round bowl shape
+        ctx.arc(2, 0, 12, 0, Math.PI * 2);
         ctx.fill();
 
-        // Shiny reflection on hair
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        // Shiny ring on hair (Signature Lee)
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.ellipse(0, -6, 6, 2, Math.PI / 12, 0, Math.PI * 2);
-        ctx.fill();
-
-        // --- Eyebrows (Thick) ---
-        // Visible slightly peeking out or on top of skin area
-        ctx.strokeStyle = 'black';
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        // Right eyebrow
-        ctx.moveTo(8, -4);
-        ctx.quadraticCurveTo(10, -5, 12, -3);
-        // Left eyebrow
-        ctx.moveTo(8, 4);
-        ctx.quadraticCurveTo(10, 5, 12, 3);
+        ctx.arc(2, 0, 8, 0, Math.PI * 2);
         ctx.stroke();
 
-        // Eyes (Round)
-        ctx.fillStyle = 'white';
-        ctx.beginPath(); ctx.arc(10, -3, 2.5, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(10, 3, 2.5, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = 'black';
-        ctx.beginPath(); ctx.arc(11, -3, 1, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(11, 3, 1, 0, Math.PI*2); ctx.fill();
+        // NO FACE FEATURES (Top Down)
 
-
-        // --- Arms (Bandaged) ---
-        ctx.fillStyle = c.bandages; // Bandaged arms are iconic
+        // --- Arms (Bandaged, visible from sides) ---
+        ctx.fillStyle = c.bandages;
         CharacterRendererHelper.drawRoundedRectPath(ctx, 0, -17, 12, 5, 2); ctx.fill();
         CharacterRendererHelper.drawRoundedRectPath(ctx, 0, 12, 12, 5, 2); ctx.fill();
-        // Bandage lines
-        ctx.strokeStyle = '#dcdcdc';
-        ctx.lineWidth = 1;
-        [0, 4, 8].forEach(offset => {
-             ctx.beginPath(); ctx.moveTo(2 + offset, -17); ctx.lineTo(2 + offset, -12); ctx.stroke();
-             ctx.beginPath(); ctx.moveTo(2 + offset, 12); ctx.lineTo(2 + offset, 17); ctx.stroke();
-        });
-
-
-        // --- Leg Warmers (Orange) ---
-        ctx.fillStyle = c.warmers;
-        // Left Leg
-        CharacterRendererHelper.drawRoundedRectPath(ctx, -6, -14, 8, 6, 2); ctx.fill();
-        // Right Leg
-        CharacterRendererHelper.drawRoundedRectPath(ctx, -6, 8, 8, 6, 2); ctx.fill();
 
 
         // --- Animations ---
         if (isDynamicEntry) {
-            // Flying Kick Pose
-            // Override legs for kick
-            ctx.fillStyle = c.suit;
-            // Extended leg
-            ctx.fillStyle = c.warmers;
-            ctx.fillRect(8, -3, 15, 6);
-            // Foot
-            ctx.fillStyle = '#333'; // Sandal
-            ctx.beginPath(); ctx.arc(24, 0, 4, 0, Math.PI*2); ctx.fill();
-
             // Speed lines
              ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
              ctx.lineWidth = 2;
@@ -187,12 +142,13 @@ export class RockLeeCharacter implements CharacterDefinition {
              ctx.arc(0, 0, 35, 0, Math.PI*2);
              ctx.stroke();
 
-             // Leg extended
-             ctx.fillStyle = c.warmers;
-             ctx.save();
-             ctx.rotate(Math.PI / 2);
-             CharacterRendererHelper.drawRoundedRectPath(ctx, 0, -3, 20, 6, 2); ctx.fill();
-             ctx.restore();
+             // Leg extended logic omitted for pure top-down spin,
+             // or keep simplified leg hint?
+             // Let's add a green blur for the leg
+             ctx.fillStyle = `rgba(50, 205, 50, 0.5)`;
+             ctx.beginPath();
+             ctx.arc(0, 0, 25, 0, Math.PI * 2);
+             ctx.fill();
         }
 
         ctx.restore();

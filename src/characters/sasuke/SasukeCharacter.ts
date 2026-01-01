@@ -42,73 +42,57 @@ export class SasukeCharacter implements CharacterDefinition {
             ctx.beginPath(); ctx.ellipse(-2, 2, 16, 16, 0, 0, Math.PI * 2); ctx.fill();
         }
 
-        // --- Body ---
+        // --- Body (Shoulders Top Down) ---
         // Shirt
         ctx.fillStyle = c.main;
-        ctx.beginPath(); ctx.ellipse(-5, 0, 15, 12, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(-5, 0, 16, 12, 0, 0, Math.PI * 2); ctx.fill();
 
-        // High Collar (Distinctive Sasuke Trait)
+        // High Collar (Distinctive Sasuke Trait - Back of head)
         ctx.fillStyle = c.collar;
         ctx.beginPath();
-        // Behind head
-        ctx.arc(0, 0, 13, -Math.PI/2, Math.PI/2, true);
+        // Behind head - arc
+        ctx.arc(-2, 0, 14, -Math.PI/1.5, Math.PI/1.5, true);
         ctx.fill();
-        // Cut out center for head
-        ctx.globalCompositeOperation = 'destination-out';
-        ctx.beginPath(); ctx.arc(2, 0, 11, 0, Math.PI*2); ctx.fill();
-        ctx.globalCompositeOperation = 'source-over';
 
-        // Crest on back (Fan)
+        // Uchiha Crest (Back of shirt - Top Down view means behind head)
         if (!isGhost) {
-            ctx.fillStyle = '#ffffff';
-            ctx.beginPath(); ctx.arc(-8, -3, 3, 0, Math.PI*2); ctx.fill();
-            ctx.fillStyle = '#cc3333';
-            ctx.beginPath(); ctx.arc(-8, -3, 3, 0, Math.PI, false); ctx.fill(); // Top half red? Actually Uchiha fan is Top Red, Bottom White usually.
-            // Let's just do a small red circle with white border
-             ctx.fillStyle = '#cc0000';
-             ctx.beginPath(); ctx.arc(-8, 0, 2.5, 0, Math.PI*2); ctx.fill();
-             ctx.strokeStyle = 'white';
-             ctx.lineWidth = 1;
-             ctx.stroke();
+            ctx.fillStyle = '#cc0000'; // Red
+            ctx.beginPath(); ctx.arc(-11, 0, 3, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = 'white'; // White top/bottom split simplified
+            ctx.beginPath(); ctx.arc(-11, -1, 3, 0, Math.PI, true); ctx.fill();
         }
 
-        // --- Head ---
+        // --- Head (Top Down) ---
         ctx.fillStyle = c.skin;
         ctx.beginPath(); ctx.arc(2, 0, 11, 0, Math.PI * 2); ctx.fill();
 
-        // --- Hair (Duckbutt style - Spiky back, bangs side) ---
+        // --- Hair (Duckbutt style - Top Down) ---
+        // Spiky back, covering most of top
         ctx.fillStyle = c.hair;
         ctx.beginPath();
-        // Back spikes
-        ctx.moveTo(-6, -10);
-        ctx.lineTo(-14, -12); // Spike 1
-        ctx.lineTo(-10, -5);
-        ctx.lineTo(-16, 0);   // Spike 2 (Duck tail)
-        ctx.lineTo(-10, 5);
-        ctx.lineTo(-14, 12);  // Spike 3
-        ctx.lineTo(-6, 10);
+        // Main mass
+        ctx.arc(2, 0, 12, 0, Math.PI*2);
+
+        // Spiky tail at back
+        ctx.moveTo(-8, -6);
+        ctx.lineTo(-18, -4);
+        ctx.lineTo(-12, 0);
+        ctx.lineTo(-18, 4);
+        ctx.lineTo(-8, 6);
         ctx.fill();
 
-        // Side bangs / Top
-        ctx.beginPath();
-        ctx.arc(2, 0, 11.5, Math.PI * 0.7, Math.PI * 1.3, true); // Front face clear
-        ctx.fill();
-        // Bangs over sides
-        ctx.beginPath();
-        ctx.moveTo(6, -8); ctx.quadraticCurveTo(8, -4, 12, -4); ctx.lineTo(6, -11); ctx.fill();
-        ctx.beginPath(); ctx.moveTo(6, 8); ctx.quadraticCurveTo(8, 4, 12, 4); ctx.lineTo(6, 11); ctx.fill();
+        // NO FACIAL FEATURES
 
-
-        // --- Arms ---
-        ctx.fillStyle = c.skin; // Sleeves often rolled up or arm guards
+        // --- Arms (Visible from sides) ---
+        ctx.fillStyle = c.skin;
         // Arm Warmers/Guards (White/Bandages)
         ctx.fillStyle = '#eeeeee';
         CharacterRendererHelper.drawRoundedRectPath(ctx, 0, -17, 12, 5, 2); ctx.fill();
         CharacterRendererHelper.drawRoundedRectPath(ctx, 0, 12, 12, 5, 2); ctx.fill();
 
         ctx.fillStyle = c.main; // Shoulder/Sleeve
-        CharacterRendererHelper.drawRoundedRectPath(ctx, -2, -14, 6, 6, 2); ctx.fill();
-        CharacterRendererHelper.drawRoundedRectPath(ctx, -2, 8, 6, 6, 2); ctx.fill();
+        CharacterRendererHelper.drawRoundedRectPath(ctx, -2, -14, 8, 6, 2); ctx.fill();
+        CharacterRendererHelper.drawRoundedRectPath(ctx, -2, 8, 8, 6, 2); ctx.fill();
 
 
         if (isGhost) ctx.globalAlpha = 1;
