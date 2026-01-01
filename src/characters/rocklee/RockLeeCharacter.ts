@@ -1,4 +1,4 @@
-import { CharacterDefinition, AbilityDefinition } from "../../core/interfaces";
+import { CharacterDefinition } from "../../core/interfaces";
 import { PlayerState } from "../../types";
 import { CharacterRendererHelper } from "../../core/CharacterRendererHelper";
 import { ROCK_LEE_CONSTANTS } from "./constants";
@@ -7,11 +7,6 @@ import { getPlayerColor } from "../../core/utils";
 export class RockLeeCharacter implements CharacterDefinition {
     name = "Rock Lee";
     description = "A taijutsu specialist who relies on speed and physical attacks.";
-    abilities: AbilityDefinition[] = [
-        { key: "Q", name: "Leaf Hurricane", description: "Spinning kick that damages enemies around you.", type: "active" },
-        { key: "E", name: "Dynamic Entry", description: "Flying kick towards target. Stuns on impact.", type: "active" },
-        { key: "SPC", name: "Dash", description: "Quickly dash. Has multiple charges.", type: "active" }
-    ];
 
     render(ctx: CanvasRenderingContext2D, state: PlayerState, time: number, isLocal: boolean, isOffCooldown: boolean, showHealthBar: boolean = true) {
         const { pos, angle, hp, maxHp, name } = state;
@@ -126,6 +121,19 @@ export class RockLeeCharacter implements CharacterDefinition {
 
         // --- Animations ---
         if (isDynamicEntry) {
+            // Extended Leg for Kick
+            ctx.save();
+            ctx.fillStyle = c.suit;
+            // Draw leg extending out forward (right side in model space, which is facing 0 deg? No, 0 is right)
+            // Model space: facing 0 radians (Right). So leg should extend right.
+            CharacterRendererHelper.drawRoundedRectPath(ctx, 10, -4, 25, 8, 4);
+            ctx.fill();
+
+            // Shoe/Foot
+            ctx.fillStyle = c.warmers; // Or dark shoe
+            ctx.fillRect(30, -4, 6, 8);
+            ctx.restore();
+
             // Speed lines
              ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
              ctx.lineWidth = 2;
@@ -136,19 +144,19 @@ export class RockLeeCharacter implements CharacterDefinition {
 
         } else if (isQActive) {
              // Q Spin Kick Visual
+
+             // Extended Leg whirling around
+             ctx.save();
+             ctx.fillStyle = c.suit;
+             CharacterRendererHelper.drawRoundedRectPath(ctx, 12, -4, 20, 8, 4);
+             ctx.fill();
+             ctx.restore();
+
              ctx.strokeStyle = 'rgba(200, 255, 200, 0.5)'; // Wind swipe
              ctx.lineWidth = 4;
              ctx.beginPath();
              ctx.arc(0, 0, 35, 0, Math.PI*2);
              ctx.stroke();
-
-             // Leg extended logic omitted for pure top-down spin,
-             // or keep simplified leg hint?
-             // Let's add a green blur for the leg
-             ctx.fillStyle = `rgba(50, 205, 50, 0.5)`;
-             ctx.beginPath();
-             ctx.arc(0, 0, 25, 0, Math.PI * 2);
-             ctx.fill();
         }
 
         ctx.restore();

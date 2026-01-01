@@ -5,12 +5,9 @@ import { Skill } from "../../../skills/Skill";
 import { ROCK_LEE_CONSTANTS } from "../constants";
 
 export class LeafHurricaneSkill implements Skill {
-    id = "leaf_hurricane";
-    type = "active";
-    name = "Leaf Hurricane";
-    description = "Spinning kick that damages enemies around you. Press Q to cancel early.";
-    icon = "leaf_hurricane";
-    cooldown = ROCK_LEE_CONSTANTS.LEAF_HURRICANE.COOLDOWN;
+    readonly name = "Leaf Hurricane";
+    readonly description = "Spinning kick that damages enemies around you.";
+    readonly cooldown = ROCK_LEE_CONSTANTS.LEAF_HURRICANE.COOLDOWN;
 
     cast(game: ShinobiClashGame, p: PlayerState, input: DefaultInput, targetPos: Vec2) {
         // Toggle/Cancel Logic

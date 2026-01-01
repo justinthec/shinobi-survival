@@ -15,4 +15,9 @@ export class SkillRegistry {
         if (!character) return null;
         return this.skills[character]?.[key] || null;
     }
+
+    static getSkillsForCharacter(character: string): { key: string, skill: Skill }[] {
+        if (!this.skills[character]) return [];
+        return Object.entries(this.skills[character]).map(([key, skill]) => ({ key: key.toUpperCase(), skill }));
+    }
 }

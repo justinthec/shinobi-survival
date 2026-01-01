@@ -4,6 +4,8 @@ import { PlayerState } from "../../types";
 import { Skill } from "../Skill";
 
 export class DashSkill implements Skill {
+    readonly name = "Dash";
+    readonly description = "Quickly dash in movement direction.";
     readonly cooldown = 360;
 
     cast(game: ShinobiClashGame, p: PlayerState, input: DefaultInput, targetPos: Vec2) {

@@ -1,4 +1,4 @@
-import { CharacterDefinition, AbilityDefinition } from "../../core/interfaces";
+import { CharacterDefinition } from "../../core/interfaces";
 import { PlayerState } from "../../types";
 import { CharacterRendererHelper } from "../../core/CharacterRendererHelper";
 import { getPlayerColor } from "../../core/utils";
@@ -7,11 +7,6 @@ import { ShinobiClashGame } from "../../multiplayer-game";
 export class SasukeCharacter implements CharacterDefinition {
     name = "Sasuke";
     description = "A skilled ninja specializing in lightning speed and precision.";
-    abilities: AbilityDefinition[] = [
-        { key: "Q", name: "Fireball Jutsu", description: "Breather fire in a cone.", type: "active" },
-        { key: "E", name: "Chidori / Teleport", description: "Teleport to target location. If enemy hit, damage them.", type: "active" },
-        { key: "SPC", name: "Dash", description: "Quickly dash in movement direction.", type: "active" }
-    ];
 
     static drawModel(ctx: CanvasRenderingContext2D, opacity: number = 1, isGhost: boolean = false) {
         // Colors

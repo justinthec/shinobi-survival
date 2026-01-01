@@ -5,12 +5,9 @@ import { Skill } from "../../../skills/Skill";
 import { ROCK_LEE_CONSTANTS } from "../constants";
 
 export class DynamicEntrySkill implements Skill {
-    id = "dynamic_entry";
-    type = "active";
-    name = "Dynamic Entry";
-    description = "Dive towards cursor location.";
-    icon = "dynamic_entry";
-    cooldown = ROCK_LEE_CONSTANTS.DYNAMIC_ENTRY.COOLDOWN;
+    readonly name = "Dynamic Entry";
+    readonly description = "Flying kick towards target. Stuns on impact.";
+    readonly cooldown = ROCK_LEE_CONSTANTS.DYNAMIC_ENTRY.COOLDOWN;
 
     cast(game: ShinobiClashGame, p: PlayerState, input: DefaultInput, targetPos: Vec2) {
         if (p.cooldowns.e > 0) return;

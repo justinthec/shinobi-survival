@@ -4,7 +4,7 @@ import { initSprites, SPRITES } from "./sprites";
 import { SkillRegistry } from "./skills/SkillRegistry";
 import { CharacterRegistry, ProjectileRegistry } from "./core/registries";
 import { CharacterRendererHelper } from "./core/CharacterRendererHelper";
-import { getPlayerColor } from "./core/utils";
+import { getPlayerColor, wrapText } from "./core/utils";
 import { CharacterDefinition } from "./core/interfaces";
 import { Vec2 } from "netplayjs";
 
@@ -488,6 +488,7 @@ export class Renderer {
         // --- Draw Selected Details Panel ---
         if (selectedDef) {
             const def = selectedDef;
+            const skills = SkillRegistry.getSkillsForCharacter(selectedChar as CharacterType);
 
             // Panel BG
             ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
@@ -533,7 +534,7 @@ export class Renderer {
             // Description (Wrapped)
             ctx.fillStyle = '#cbd5e0';
             ctx.font = 'italic 16px Arial';
-            const descHeight = this.wrapText(ctx, def.description, detailsX + detailsW / 2, textY, detailsW - 40, 20);
+            const descHeight = wrapText(ctx, def.description, detailsX + detailsW / 2, textY, detailsW - 40, 20);
             textY += descHeight + 20;
 
             // Abilities
@@ -543,16 +544,16 @@ export class Renderer {
             ctx.fillText("ABILITIES:", detailsX + 30, textY);
             textY += 30;
 
-            def.abilities.forEach(ab => {
+            skills.forEach(({ key, skill }) => {
                 ctx.fillStyle = '#f6e05e'; // Key
                 ctx.font = 'bold 16px Arial';
-                ctx.fillText(`[${ab.key}] ${ab.name}`, detailsX + 40, textY);
+                ctx.fillText(`[${key}] ${skill.name}`, detailsX + 40, textY);
 
                 // Ability Desc (Wrapped)
                 ctx.fillStyle = '#a0aec0';
                 ctx.font = '14px Arial';
                 // wrapText helper returns height used
-                const h = this.wrapText(ctx, ab.description, detailsX + 40, textY + 20, detailsW - 80, 18, 'left');
+                const h = wrapText(ctx, skill.description, detailsX + 40, textY + 20, detailsW - 80, 18, 'left');
 
                 textY += 20 + h + 15;
             });
@@ -616,7 +617,7 @@ export class Renderer {
             } else {
                 ctx.fillStyle = '#e53e3e';
                 ctx.font = 'bold 12px Arial';
-                ctx.fillText("WAIT", statusX + statusW - 40, sY + 30);
+                ctx.fillText("WAITING", statusX + statusW - 60, sY + 30);
             }
 
             sY += 60;
@@ -627,34 +628,6 @@ export class Renderer {
         ctx.fillStyle = '#cbd5e0';
         ctx.font = '20px Arial';
         ctx.fillText("Press NUMBER keys to Select Character | Press SPACE to Toggle Ready", w / 2, h - 50);
-    }
-
-    wrapText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number, align: CanvasTextAlign = 'center'): number {
-        const words = text.split(' ');
-        let line = '';
-        let startY = y;
-
-        // Save current alignment
-        const originalAlign = ctx.textAlign;
-        ctx.textAlign = align;
-
-        for(let n = 0; n < words.length; n++) {
-          const testLine = line + words[n] + ' ';
-          const metrics = ctx.measureText(testLine);
-          const testWidth = metrics.width;
-          if (testWidth > maxWidth && n > 0) {
-            ctx.fillText(line, x, y);
-            line = words[n] + ' ';
-            y += lineHeight;
-          }
-          else {
-            line = testLine;
-          }
-        }
-        ctx.fillText(line, x, y);
-
-        ctx.textAlign = originalAlign; // Restore
-        return y - startY + lineHeight; // Return total height used
     }
 
     drawGameOver(game: ShinobiClashGame) {

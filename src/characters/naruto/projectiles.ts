@@ -5,6 +5,7 @@ import { RasenshurikenSkill } from "./skills/RasenshurikenSkill";
 import { CombatManager } from "../../managers/combat-manager";
 import { CharacterRendererHelper } from "../../core/CharacterRendererHelper";
 import { NarutoCharacter } from "./NarutoCharacter";
+import { getPlayerColor } from "../../core/utils";
 
 export class RasenshurikenProjectile implements ProjectileDefinition {
     update(game: ShinobiClashGame, proj: ProjectileState) {
@@ -142,6 +143,7 @@ export class CloneStrikeProjectile implements ProjectileDefinition {
         const hp = proj.hp || 0;
         const maxHp = proj.maxHp || 1;
         const name = "Clone";
+        const color = getPlayerColor(proj.ownerId);
 
         ctx.save();
         ctx.translate(x, y);
@@ -149,7 +151,8 @@ export class CloneStrikeProjectile implements ProjectileDefinition {
         ctx.rotate(angle);
 
         // Use the static drawModel from NarutoCharacter for consistency
-        NarutoCharacter.drawModel(ctx, opacity, proj.actionState);
+        // Pass owner color as override for the clone
+        NarutoCharacter.drawModel(ctx, opacity, proj.actionState, color);
 
         ctx.restore();
 

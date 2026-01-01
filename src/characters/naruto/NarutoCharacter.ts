@@ -1,4 +1,4 @@
-import { CharacterDefinition, AbilityDefinition } from "../../core/interfaces";
+import { CharacterDefinition } from "../../core/interfaces";
 import { PlayerState } from "../../types";
 import { CharacterRendererHelper } from "../../core/CharacterRendererHelper";
 import { getPlayerColor } from "../../core/utils";
@@ -6,18 +6,13 @@ import { getPlayerColor } from "../../core/utils";
 export class NarutoCharacter implements CharacterDefinition {
     name = "Naruto";
     description = "A well-rounded ninja with balanced offense and mobility.";
-    abilities: AbilityDefinition[] = [
-        { key: "Q", name: "Rasenshuriken", description: "Throw a wind-enhanced shuriken that expands on impact.", type: "active" },
-        { key: "E", name: "Clone Strike", description: "Dash forward. If you hit an enemy, spawn clones to strike them.", type: "active" },
-        { key: "SPC", name: "Dash", description: "Quickly dash in movement direction.", type: "active" }
-    ];
 
-    static drawModel(ctx: CanvasRenderingContext2D, opacity: number = 1, actionState?: string) {
+    static drawModel(ctx: CanvasRenderingContext2D, opacity: number = 1, actionState?: string, overrideColor?: string) {
         // Colors
         const c = {
             skin: '#ffcba4',
             hair: '#ffdd00',
-            main: '#ff6600', // Orange Jumpsuit
+            main: overrideColor || '#ff6600', // Orange Jumpsuit or Override
             sub: '#111111',  // Black/Dark Grey undershirt
             acc: '#0055aa',  // Blue Headband/Acc
             metal: '#dcdcdc',
