@@ -405,14 +405,14 @@ export class Renderer {
         // 1. Character Grid (Left)
         const gridX = 40;
         const gridY = 120;
-        const cardW = 180;
+        const cardW = 160;
         const cardH = 80;
         const gap = 15;
         const columns = 2;
         const gridWidth = (cardW * columns) + (gap * (columns - 1));
 
-        // 3. Lobby Status (Right) - Compact
-        const statusW = 200;
+        // 3. Lobby Status (Right) - Expanded
+        const statusW = 300;
         const statusX = w - statusW - 40;
         const statusY = 120;
 
@@ -521,7 +521,7 @@ export class Renderer {
 
 
             // Info Text
-            let textY = previewY + 60;
+            let textY = previewY + 100;
             ctx.textAlign = 'center';
 
             // Name
@@ -580,6 +580,7 @@ export class Renderer {
         for (let id in game.players) {
             const p = game.players[id];
             const isReady = p.ready;
+            const charName = p.character ? p.character.toUpperCase() : "...";
 
             // Compact Box
             ctx.fillStyle = isReady ? 'rgba(72, 187, 120, 0.2)' : 'rgba(255, 255, 255, 0.05)';
@@ -599,6 +600,13 @@ export class Renderer {
             ctx.fillStyle = 'white';
             ctx.font = 'bold 16px Arial';
             ctx.fillText(p.name, statusX + 35, sY + 30);
+
+            // Character Name (Right aligned ish)
+            ctx.fillStyle = '#cbd5e0';
+            ctx.font = 'italic 14px Arial';
+            ctx.textAlign = 'right';
+            ctx.fillText(charName, statusX + statusW - 70, sY + 30);
+            ctx.textAlign = 'left';
 
             // Ready Icon
             if (isReady) {
