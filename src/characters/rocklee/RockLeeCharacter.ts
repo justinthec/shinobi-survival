@@ -19,17 +19,24 @@ export class RockLeeCharacter implements CharacterDefinition {
         // Colors
         const c = {
             skin: '#ffe0bd',
-            hair: 'black',
-            suit: '#008000', // Green
-            vest: '#006400', // Darker Green
-            warmers: 'orange'
+            hair: '#111111', // Dark shiny black
+            suit: '#32CD32', // Brighter green for anime look
+            vest: '#006400', // Dark Green flak jacket (if we want to add it, though Lee usually just has the jumpsuit)
+                             // Actually Lee usually doesn't wear the vest in Part 1/Shippuden default, just jumpsuit.
+                             // But let's stick to jumpsuit.
+            belt: '#d3d3d3', // Red belt/sash or bandages? Lee has a red sash usually.
+            sash: '#FF0000',
+            warmers: '#FF8C00', // Orange leg warmers
+            bandages: '#eeeeee'
         };
 
         const activeSkill = state.skillStates['active_dash_skill'];
         const isDynamicEntry = state.dash.active && activeSkill && activeSkill.type === 'dynamic_entry';
+        const qState = state.skillStates['leaf_hurricane'];
+        const isQActive = qState && qState.active;
 
         // Dynamic Entry Target Indicator
-        if (isDynamicEntry && state.skillStates['dynamic_entry'] && state.skillStates['dynamic_entry'].target) {
+        if (isLocal && isDynamicEntry && state.skillStates['dynamic_entry'] && state.skillStates['dynamic_entry'].target) {
             const target = state.skillStates['dynamic_entry'].target;
             const dx = target.x - pos.x;
             const dy = target.y - pos.y;
@@ -51,30 +58,15 @@ export class RockLeeCharacter implements CharacterDefinition {
         ctx.translate(pos.x, pos.y);
         ctx.scale(1.25, 1.25);
 
-        // Q Animation: Spin Logic
-        // Check active state
-        const qState = state.skillStates['leaf_hurricane'];
-        const isQActive = qState && qState.active;
-
+        // Rotation Logic
         let effectiveAngle = angle;
-
         if (isQActive) {
-            // Calculate progress based on stored start time
-            // Assuming current 'time' passed to render matches gameTime roughly
-            // However, render 'time' is usually frame ticks or timestamp.
-            // The renderer receives `this.gameTime` from `ShinobiClashGame.draw`.
-            // So we can use qState.startTime.
-
             const elapsed = time - (qState.startTime || time);
             const duration = ROCK_LEE_CONSTANTS.LEAF_HURRICANE.DURATION;
             const progress = Math.min(1, Math.max(0, elapsed / duration));
-
-            // Quadratic Rotation
             const totalSpins = 5;
-            const rotation = (totalSpins * Math.PI * 2) * (progress * progress);
-            effectiveAngle = rotation;
+            effectiveAngle = (totalSpins * Math.PI * 2) * (progress * progress);
         }
-
         ctx.rotate(effectiveAngle);
 
         // Dynamic Entry Aura
@@ -84,7 +76,7 @@ export class RockLeeCharacter implements CharacterDefinition {
              ctx.shadowBlur = 20;
              ctx.fillStyle = "rgba(0, 255, 0, 0.3)";
              ctx.beginPath();
-             ctx.ellipse(0, 0, 20, 15, 0, 0, Math.PI * 2);
+             ctx.ellipse(0, 0, 22, 18, 0, 0, Math.PI * 2);
              ctx.fill();
              ctx.restore();
         }
@@ -93,92 +85,119 @@ export class RockLeeCharacter implements CharacterDefinition {
         ctx.fillStyle = 'rgba(0,0,0,0.4)';
         ctx.beginPath(); ctx.ellipse(-2, 2, 16, 16, 0, 0, Math.PI * 2); ctx.fill();
 
-        // Body
+        // --- Body (Jumpsuit) ---
         ctx.fillStyle = c.suit;
-        ctx.beginPath(); ctx.ellipse(-5, 0, 16, 12, 0, 0, Math.PI * 2); ctx.fill();
+        // Torso
+        ctx.beginPath();
+        ctx.ellipse(-5, 0, 14, 11, 0, 0, Math.PI * 2);
+        ctx.fill();
 
-        // Vest
-        ctx.fillStyle = c.vest;
-        ctx.beginPath(); ctx.arc(-5, 0, 8, 0, Math.PI * 2); ctx.fill();
+        // Red Sash
+        ctx.fillStyle = c.sash;
+        ctx.fillRect(-8, -4, 5, 8); // Belt around waist area (sideways in top down?)
+        // Let's draw a small rect across the back
+        ctx.fillRect(-10, -5, 4, 10);
 
-        // Head
+        // --- Head ---
         ctx.fillStyle = c.skin;
         ctx.beginPath(); ctx.arc(2, 0, 11, 0, Math.PI * 2); ctx.fill();
 
-        // Hair
+        // --- Hair (Bowl Cut) ---
         ctx.fillStyle = c.hair;
         ctx.beginPath();
-        ctx.arc(2, 0, 12, Math.PI, Math.PI * 2);
-        ctx.lineTo(14, 0);
-        ctx.lineTo(14, 5);
-        ctx.lineTo(-10, 5);
-        ctx.lineTo(-10, 0);
+        // Bowl shape: Rounded top, straight cut bottom/sides
+        ctx.arc(2, 0, 12, Math.PI * 0.8, Math.PI * 3.2); // Most of the head
+        ctx.closePath();
         ctx.fill();
 
-        // Sheen
-        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        // Shiny reflection on hair
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
         ctx.beginPath();
-        ctx.ellipse(2, -6, 6, 2, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, -6, 6, 2, Math.PI / 12, 0, Math.PI * 2);
         ctx.fill();
 
-        // Arms
-        ctx.fillStyle = c.suit;
-        CharacterRendererHelper.drawRoundedRectPath(ctx, 0, -16, 12, 6, 3); ctx.fill();
-        CharacterRendererHelper.drawRoundedRectPath(ctx, 0, 10, 12, 6, 3); ctx.fill();
+        // --- Eyebrows (Thick) ---
+        // Visible slightly peeking out or on top of skin area
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        // Right eyebrow
+        ctx.moveTo(8, -4);
+        ctx.quadraticCurveTo(10, -5, 12, -3);
+        // Left eyebrow
+        ctx.moveTo(8, 4);
+        ctx.quadraticCurveTo(10, 5, 12, 3);
+        ctx.stroke();
 
-        // Leg Warmers
+        // Eyes (Round)
+        ctx.fillStyle = 'white';
+        ctx.beginPath(); ctx.arc(10, -3, 2.5, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(10, 3, 2.5, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = 'black';
+        ctx.beginPath(); ctx.arc(11, -3, 1, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(11, 3, 1, 0, Math.PI*2); ctx.fill();
+
+
+        // --- Arms (Bandaged) ---
+        ctx.fillStyle = c.bandages; // Bandaged arms are iconic
+        CharacterRendererHelper.drawRoundedRectPath(ctx, 0, -17, 12, 5, 2); ctx.fill();
+        CharacterRendererHelper.drawRoundedRectPath(ctx, 0, 12, 12, 5, 2); ctx.fill();
+        // Bandage lines
+        ctx.strokeStyle = '#dcdcdc';
+        ctx.lineWidth = 1;
+        [0, 4, 8].forEach(offset => {
+             ctx.beginPath(); ctx.moveTo(2 + offset, -17); ctx.lineTo(2 + offset, -12); ctx.stroke();
+             ctx.beginPath(); ctx.moveTo(2 + offset, 12); ctx.lineTo(2 + offset, 17); ctx.stroke();
+        });
+
+
+        // --- Leg Warmers (Orange) ---
         ctx.fillStyle = c.warmers;
-        ctx.fillRect(5, 5, 8, 8);
-        ctx.fillRect(5, -13, 8, 8);
+        // Left Leg
+        CharacterRendererHelper.drawRoundedRectPath(ctx, -6, -14, 8, 6, 2); ctx.fill();
+        // Right Leg
+        CharacterRendererHelper.drawRoundedRectPath(ctx, -6, 8, 8, 6, 2); ctx.fill();
 
-        // Animations
+
+        // --- Animations ---
         if (isDynamicEntry) {
-            // Flying Kick
-            ctx.strokeStyle = c.warmers;
-            ctx.lineWidth = 8;
-            ctx.beginPath();
-            ctx.moveTo(10, 0);
-            ctx.lineTo(35, 0);
-            ctx.stroke();
+            // Flying Kick Pose
+            // Override legs for kick
+            ctx.fillStyle = c.suit;
+            // Extended leg
+            ctx.fillStyle = c.warmers;
+            ctx.fillRect(8, -3, 15, 6);
+            // Foot
+            ctx.fillStyle = '#333'; // Sandal
+            ctx.beginPath(); ctx.arc(24, 0, 4, 0, Math.PI*2); ctx.fill();
 
             // Speed lines
-             ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+             ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
              ctx.lineWidth = 2;
              ctx.beginPath();
-             ctx.moveTo(-20, -10);
-             ctx.lineTo(-40, -10);
-             ctx.moveTo(-20, 10);
-             ctx.lineTo(-40, 10);
+             ctx.moveTo(-10, -15); ctx.lineTo(-40, -15);
+             ctx.moveTo(-10, 15); ctx.lineTo(-40, 15);
              ctx.stroke();
 
         } else if (isQActive) {
-             // Q Spin Kick
-             ctx.strokeStyle = c.warmers;
-             ctx.lineWidth = 8;
-             // Extended leg - Match radius 80
+             // Q Spin Kick Visual
+             ctx.strokeStyle = 'rgba(200, 255, 200, 0.5)'; // Wind swipe
+             ctx.lineWidth = 4;
              ctx.beginPath();
-             ctx.moveTo(0,0);
-             ctx.lineTo(60, 0);
+             ctx.arc(0, 0, 35, 0, Math.PI*2);
              ctx.stroke();
 
-             // Foot
+             // Leg extended
              ctx.fillStyle = c.warmers;
-             ctx.beginPath();
-             ctx.arc(60, 0, 5, 0, Math.PI*2);
-             ctx.fill();
-
-             // Other leg tucked
-             ctx.strokeStyle = c.warmers;
-             ctx.lineWidth = 6;
-             ctx.beginPath();
-             ctx.moveTo(0,0);
-             ctx.lineTo(-10, 10);
-             ctx.stroke();
+             ctx.save();
+             ctx.rotate(Math.PI / 2);
+             CharacterRendererHelper.drawRoundedRectPath(ctx, 0, -3, 20, 6, 2); ctx.fill();
+             ctx.restore();
         }
 
         ctx.restore();
 
-        // Health Bar
+        // Health Bar & Info
         if (maxHp > 0) {
              ctx.save();
              ctx.translate(pos.x, pos.y - 50);
@@ -188,31 +207,27 @@ export class RockLeeCharacter implements CharacterDefinition {
              ctx.fillStyle = pct > 0.5 ? '#48bb78' : '#f56565';
              CharacterRendererHelper.drawRoundedRectPath(ctx, -18, 1, 36 * pct, 4, 2); ctx.fill();
 
-             ctx.fillStyle = 'white'; // Rock Lee has white name in helper if I recall, but let's check.
-                                      // Actually helper default is white. Rock Lee logic used white explicitly too.
-                                      // Wait, I should probably use getPlayerColor to match standard style.
-
              ctx.font = 'bold 12px Arial';
              ctx.textAlign = 'center';
-
              ctx.strokeStyle = 'black';
              ctx.lineWidth = 3;
              ctx.strokeText(name, 0, -5);
-
-             ctx.fillStyle = getPlayerColor(state.id); // Updated to use player color
+             ctx.fillStyle = getPlayerColor(state.id);
              ctx.fillText(name, 0, -5);
 
              // Dash Charges
              if (state.skillStates['rocklee_dash']) {
                  const charges = state.skillStates['rocklee_dash'].charges;
-                 ctx.fillStyle = 'cyan';
+                 ctx.fillStyle = '#00ff00'; // Green LED style
                  for(let i=0; i<charges; i++) {
                      ctx.beginPath();
                      ctx.arc(-10 + (i*20), 10, 3, 0, Math.PI*2);
                      ctx.fill();
+                     ctx.strokeStyle = 'white';
+                     ctx.lineWidth = 1;
+                     ctx.stroke();
                  }
              }
-
              ctx.restore();
         }
     }

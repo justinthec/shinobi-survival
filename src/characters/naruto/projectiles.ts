@@ -4,6 +4,7 @@ import { ProjectileState, PLAYER_RADIUS } from "../../types";
 import { RasenshurikenSkill } from "./skills/RasenshurikenSkill";
 import { CombatManager } from "../../managers/combat-manager";
 import { CharacterRendererHelper } from "../../core/CharacterRendererHelper";
+import { NarutoCharacter } from "./NarutoCharacter";
 
 export class RasenshurikenProjectile implements ProjectileDefinition {
     update(game: ShinobiClashGame, proj: ProjectileState) {
@@ -134,10 +135,6 @@ export class CloneStrikeProjectile implements ProjectileDefinition {
     }
 
     render(ctx: CanvasRenderingContext2D, proj: ProjectileState, time: number) {
-        // Render Clone using Naruto's specific logic (simplified)
-        // Replicating Naruto's render here because we want to decouple from drawNinjaBody
-        // and clones are specific to Naruto.
-
         const x = proj.pos.x;
         const y = proj.pos.y;
         const angle = proj.angle;
@@ -151,46 +148,8 @@ export class CloneStrikeProjectile implements ProjectileDefinition {
         ctx.scale(1.25, 1.25);
         ctx.rotate(angle);
 
-        ctx.globalAlpha = opacity;
-
-        // Colors (Naruto)
-        const c = { skin: '#ffcba4', hair: '#ffdd00', main: '#ff6600', sub: '#1a1a1a', acc: '#0055aa' };
-
-        // Shadow
-        ctx.fillStyle = 'rgba(0,0,0,0.4)';
-        ctx.beginPath(); ctx.ellipse(-2, 2, 16, 16, 0, 0, Math.PI * 2); ctx.fill();
-
-        // Body
-        ctx.fillStyle = c.main;
-        ctx.beginPath(); ctx.ellipse(-5, 0, 16, 12, 0, 0, Math.PI * 2); ctx.fill();
-
-        // Punch Arm
-        if (proj.actionState === 'punch') {
-            ctx.fillStyle = c.main;
-            CharacterRendererHelper.drawRoundedRectPath(ctx, 10, -3, 15, 6, 3);
-            ctx.fill();
-        }
-
-        // Head
-        ctx.fillStyle = c.skin;
-        ctx.beginPath(); ctx.arc(2, 0, 11, 0, Math.PI * 2); ctx.fill();
-
-        // Hair
-        ctx.fillStyle = c.hair;
-        ctx.beginPath();
-        for (let i = 0; i < 14; i++) {
-            const a = (i / 14) * Math.PI * 2;
-            const len = 14;
-            const cx = 2 + Math.cos(a) * len;
-            const cy = Math.sin(a) * len;
-            if (i === 0) ctx.moveTo(cx, cy); else ctx.lineTo(cx, cy);
-        }
-        ctx.fill();
-
-        // Arms
-        ctx.fillStyle = c.main;
-        CharacterRendererHelper.drawRoundedRectPath(ctx, 0, -16, 12, 6, 3); ctx.fill();
-        CharacterRendererHelper.drawRoundedRectPath(ctx, 0, 10, 12, 6, 3); ctx.fill();
+        // Use the static drawModel from NarutoCharacter for consistency
+        NarutoCharacter.drawModel(ctx, opacity, proj.actionState);
 
         ctx.restore();
 
