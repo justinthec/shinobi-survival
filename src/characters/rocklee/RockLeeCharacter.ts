@@ -123,15 +123,24 @@ export class RockLeeCharacter implements CharacterDefinition {
         if (isDynamicEntry) {
             // Extended Leg for Kick
             ctx.save();
+            // Draw leg extending out forward (right side in model space), but offset to the side (Right Leg)
+            const legOffsetY = 5; // Right side
+
+            // Green Leg
             ctx.fillStyle = c.suit;
-            // Draw leg extending out forward (right side in model space, which is facing 0 deg? No, 0 is right)
-            // Model space: facing 0 radians (Right). So leg should extend right.
-            CharacterRendererHelper.drawRoundedRectPath(ctx, 10, -4, 25, 8, 4);
+            CharacterRendererHelper.drawRoundedRectPath(ctx, 8, legOffsetY - 4, 20, 8, 3);
+            ctx.fill();
+
+            // Orange Warmer
+            ctx.fillStyle = c.warmers;
+            CharacterRendererHelper.drawRoundedRectPath(ctx, 25, legOffsetY - 4, 8, 8, 2);
             ctx.fill();
 
             // Shoe/Foot
-            ctx.fillStyle = c.warmers; // Or dark shoe
-            ctx.fillRect(30, -4, 6, 8);
+            ctx.fillStyle = '#1a202c'; // Dark Blue/Black Shoe
+            CharacterRendererHelper.drawRoundedRectPath(ctx, 33, legOffsetY - 3, 6, 6, 2);
+            ctx.fill();
+
             ctx.restore();
 
             // Speed lines
@@ -145,11 +154,25 @@ export class RockLeeCharacter implements CharacterDefinition {
         } else if (isQActive) {
              // Q Spin Kick Visual
 
-             // Extended Leg whirling around
+             // Extended Leg whirling around (Right Leg offset)
              ctx.save();
+             const legOffsetY = 5;
+
+             // Green Leg
              ctx.fillStyle = c.suit;
-             CharacterRendererHelper.drawRoundedRectPath(ctx, 12, -4, 20, 8, 4);
+             CharacterRendererHelper.drawRoundedRectPath(ctx, 10, legOffsetY - 4, 18, 8, 3);
              ctx.fill();
+
+             // Orange Warmer
+             ctx.fillStyle = c.warmers;
+             CharacterRendererHelper.drawRoundedRectPath(ctx, 28, legOffsetY - 4, 8, 8, 2);
+             ctx.fill();
+
+             // Shoe
+             ctx.fillStyle = '#1a202c';
+             CharacterRendererHelper.drawRoundedRectPath(ctx, 36, legOffsetY - 3, 5, 6, 2);
+             ctx.fill();
+
              ctx.restore();
 
              ctx.strokeStyle = 'rgba(200, 255, 200, 0.5)'; // Wind swipe
