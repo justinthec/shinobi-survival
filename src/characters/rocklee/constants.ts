@@ -12,7 +12,8 @@ export const ROCK_LEE_CONSTANTS = {
     // E: Dynamic Entry
     DYNAMIC_ENTRY: {
         COOLDOWN: 10 * 60,
-        SPEED: 25,
+        SPEED: 18, // Slower speed (was 25)
+        WINDUP: 15, // Frames
     },
 
     // Space: Dash

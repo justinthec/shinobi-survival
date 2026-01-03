@@ -1,130 +1,169 @@
-import { ShinobiClashGame } from "../../multiplayer-game";
-import { ProjectileState, PlayerState } from "../../types";
 import { ProjectileDefinition } from "../../core/interfaces";
-import { CombatManager } from "../../managers/combat-manager";
+import { ShinobiClashGame } from "../../multiplayer-game";
+import { ProjectileState, PLAYER_RADIUS } from "../../types";
 import { ROCK_LEE_CONSTANTS } from "./constants";
+import { CombatManager } from "../../managers/combat-manager";
 
 export class LeafHurricaneProjectile implements ProjectileDefinition {
     update(game: ShinobiClashGame, proj: ProjectileState) {
-        // Find owner to attach position
         const owner = game.players[proj.ownerId];
-        if (owner && !owner.dead) {
-            proj.pos.x = owner.pos.x;
-            proj.pos.y = owner.pos.y;
-        } else {
-            // If owner dead, expire immediately
+        if (!owner || owner.dead) {
             proj.life = 0;
+            return;
         }
 
+        // Follow owner
+        proj.pos.x = owner.pos.x;
+        proj.pos.y = owner.pos.y;
+
+        // Decrement Life
         proj.life--;
+
+        // Sync with cooldown to lock input? (Done via cooldowns.q in Skill, but we clear it here if needed)
+        // Check timer? Skill sets cooldown high.
+        // We need to set the cooldown to match remaining life when this dies, or just let it expire?
+        // Actually, logic is: Input locked while active. Cooldown starts AFTER?
+        // Current implementation in Skill sets CD to 9999.
+        // We should reset CD to actual cooldown when this ends.
+
         if (proj.life <= 0) {
-            const idx = game.projectiles.indexOf(proj);
-            if (idx !== -1) {
-                game.projectiles.splice(idx, 1);
+            // Reset Cooldown
+            owner.cooldowns.q = ROCK_LEE_CONSTANTS.LEAF_HURRICANE.COOLDOWN;
+            if (owner.skillStates['leaf_hurricane']) {
+                delete owner.skillStates['leaf_hurricane'];
             }
 
-            // CRITICAL: Reset cooldown and clear state on end
-            if (owner) {
-                owner.cooldowns.q = ROCK_LEE_CONSTANTS.LEAF_HURRICANE.COOLDOWN;
-                if (owner.skillStates['leaf_hurricane']) {
-                    owner.skillStates['leaf_hurricane'].active = false;
-                    // Or delete it? Keeping it false is fine/safer for types
-                }
-            }
-        } else {
-             // Collision Check
-             if (proj.life % ROCK_LEE_CONSTANTS.LEAF_HURRICANE.TICK_RATE === 0) {
-                 CombatManager.checkCollision(game, proj);
-             }
+            const idx = game.projectiles.indexOf(proj);
+            if (idx >= 0) game.projectiles.splice(idx, 1);
+            return;
+        }
+
+        // Damage Logic (Tick)
+        const tickRate = ROCK_LEE_CONSTANTS.LEAF_HURRICANE.TICK_RATE;
+        if (proj.life % tickRate === 0) {
+            CombatManager.checkCollision(game, proj);
         }
     }
 
     render(ctx: CanvasRenderingContext2D, proj: ProjectileState, time: number) {
-        ctx.save();
-        ctx.translate(proj.pos.x, proj.pos.y);
+        // Visuals handled by RockLeeCharacter render
+    }
+}
 
-        // Quadratic Windup Rotation
-        const maxLife = proj.maxLife || ROCK_LEE_CONSTANTS.LEAF_HURRICANE.DURATION;
-        const progress = 1 - (Math.max(0, proj.life) / maxLife);
-
-        const totalSpins = 5;
-        const rotation = (totalSpins * Math.PI * 2) * (progress * progress);
-
-        ctx.rotate(rotation);
-
-        const radius = proj.radius;
-
-        // 1. Green Sweep
-        const opacity = 0.1 + (0.3 * progress);
-        const gradient = ctx.createRadialGradient(0, 0, radius * 0.2, 0, 0, radius);
-        gradient.addColorStop(0, "rgba(0, 255, 0, 0)");
-        gradient.addColorStop(0.5, `rgba(0, 255, 0, ${opacity * 0.3})`);
-        gradient.addColorStop(1, `rgba(0, 255, 0, ${opacity})`);
-
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.moveTo(0,0);
-        ctx.arc(0, 0, radius, 0, Math.PI * 2);
-        ctx.fill();
-
-        // 2. Wind Lines
-        ctx.strokeStyle = `rgba(255, 255, 255, ${0.4 + 0.4 * progress})`;
-        ctx.lineWidth = 2 + 2 * progress;
-
-        const numLines = 3 + Math.floor(progress * 4);
-
-        for(let i = 0; i < numLines; i++) {
-            ctx.save();
-            ctx.rotate((Math.PI * 2 * i) / numLines + Math.sin(time * 0.1 + i));
-
-            ctx.beginPath();
-            const rOffset = Math.sin(time * 0.2 + i * 10) * 10;
-            const arcLen = Math.PI * (0.3 + 0.5 * progress);
-            ctx.arc(0, 0, radius * 0.7 + rOffset, 0, arcLen);
-            ctx.stroke();
-            ctx.restore();
+export class DynamicEntryProjectile implements ProjectileDefinition {
+    update(game: ShinobiClashGame, proj: ProjectileState) {
+        const owner = game.players[proj.ownerId];
+        if (!owner || owner.dead) {
+            proj.life = 0;
+            return;
         }
 
-        // 3. Dust Particles
-        if (progress > 0.3) {
-            ctx.fillStyle = "rgba(200, 200, 200, 0.5)";
-            for(let j = 0; j < 6; j++) {
-                ctx.save();
-                const angleOffset = (Math.PI * 2 * j) / 6;
-                ctx.rotate(angleOffset);
+        // 1. Interruption Check (Collide with any projectile that isn't this one or owned by me?
+        // Actually, just "collides with a projectile".
+        // We scan for projectiles overlapping the owner.
+        // We skip "this" projectile.
+        for (const other of game.projectiles) {
+            if (other === proj) continue;
+            // Ignore own projectiles (like Leaf Hurricane) ?
+            if (other.ownerId === proj.ownerId) continue;
 
-                const dist = radius * 0.9 + Math.sin(time * 0.5 + j) * 5;
-                const size = (2 + Math.sin(time * 0.3 + j) * 2) * progress;
-
-                ctx.beginPath();
-                ctx.arc(dist, 0, size, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.restore();
+            const dx = other.pos.x - owner.pos.x;
+            const dy = other.pos.y - owner.pos.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist < (PLAYER_RADIUS + other.radius)) {
+                // Interrupted!
+                proj.life = 0;
+                // Also clear the skill state so animation stops
+                if (owner.skillStates['dynamic_entry']) {
+                    owner.skillStates['dynamic_entry'].active = false;
+                }
+                return;
             }
         }
 
-        // Faint outer boundary
-        ctx.strokeStyle = "rgba(50, 205, 50, 0.3)";
-        ctx.beginPath();
-        ctx.arc(0, 0, radius, 0, Math.PI * 2);
-        ctx.stroke();
+        // 2. State Logic
+        if (proj.actionState === 'windup') {
+            proj.life--; // Windup timer logic reused life? No, let's use a custom timer or life.
+            // Let's use 'life' as the timer for the current state if we manage transitions manually.
+            // Or use a field in 'skillStates' to track windup?
+            // ProjectileState has 'life'.
 
-        ctx.restore();
+            if (proj.life <= 0) {
+                // Transition to Dash
+                proj.actionState = 'dashing';
+
+                // Calculate Dash Vector
+                // We stored target in velocity or auxiliary?
+                // Let's assume we stored the *target* in proj.targetPos (custom field? No).
+                // We can calculate velocity based on Angle stored in proj.angle.
+
+                // Recalculate distance? Or just fly fixed distance/time?
+                // Standard dash uses time.
+                // Let's assume infinite range until collision or... wall?
+                // Actually, `DynamicEntrySkill` passed a target.
+                // We need to store that target.
+                // We can hack `proj.vel` to store the target position during windup?
+                // Or just fly in `proj.angle` direction for a fixed duration?
+                // The skill description says "Flying kick towards target".
+                // Let's fly until we hit something or max duration.
+
+                const speed = ROCK_LEE_CONSTANTS.DYNAMIC_ENTRY.SPEED;
+                proj.vel.x = Math.cos(proj.angle) * speed;
+                proj.vel.y = Math.sin(proj.angle) * speed;
+
+                proj.life = 40; // Max dash duration (safety)
+            }
+        } else if (proj.actionState === 'dashing') {
+            // Move Owner
+            owner.pos.x += proj.vel.x;
+            owner.pos.y += proj.vel.y;
+
+            // Map Bounds
+            const mapSize = 1600; // Constant
+            if (owner.pos.x < PLAYER_RADIUS) owner.pos.x = PLAYER_RADIUS;
+            if (owner.pos.x > mapSize - PLAYER_RADIUS) owner.pos.x = mapSize - PLAYER_RADIUS;
+            if (owner.pos.y < PLAYER_RADIUS) owner.pos.y = PLAYER_RADIUS;
+            if (owner.pos.y > mapSize - PLAYER_RADIUS) owner.pos.y = mapSize - PLAYER_RADIUS;
+
+            // Sync Proj Pos to Owner
+            proj.pos.x = owner.pos.x;
+            proj.pos.y = owner.pos.y;
+
+            // Update Skill State for Render
+            if (owner.skillStates['dynamic_entry']) {
+                owner.skillStates['dynamic_entry'].active = true;
+            }
+
+            // Hit Detection (Enemy Players)
+            // Use CombatManager logic or custom?
+            // "Stuns on impact".
+            for (const id in game.players) {
+                const target = game.players[id];
+                if (target.id === proj.ownerId || target.dead) continue;
+
+                const dx = target.pos.x - proj.pos.x;
+                const dy = target.pos.y - proj.pos.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+
+                if (dist < PLAYER_RADIUS * 2) { // Overlap
+                    // Hit!
+                    CombatManager.applyDamage(game, target, 15); // Direct damage (15)
+                    // Stun
+                    target.stunned = 60; // 1 second stun
+
+                    // Stop Dash
+                    proj.life = 0;
+                    return;
+                }
+            }
+
+            proj.life--;
+        }
     }
 
-    calculateDamage(game: ShinobiClashGame, proj: ProjectileState): number {
-        // Calculate progress
-        const maxLife = proj.maxLife || ROCK_LEE_CONSTANTS.LEAF_HURRICANE.DURATION;
-        const progress = 1 - (Math.max(0, proj.life) / maxLife);
-
-        // Linear Interpolation: Min -> Max
-        const minDmg = ROCK_LEE_CONSTANTS.LEAF_HURRICANE.MIN_DAMAGE;
-        const maxDmg = ROCK_LEE_CONSTANTS.LEAF_HURRICANE.MAX_DAMAGE;
-
-        const rawDmg = minDmg + (maxDmg - minDmg) * progress;
-
-        const owner = game.players[proj.ownerId];
-        const mult = owner ? owner.stats.damageMult : 1;
-        return rawDmg * mult;
+    render(ctx: CanvasRenderingContext2D, proj: ProjectileState, time: number) {
+        // Logic projectile, no render.
+        // Visuals are handled by RockLeeCharacter based on state.
+        // But maybe debug render?
     }
 }

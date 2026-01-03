@@ -23,13 +23,16 @@ export class RockLeeCharacter implements CharacterDefinition {
             bandages: '#eeeeee'
         };
 
-        const activeSkill = state.skillStates['active_dash_skill'];
-        const isDynamicEntry = state.dash.active && activeSkill && activeSkill.type === 'dynamic_entry';
+        // Dynamic Entry Logic Check
+        // Now managed by projectile setting skillStates['dynamic_entry'].active = true
+        const dynState = state.skillStates['dynamic_entry'];
+        const isDynamicEntry = dynState && dynState.active;
+
         const qState = state.skillStates['leaf_hurricane'];
         const isQActive = qState && qState.active;
 
         // Dynamic Entry Target Indicator
-        if (isLocal && isDynamicEntry && state.skillStates['dynamic_entry'] && state.skillStates['dynamic_entry'].target) {
+        if (isLocal && isDynamicEntry && dynState && dynState.target) {
             const target = state.skillStates['dynamic_entry'].target;
             const dx = target.x - pos.x;
             const dy = target.y - pos.y;
@@ -58,9 +61,8 @@ export class RockLeeCharacter implements CharacterDefinition {
             const duration = ROCK_LEE_CONSTANTS.LEAF_HURRICANE.DURATION;
             const progress = Math.min(1, Math.max(0, elapsed / duration));
             const totalSpins = 5;
-            // "Completely positive quadratic": Accelerating curve (convex).
-            // Curve: p^2. Starts slow, spins faster and faster.
-            const curve = Math.pow(progress, 2);
+            // "progress^2 + 1.5": Interpret as p^2 + 1.5p to ensure start at 0 and fast initial velocity.
+            const curve = Math.pow(progress, 2) + 1.5 * progress;
             effectiveAngle = (totalSpins * Math.PI * 2) * curve;
         }
         ctx.rotate(effectiveAngle);
