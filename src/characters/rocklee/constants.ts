@@ -17,7 +17,7 @@ export const ROCK_LEE_CONSTANTS = {
 
     // Space: Dash
     DASH: {
-        COOLDOWN: 150,
+        COOLDOWN: 200, // 200 * 2 = 400 > 360 (Standard)
         MAX_CHARGES: 2,
         DURATION: 8,
         SPEED: 15,
