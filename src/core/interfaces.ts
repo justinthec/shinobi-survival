@@ -5,6 +5,7 @@ export interface CharacterDefinition {
     name: string;
     description: string;
     render(ctx: CanvasRenderingContext2D, state: PlayerState, time: number, isLocal: boolean, isOffCooldown: boolean, showHealthBar?: boolean): void;
+    onHit?(game: ShinobiClashGame, player: PlayerState, source: ProjectileState | number): void;
 }
 
 export interface ProjectileDefinition {
