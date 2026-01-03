@@ -7,12 +7,12 @@ export class NarutoCharacter implements CharacterDefinition {
     name = "Naruto";
     description = "A well-rounded ninja with balanced offense and mobility.";
 
-    static drawModel(ctx: CanvasRenderingContext2D, opacity: number = 1, actionState?: string, overrideColor?: string) {
+    static drawModel(ctx: CanvasRenderingContext2D, opacity: number = 1, actionState?: string) {
         // Colors
         const c = {
             skin: '#ffcba4',
             hair: '#ffdd00',
-            main: overrideColor || '#ff6600', // Orange Jumpsuit or Override
+            main: '#ff6600', // Orange Jumpsuit
             sub: '#111111',  // Black/Dark Grey undershirt
             acc: '#0055aa',  // Blue Headband/Acc
             metal: '#dcdcdc',

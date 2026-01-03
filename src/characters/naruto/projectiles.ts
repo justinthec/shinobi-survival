@@ -151,8 +151,7 @@ export class CloneStrikeProjectile implements ProjectileDefinition {
         ctx.rotate(angle);
 
         // Use the static drawModel from NarutoCharacter for consistency
-        // Pass owner color as override for the clone
-        NarutoCharacter.drawModel(ctx, opacity, proj.actionState, color);
+        NarutoCharacter.drawModel(ctx, opacity, proj.actionState);
 
         ctx.restore();
 
@@ -172,7 +171,7 @@ export class CloneStrikeProjectile implements ProjectileDefinition {
              ctx.strokeStyle = 'black';
              ctx.lineWidth = 3;
              ctx.strokeText(name, 0, -5);
-             ctx.fillStyle = 'white'; // Clones are white named
+             ctx.fillStyle = color; // Colored name
              ctx.fillText(name, 0, -5);
 
              ctx.restore();
