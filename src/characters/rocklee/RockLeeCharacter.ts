@@ -58,8 +58,9 @@ export class RockLeeCharacter implements CharacterDefinition {
             const duration = ROCK_LEE_CONSTANTS.LEAF_HURRICANE.DURATION;
             const progress = Math.min(1, Math.max(0, elapsed / duration));
             const totalSpins = 5;
-            // Linear rotation for constant high speed, or ease-out to start fast
-            effectiveAngle = (totalSpins * Math.PI * 2) * progress;
+            // Quadratic ease-out for faster startup: t * (2 - t)
+            const easeOutQuad = progress * (2 - progress);
+            effectiveAngle = (totalSpins * Math.PI * 2) * easeOutQuad;
         }
         ctx.rotate(effectiveAngle);
 
