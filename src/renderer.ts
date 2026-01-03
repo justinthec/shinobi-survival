@@ -545,9 +545,10 @@ export class Renderer {
             textY += 30;
 
             skills.forEach(({ key, skill }) => {
+                const displayKey = key === " " ? "SPC" : key;
                 ctx.fillStyle = '#f6e05e'; // Key
                 ctx.font = 'bold 16px Arial';
-                ctx.fillText(`[${key}] ${skill.name}`, detailsX + 40, textY);
+                ctx.fillText(`[${displayKey}] ${skill.name}`, detailsX + 40, textY);
 
                 // Ability Desc (Wrapped)
                 ctx.fillStyle = '#a0aec0';
