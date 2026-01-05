@@ -57,11 +57,11 @@ export class RockLeeCharacter implements CharacterDefinition {
             const elapsed = time - (qState.startTime || time);
             const duration = ROCK_LEE_CONSTANTS.LEAF_HURRICANE.DURATION;
             const progress = Math.min(1, Math.max(0, elapsed / duration));
-            const totalSpins = 5;
+            const totalSpins = 15;
             // "Completely positive quadratic": Accelerating curve (convex).
             // Curve: p^2. Starts slow, spins faster and faster.
-            const curve = Math.pow(progress, 2);
-            effectiveAngle = (totalSpins * Math.PI * 2) * curve;
+            //const curve = 2*Math.pow(progress, 2);
+            effectiveAngle = (totalSpins * Math.PI * 2) * (0.25*progress + progress*progress);
         }
         ctx.rotate(effectiveAngle);
 
