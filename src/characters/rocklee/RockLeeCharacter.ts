@@ -1,12 +1,25 @@
 import { CharacterDefinition } from "../../core/interfaces";
-import { PlayerState } from "../../types";
+import { PlayerState, ProjectileState } from "../../types";
 import { CharacterRendererHelper } from "../../core/CharacterRendererHelper";
 import { ROCK_LEE_CONSTANTS } from "./constants";
 import { getPlayerColor } from "../../core/utils";
+import { ShinobiClashGame } from "../../multiplayer-game";
 
 export class RockLeeCharacter implements CharacterDefinition {
     name = "Rock Lee";
     description = "A taijutsu specialist who relies on speed and physical attacks.";
+
+    onHit(game: ShinobiClashGame, player: PlayerState, source: ProjectileState | number) {
+        // Cancel Dynamic Entry if active (Windup or Dashing)
+        const dynState = player.skillStates['dynamic_entry'];
+        if (dynState) { // If state exists at all
+             delete player.skillStates['dynamic_entry'];
+             // Ensure player isn't stuck casting
+             if (player.casting > 0) {
+                 player.casting = 0;
+             }
+        }
+    }
 
     render(ctx: CanvasRenderingContext2D, state: PlayerState, time: number, isLocal: boolean, isOffCooldown: boolean, showHealthBar: boolean = true) {
         const { pos, angle, hp, maxHp, name } = state;
@@ -32,21 +45,39 @@ export class RockLeeCharacter implements CharacterDefinition {
         const isQActive = qState && qState.active;
 
         // Dynamic Entry Target Indicator
-        if (isLocal && isDynamicEntry && dynState && dynState.target) {
-            const target = state.skillStates['dynamic_entry'].target;
-            const dx = target.x - pos.x;
-            const dy = target.y - pos.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            const maxDist = 600;
-            const opacity = Math.max(0.2, 0.8 * (1 - Math.min(dist, maxDist) / maxDist));
+        if (isLocal && dynState && dynState.target && !isDynamicEntry) { // Show indicator during Windup (not dash)
+            // Or maybe always? User didn't specify, but windup is when you want to know where you are going.
+            // Let's use the stored target.
+            const target = dynState.target;
+            // Wait, target is a direction vector (cos, sin) in the new update, OR coordinate?
+            // In DynamicEntrySkill.ts: target: new Vec2(Math.cos(angle), Math.sin(angle))
+            // So it's a direction. We can't draw the "destination" circle exactly unless we calculate it.
+            // But we know speed * duration.
+
+            const speed = ROCK_LEE_CONSTANTS.DYNAMIC_ENTRY.SPEED;
+            const duration = ROCK_LEE_CONSTANTS.DYNAMIC_ENTRY.DURATION;
+            const dist = speed * duration;
+
+            const destX = pos.x + target.x * dist;
+            const destY = pos.y + target.y * dist;
 
             ctx.save();
-            ctx.translate(target.x, target.y);
+            ctx.translate(destX, destY);
             ctx.scale(1, 0.5);
-            ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
+            ctx.fillStyle = `rgba(0, 255, 0, 0.5)`; // Green Target
             ctx.beginPath();
             ctx.arc(0, 0, 30, 0, Math.PI * 2);
             ctx.fill();
+            ctx.restore();
+
+            // Draw line to target
+            ctx.save();
+            ctx.strokeStyle = `rgba(0, 255, 0, 0.3)`;
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y);
+            ctx.lineTo(destX, destY);
+            ctx.stroke();
             ctx.restore();
         }
 
@@ -67,8 +98,8 @@ export class RockLeeCharacter implements CharacterDefinition {
         }
         ctx.rotate(effectiveAngle);
 
-        // Dynamic Entry Aura
-        if (isDynamicEntry) {
+        // Dynamic Entry Aura (Green Energy)
+        if (isDynamicEntry || (dynState && dynState.timer)) { // Active or Windup
              ctx.save();
              ctx.shadowColor = "#00ff00";
              ctx.shadowBlur = 20;

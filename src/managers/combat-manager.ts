@@ -2,7 +2,7 @@ import { DefaultInput, Vec2 } from "netplayjs";
 import { ShinobiClashGame } from "../multiplayer-game";
 import { PlayerState, ProjectileState, PLAYER_RADIUS, KOTH_SETTINGS } from "../types";
 import { SkillRegistry } from "../skills/SkillRegistry";
-import { ProjectileRegistry } from "../core/registries";
+import { ProjectileRegistry, CharacterRegistry } from "../core/registries";
 import { RasenshurikenSkill } from "../characters/naruto/skills/RasenshurikenSkill";
 import { SeededRNG } from "../core/utils";
 
@@ -54,6 +54,7 @@ export class CombatManager {
         // Q
         const skillQ = SkillRegistry.getSkill(p.character, 'q');
         if (skillQ) {
+            if (skillQ.update) skillQ.update(game, p, input);
             if (skillQ.handleInput) skillQ.handleInput(game, p, input, targetPos);
             if (input.keysPressed['q']) skillQ.cast(game, p, input, targetPos);
         }
@@ -61,6 +62,7 @@ export class CombatManager {
         // E
         const skillE = SkillRegistry.getSkill(p.character, 'e');
         if (skillE) {
+            if (skillE.update) skillE.update(game, p, input);
             if (skillE.handleInput) {
                 skillE.handleInput(game, p, input, targetPos);
             } else if (input.keysPressed['e']) {
@@ -71,6 +73,7 @@ export class CombatManager {
         // Space
         const skillSp = SkillRegistry.getSkill(p.character, ' ');
         if (skillSp) {
+            if (skillSp.update) skillSp.update(game, p, input);
             if (skillSp.handleInput) skillSp.handleInput(game, p, input, targetPos);
             if (input.keysPressed[' ']) skillSp.cast(game, p, input, targetPos);
         }
@@ -183,15 +186,24 @@ export class CombatManager {
         return hit;
     }
 
-    static applyDamage(game: ShinobiClashGame, target: { hp?: number, dead?: boolean, pos: Vec2, respawnTimer?: number, spawnCornerIndex?: number, id?: number }, proj: ProjectileState) {
+    static applyDamage(game: ShinobiClashGame, target: { hp?: number, dead?: boolean, pos: Vec2, respawnTimer?: number, spawnCornerIndex?: number, id?: number }, source: number | ProjectileState) {
         let dmg = 0;
-        const def = ProjectileRegistry.get(proj.type);
-        if (def && def.calculateDamage) {
-            dmg = def.calculateDamage(game, proj);
-        } else {
-            dmg = proj.damage || 0;
-        }
+        let proj: ProjectileState | undefined;
+        let attackerId: number | undefined;
 
+        if (typeof source === 'number') {
+            dmg = source;
+            attackerId = -1; // Unknown or System
+        } else {
+            proj = source;
+            attackerId = proj.ownerId;
+            const def = ProjectileRegistry.get(proj.type);
+            if (def && def.calculateDamage) {
+                dmg = def.calculateDamage(game, proj);
+            } else {
+                dmg = proj.damage || 0;
+            }
+        }
         if (dmg > 0 && target.hp !== undefined) {
             target.hp -= dmg;
             game.floatingTexts.push({
@@ -201,6 +213,18 @@ export class CombatManager {
                 color: 'red',
                 life: 60, maxLife: 60, vy: 0.5
             });
+
+            // Trigger onHit callback
+            if (target.hp !== undefined && target.respawnTimer !== undefined && attackerId !== undefined) {
+                // It's a player
+                const pTarget = target as PlayerState;
+                if (pTarget.character) {
+                    const charDef = CharacterRegistry.get(pTarget.character);
+                    if (charDef && charDef.onHit) {
+                        charDef.onHit(game, pTarget, source);
+                    }
+                }
+            }
 
             if (target.hp <= 0) {
                 target.hp = 0;

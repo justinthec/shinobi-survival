@@ -14,6 +14,14 @@ export const ROCK_LEE_CONSTANTS = {
         COOLDOWN: 10 * 60,
         SPEED: 18, // Slower speed (was 25)
         WINDUP: 15, // Frames
+        DURATION: 15, // Calculated: (600 / 18) ~ 33 frames? But for gameplay feel, keep it punchy.
+        // Actually, let's derive duration from desired range if we want logic consistency.
+        // Range 600 / 18 = 33 frames.
+        // If we want it to be fast, 18 speed for 20 frames = 360 range.
+        // Let's go with 20 frames duration for ~360 range + slide.
+        // Or keep it simple: 20 frames.
+        DAMAGE: 20,
+        STUN_DURATION: 40
     },
 
     // Space: Dash
