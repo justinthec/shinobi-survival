@@ -64,7 +64,7 @@ export interface PlayerState {
     skillStates: Record<string, SkillState>;
 }
 
-export type ProjectileType = 'rasenshuriken' | 'clone_strike' | 'lightning_slash' | 'leaf_hurricane';
+export type ProjectileType = 'rasenshuriken' | 'clone_strike' | 'lightning_slash' | 'leaf_hurricane' | 'dynamic_entry';
 
 export interface ProjectileState {
     id: number;
@@ -87,7 +87,7 @@ export interface ProjectileState {
     // Clone Stats
     hp?: number;
     maxHp?: number;
-    actionState?: 'run' | 'punch';
+    actionState?: 'run' | 'punch' | 'windup' | 'dashing';
 }
 
 export interface ParticleState {
