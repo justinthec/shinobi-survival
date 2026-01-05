@@ -4,6 +4,9 @@ import { PlayerState, ProjectileState } from "../../../types";
 import { Skill } from "../../../skills/Skill";
 
 export class RasenshurikenSkill implements Skill {
+    readonly name = "Rasenshuriken";
+    readonly description = "Throw a wind-enhanced shuriken that expands on impact.";
+
     static readonly DAMAGE = 40;
     static readonly EXPLOSION_DAMAGE = 5;
     static readonly RADIUS = 32;

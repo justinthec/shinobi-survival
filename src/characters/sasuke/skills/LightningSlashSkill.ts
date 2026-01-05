@@ -4,6 +4,9 @@ import { PlayerState, ProjectileState } from "../../../types";
 import { Skill } from "../../../skills/Skill";
 
 export class LightningSlashSkill implements Skill {
+    readonly name = "Lightning Slash";
+    readonly description = "Slash enemies in a cone with lightning speed.";
+
     static readonly DAMAGE = 50;
     static readonly LIFE = 2; // Logic duration (1 tick + 1 draw frame)
     static readonly VISUAL_LIFE = 15;

@@ -4,6 +4,9 @@ import { PlayerState, ProjectileState } from "../../../types";
 import { Skill } from "../../../skills/Skill";
 
 export class CloneStrikeSkill implements Skill {
+    readonly name = "Clone Strike";
+    readonly description = "Dash forward. If you hit an enemy, spawn clones to strike them.";
+
     static readonly DAMAGE = 15;
     static readonly LIFE = 600;
     static readonly RADIUS = 25;

@@ -4,6 +4,9 @@ import { PlayerState, PLAYER_RADIUS } from "../../../types";
 import { Skill } from "../../../skills/Skill";
 
 export class TeleportSkill implements Skill {
+    readonly name = "Chidori / Teleport";
+    readonly description = "Teleport to target location. If enemy hit, damage them.";
+
     static readonly RANGE = 300;
 
     readonly cooldown = 600;

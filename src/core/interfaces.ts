@@ -3,7 +3,8 @@ import { PlayerState, ProjectileState } from "../types";
 
 export interface CharacterDefinition {
     name: string;
-    render(ctx: CanvasRenderingContext2D, state: PlayerState, time: number, isLocal: boolean, isOffCooldown: boolean): void;
+    description: string;
+    render(ctx: CanvasRenderingContext2D, state: PlayerState, time: number, isLocal: boolean, isOffCooldown: boolean, showHealthBar?: boolean): void;
 }
 
 export interface ProjectileDefinition {

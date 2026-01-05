@@ -1,10 +1,12 @@
 import { ShinobiClashGame } from "./multiplayer-game";
-import { PlayerState, ProjectileState, PLAYER_RADIUS, KOTH_SETTINGS, MAP_SIZE } from "./types";
+import { PlayerState, ProjectileState, PLAYER_RADIUS, KOTH_SETTINGS, MAP_SIZE, CharacterType } from "./types";
 import { initSprites, SPRITES } from "./sprites";
 import { SkillRegistry } from "./skills/SkillRegistry";
 import { CharacterRegistry, ProjectileRegistry } from "./core/registries";
 import { CharacterRendererHelper } from "./core/CharacterRendererHelper";
-import { getPlayerColor } from "./core/utils";
+import { getPlayerColor, wrapText } from "./core/utils";
+import { CharacterDefinition } from "./core/interfaces";
+import { Vec2 } from "netplayjs";
 
 export class Renderer {
     ctx: CanvasRenderingContext2D;
@@ -262,8 +264,9 @@ export class Renderer {
             const isOffCooldown = p.cooldowns.e <= 0;
             def.render(this.ctx, p, time, isLocal, isOffCooldown);
         } else {
-             // Fallback
-             CharacterRendererHelper.drawNinjaBody(this.ctx, p.pos.x, p.pos.y, p.angle, charType, p.hp, p.maxHp, p.name, time, false, 1, null, undefined, getPlayerColor(p.id));
+            // No Fallback, assume registry is complete or handle error
+            // Previously used drawNinjaBody as fallback.
+            // Since we updated all characters, we should be fine.
         }
     }
 
@@ -396,112 +399,229 @@ export class Renderer {
         ctx.textAlign = 'center';
         ctx.fillText("SHINOBI CLASH", w / 2, 60);
 
-        // --- Left Side: Character List ---
-        const charListX = 150;
-        let charListY = 150;
+        // --- Layout Constants ---
         const keys = CharacterRegistry.getKeys();
 
+        // 1. Character Grid (Left)
+        const gridX = 40;
+        const gridY = 120;
+        const cardW = 160;
+        const cardH = 80;
+        const gap = 15;
+        const columns = 2;
+        const gridWidth = (cardW * columns) + (gap * (columns - 1));
+
+        // 3. Lobby Status (Right) - Expanded
+        const statusW = 300;
+        const statusX = w - statusW - 40;
+        const statusY = 120;
+
+        // 2. Details Panel (Center) - Fills space between Grid and Status
+        const detailsX = gridX + gridWidth + 40;
+        const detailsW = (statusX - 40) - detailsX;
+        const detailsH = h - 200;
+        const detailsY = gridY;
+
+        // --- Draw Character Grid ---
         ctx.textAlign = 'left';
         ctx.font = 'bold 24px Arial';
         ctx.fillStyle = '#e2e8f0';
-        ctx.fillText("SELECT CHARACTER:", 50, 110);
+        ctx.fillText("SELECT CHARACTER:", gridX, gridY - 20);
+
+        // Local Selection
+        const localId = ShinobiClashGame.localPlayerId;
+        const localPlayer = localId !== null ? game.players[localId] : null;
+        const selectedChar = localPlayer ? localPlayer.character : null;
+        let selectedDef: CharacterDefinition | null = null;
 
         keys.forEach((key, index) => {
+            const def = CharacterRegistry.get(key);
+            const isSelected = selectedChar === key;
+            if (isSelected) selectedDef = def;
+
+            const col = index % columns;
+            const row = Math.floor(index / columns);
+
+            const x = gridX + col * (cardW + gap);
+            const y = gridY + row * (cardH + gap);
             const numKey = index + 1;
-            const charName = key.toUpperCase();
 
-            // Background box for item
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
-            this.drawRoundedRectPath(ctx, 50, charListY - 40, 300, 80, 10);
+            // Card Bg
+            ctx.fillStyle = isSelected ? 'rgba(72, 187, 120, 0.2)' : 'rgba(255, 255, 255, 0.05)';
+            ctx.strokeStyle = isSelected ? '#48bb78' : 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 2;
+            this.drawRoundedRectPath(ctx, x, y, cardW, cardH, 8);
             ctx.fill();
+            if (isSelected) ctx.stroke();
 
-            // Key Hint
+            // Number Hint
             ctx.fillStyle = '#f6e05e';
-            ctx.font = 'bold 30px Arial';
-            ctx.fillText(`${numKey}`, 70, charListY + 10);
+            ctx.font = 'bold 24px Arial';
+            ctx.fillText(`${numKey}`, x + 15, y + 30);
 
-            // Character Name
+            // Name
             ctx.fillStyle = 'white';
-            ctx.font = 'bold 20px Arial';
-            ctx.fillText(charName, 120, charListY + 5);
+            ctx.font = 'bold 16px Arial';
+            ctx.fillText(def.name.toUpperCase(), x + 15, y + 55);
 
-            // Character Preview (Miniature)
-            // Draw relative to a preview box on the right of the text
-            const previewX = 280;
-            const previewY = charListY;
+            // Mini Icon Preview (Right side of card)
+            const iconX = x + cardW - 30;
+            const iconY = y + cardH / 2;
+            ctx.save();
+            // Tiny static preview
+            const dummyState: PlayerState = {
+                id: -1, name: "", pos: new Vec2(iconX, iconY), angle: Math.PI / 2, hp: 100, maxHp: 100,
+                character: key as CharacterType, ready: false, dead: false, respawnTimer: 0,
+                victoryProgress: 0, spawnCornerIndex: 0, cooldowns: { q: 0, e: 0, sp: 0 },
+                skillStates: {}, dash: { active: false, vx: 0, vy: 0, life: 0 },
+                stats: { speed: 1, damageMult: 1, cooldownMult: 1 }, casting: 0
+            };
+            ctx.translate(iconX, iconY);
+            ctx.scale(0.5, 0.5); // Mini scale
+            ctx.translate(-iconX, -iconY);
 
-            // Draw Character Head/Body
-            // We use the helper directly
-            CharacterRendererHelper.drawNinjaBody(
-                ctx,
-                previewX,
-                previewY + 10, // Shift down slightly
-                Math.PI / 2, // Face right
-                key,
-                100, 100, // Full HP
-                "", // No name tag
-                game.gameTime,
-                false,
-                1, // Opacity
-                null,
-                undefined,
-                undefined
-            );
-
-            charListY += 100;
+            if (def) def.render(ctx, dummyState, game.gameTime, false, true, false);
+            ctx.restore();
         });
 
 
-        // --- Right Side: Player Status ---
-        const statusX = w - 400;
-        let statusY = 150;
+        // --- Draw Selected Details Panel ---
+        if (selectedDef) {
+            const def = selectedDef;
+            const skills = SkillRegistry.getSkillsForCharacter(selectedChar as CharacterType);
 
+            // Panel BG
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+            ctx.strokeStyle = '#48bb78';
+            ctx.lineWidth = 2;
+            this.drawRoundedRectPath(ctx, detailsX, detailsY, detailsW, detailsH, 10);
+            ctx.fill();
+            ctx.stroke();
+
+            // Large Render
+            const previewX = detailsX + detailsW / 2;
+            const previewY = detailsY + 80;
+
+            ctx.save();
+            const largeState: PlayerState = {
+                id: -1, name: "", pos: new Vec2(previewX, previewY), angle: Math.PI / 2, hp: 100, maxHp: 100,
+                character: selectedChar as CharacterType, ready: false, dead: false, respawnTimer: 0,
+                victoryProgress: 0, spawnCornerIndex: 0, cooldowns: { q: 0, e: 0, sp: 0 },
+                skillStates: {}, dash: { active: false, vx: 0, vy: 0, life: 0 },
+                stats: { speed: 1, damageMult: 1, cooldownMult: 1 }, casting: 0
+            };
+
+            // Scale up for detail view
+            ctx.translate(previewX, previewY);
+            ctx.scale(2.5, 2.5); // BIG
+            ctx.translate(-previewX, -previewY);
+
+            // Show preview without health bar
+            def.render(ctx, largeState, 0, false, true, false);
+            ctx.restore();
+
+
+            // Info Text
+            let textY = previewY + 100;
+            ctx.textAlign = 'center';
+
+            // Name
+            ctx.fillStyle = '#48bb78';
+            ctx.font = 'bold 30px Arial';
+            ctx.fillText(def.name.toUpperCase(), detailsX + detailsW / 2, textY);
+            textY += 30;
+
+            // Description (Wrapped)
+            ctx.fillStyle = '#cbd5e0';
+            ctx.font = 'italic 16px Arial';
+            const descHeight = wrapText(ctx, def.description, detailsX + detailsW / 2, textY, detailsW - 40, 20);
+            textY += descHeight + 20;
+
+            // Abilities
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 18px Arial';
+            ctx.textAlign = 'left'; // Switch to left align for list
+            ctx.fillText("ABILITIES:", detailsX + 30, textY);
+            textY += 30;
+
+            skills.forEach(({ key, skill }) => {
+                const displayKey = key === " " ? "SPC" : key;
+                ctx.fillStyle = '#f6e05e'; // Key
+                ctx.font = 'bold 16px Arial';
+                ctx.fillText(`[${displayKey}] ${skill.name}`, detailsX + 40, textY);
+
+                // Ability Desc (Wrapped)
+                ctx.fillStyle = '#a0aec0';
+                ctx.font = '14px Arial';
+                // wrapText helper returns height used
+                const h = wrapText(ctx, skill.description, detailsX + 40, textY + 20, detailsW - 80, 18, 'left');
+
+                textY += 20 + h + 15;
+            });
+
+        } else {
+            // No selection prompt
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+            this.drawRoundedRectPath(ctx, detailsX, detailsY, detailsW, detailsH, 10);
+            ctx.fill();
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.font = 'italic 24px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText("Select a Character", detailsX + detailsW / 2, detailsY + detailsH / 2);
+        }
+
+
+        // --- Lobby Status (Far Right - Compact) ---
         ctx.textAlign = 'left';
-        ctx.font = 'bold 24px Arial';
+        ctx.font = 'bold 20px Arial';
         ctx.fillStyle = '#e2e8f0';
-        ctx.fillText("LOBBY STATUS:", statusX, 110);
+        ctx.fillText("LOBBY:", statusX, gridY - 20);
 
+        let sY = statusY;
         for (let id in game.players) {
             const p = game.players[id];
-            const charName = p.character ? p.character.toUpperCase() : "SELECTING...";
             const isReady = p.ready;
+            const charName = p.character ? p.character.toUpperCase() : "...";
 
-            // Box
+            // Compact Box
             ctx.fillStyle = isReady ? 'rgba(72, 187, 120, 0.2)' : 'rgba(255, 255, 255, 0.05)';
             ctx.strokeStyle = isReady ? '#48bb78' : 'rgba(255, 255, 255, 0.1)';
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 1;
 
-            this.drawRoundedRectPath(ctx, statusX, statusY, 350, 80, 10);
+            this.drawRoundedRectPath(ctx, statusX, sY, statusW, 50, 6);
             ctx.fill();
             ctx.stroke();
 
             // Player Name & Color
             ctx.fillStyle = getPlayerColor(p.id);
             ctx.beginPath();
-            ctx.arc(statusX + 30, statusY + 40, 10, 0, Math.PI * 2);
+            ctx.arc(statusX + 20, sY + 25, 8, 0, Math.PI * 2);
             ctx.fill();
 
             ctx.fillStyle = 'white';
-            ctx.font = 'bold 20px Arial';
-            ctx.fillText(p.name, statusX + 50, statusY + 30);
+            ctx.font = 'bold 16px Arial';
+            ctx.fillText(p.name, statusX + 35, sY + 30);
 
-            // Selection Status
+            // Character Name (Right aligned ish)
             ctx.fillStyle = '#cbd5e0';
-            ctx.font = '16px Arial';
-            ctx.fillText(charName, statusX + 50, statusY + 55);
+            ctx.font = 'italic 14px Arial';
+            ctx.textAlign = 'right';
+            ctx.fillText(charName, statusX + statusW - 70, sY + 30);
+            ctx.textAlign = 'left';
 
-            // Ready Badge
+            // Ready Icon
             if (isReady) {
                 ctx.fillStyle = '#48bb78';
-                ctx.font = 'bold 16px Arial';
-                ctx.fillText("READY", statusX + 280, statusY + 45);
+                ctx.font = 'bold 12px Arial';
+                ctx.fillText("READY", statusX + statusW - 50, sY + 30);
             } else {
-                ctx.fillStyle = '#e53e3e'; // Red-ish
-                ctx.font = 'bold 16px Arial';
-                ctx.fillText("WAITING", statusX + 270, statusY + 45);
+                ctx.fillStyle = '#e53e3e';
+                ctx.font = 'bold 12px Arial';
+                ctx.fillText("WAITING", statusX + statusW - 60, sY + 30);
             }
 
-            statusY += 100;
+            sY += 60;
         }
 
         // Instructions Footer

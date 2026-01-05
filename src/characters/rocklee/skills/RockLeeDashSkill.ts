@@ -5,12 +5,9 @@ import { Skill } from "../../../skills/Skill";
 import { ROCK_LEE_CONSTANTS } from "../constants";
 
 export class RockLeeDashSkill implements Skill {
-    id = "rocklee_dash";
-    type = "dash";
-    name = "High Speed Movement";
-    description = "A quick dash with 2 charges.";
-    icon = "dash";
-    cooldown = 0; // Managed internally via charges
+    readonly name = "High Speed Movement";
+    readonly description = "A quick dash with 2 charges.";
+    readonly cooldown = 0; // Managed internally via charges
 
     handleInput(game: ShinobiClashGame, p: PlayerState, input: DefaultInput, targetPos: Vec2) {
         // Initialize state if missing

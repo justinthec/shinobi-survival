@@ -4,6 +4,8 @@ import { ProjectileState, PLAYER_RADIUS } from "../../types";
 import { RasenshurikenSkill } from "./skills/RasenshurikenSkill";
 import { CombatManager } from "../../managers/combat-manager";
 import { CharacterRendererHelper } from "../../core/CharacterRendererHelper";
+import { NarutoCharacter } from "./NarutoCharacter";
+import { getPlayerColor } from "../../core/utils";
 
 export class RasenshurikenProjectile implements ProjectileDefinition {
     update(game: ShinobiClashGame, proj: ProjectileState) {
@@ -134,20 +136,45 @@ export class CloneStrikeProjectile implements ProjectileDefinition {
     }
 
     render(ctx: CanvasRenderingContext2D, proj: ProjectileState, time: number) {
-        CharacterRendererHelper.drawNinjaBody(
-            ctx,
-            proj.pos.x,
-            proj.pos.y,
-            proj.angle,
-            'naruto',
-            proj.hp || 0,
-            proj.maxHp || 1,
-            "Clone",
-            time,
-            true,
-            1,
-            null,
-            proj.actionState
-        );
+        const x = proj.pos.x;
+        const y = proj.pos.y;
+        const angle = proj.angle;
+        const opacity = 0.8;
+        const hp = proj.hp || 0;
+        const maxHp = proj.maxHp || 1;
+        const name = "Clone";
+        const color = getPlayerColor(proj.ownerId);
+
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(1.25, 1.25);
+        ctx.rotate(angle);
+
+        // Use the static drawModel from NarutoCharacter for consistency
+        NarutoCharacter.drawModel(ctx, opacity, proj.actionState);
+
+        ctx.restore();
+
+        // Health Bar
+        if (maxHp > 0) {
+             ctx.save();
+             ctx.translate(x, y - 50);
+             ctx.fillStyle = 'rgba(0,0,0,0.8)';
+             CharacterRendererHelper.drawRoundedRectPath(ctx, -20, 0, 40, 6, 3); ctx.fill();
+             const pct = Math.max(0, hp / maxHp);
+             ctx.fillStyle = pct > 0.5 ? '#48bb78' : '#f56565';
+             CharacterRendererHelper.drawRoundedRectPath(ctx, -18, 1, 36 * pct, 4, 2); ctx.fill();
+
+             // Name
+             ctx.font = 'bold 12px Arial';
+             ctx.textAlign = 'center';
+             ctx.strokeStyle = 'black';
+             ctx.lineWidth = 3;
+             ctx.strokeText(name, 0, -5);
+             ctx.fillStyle = color; // Colored name
+             ctx.fillText(name, 0, -5);
+
+             ctx.restore();
+        }
     }
 }
