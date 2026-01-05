@@ -12,37 +12,31 @@ export class DynamicEntrySkill implements Skill {
     cast(game: ShinobiClashGame, p: PlayerState, input: DefaultInput, targetPos: Vec2) {
         if (p.cooldowns.e > 0) return;
 
-        p.cooldowns.e = this.cooldown;
-
+        // Calculate vector to target
         const dx = targetPos.x - p.pos.x;
         const dy = targetPos.y - p.pos.y;
-        const angle = Math.atan2(dy, dx);
-        p.angle = angle; // Face target
+        const dist = Math.sqrt(dx * dx + dy * dy);
 
-        // Spawn Projectile to manage the dash (Windup -> Move)
-        game.projectiles.push({
-            id: game.nextEntityId++,
-            type: 'dynamic_entry',
-            pos: new Vec2(p.pos.x, p.pos.y),
-            vel: new Vec2(0, 0), // Will be set after windup
-            ownerId: p.id,
-            angle: angle,
-            life: ROCK_LEE_CONSTANTS.DYNAMIC_ENTRY.WINDUP, // Use life for windup timer first
-            maxLife: ROCK_LEE_CONSTANTS.DYNAMIC_ENTRY.WINDUP,
-            radius: 0, // No hit during windup
-            state: 'flying',
-            actionState: 'windup',
-            damage: 0
-        });
+        if (dist <= 0) return;
 
-        // Init skill state for UI/Render to know something is happening?
-        // Projectile will set 'active' during dash.
-        // We can set it here too if we want immediate feedback (e.g. windup pose).
+        // Calculate time to reach target at set speed
+        // Speed = dist / time -> time = dist / Speed
+        const speed = ROCK_LEE_CONSTANTS.DYNAMIC_ENTRY.SPEED;
+        const time = Math.ceil(dist / speed);
+
+        // Set dash state to move exactly there
+        p.dash.active = true;
+        p.dash.vx = (dx / dist) * speed;
+        p.dash.vy = (dy / dist) * speed;
+        p.dash.life = time;
+
+        p.cooldowns.e = this.cooldown;
+        p.angle = Math.atan2(dy, dx); // Face target
+
+        // Store target for rendering and mark the type of dash
         p.skillStates['dynamic_entry'] = {
-            target: new Vec2(targetPos.x, targetPos.y),
-            active: false // Will be true when dashing
+            target: new Vec2(targetPos.x, targetPos.y)
         };
-        // We don't set 'active_dash_skill' here because p.dash is not used.
-        // Instead RockLeeCharacter.render checks skillStates['dynamic_entry'].active
+        p.skillStates['active_dash_skill'] = { type: 'dynamic_entry' };
     }
 }

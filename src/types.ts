@@ -53,7 +53,6 @@ export interface PlayerState {
     spectatorTargetId?: number;
 
     // Action States
-    stunned?: number; // Frames remaining for stun lock
     casting: number; // Frames remaining for cast lock
     dash: {
         active: boolean;
@@ -64,7 +63,7 @@ export interface PlayerState {
     skillStates: Record<string, SkillState>;
 }
 
-export type ProjectileType = 'rasenshuriken' | 'clone_strike' | 'lightning_slash' | 'leaf_hurricane' | 'dynamic_entry';
+export type ProjectileType = 'rasenshuriken' | 'clone_strike' | 'lightning_slash' | 'leaf_hurricane';
 
 export interface ProjectileState {
     id: number;
@@ -87,7 +86,7 @@ export interface ProjectileState {
     // Clone Stats
     hp?: number;
     maxHp?: number;
-    actionState?: 'run' | 'punch' | 'windup' | 'dashing';
+    actionState?: 'run' | 'punch';
 }
 
 export interface ParticleState {

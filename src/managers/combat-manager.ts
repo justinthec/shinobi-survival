@@ -183,24 +183,15 @@ export class CombatManager {
         return hit;
     }
 
-    static applyDamage(game: ShinobiClashGame, target: { hp?: number, dead?: boolean, pos: Vec2, respawnTimer?: number, spawnCornerIndex?: number, id?: number }, source: number | ProjectileState) {
+    static applyDamage(game: ShinobiClashGame, target: { hp?: number, dead?: boolean, pos: Vec2, respawnTimer?: number, spawnCornerIndex?: number, id?: number }, proj: ProjectileState) {
         let dmg = 0;
-        let proj: ProjectileState | undefined;
-        let attackerId: number | undefined;
-
-        if (typeof source === 'number') {
-            dmg = source;
-            attackerId = -1; // Unknown or System
+        const def = ProjectileRegistry.get(proj.type);
+        if (def && def.calculateDamage) {
+            dmg = def.calculateDamage(game, proj);
         } else {
-            proj = source;
-            attackerId = proj.ownerId;
-            const def = ProjectileRegistry.get(proj.type);
-            if (def && def.calculateDamage) {
-                dmg = def.calculateDamage(game, proj);
-            } else {
-                dmg = proj.damage || 0;
-            }
+            dmg = proj.damage || 0;
         }
+
         if (dmg > 0 && target.hp !== undefined) {
             target.hp -= dmg;
             game.floatingTexts.push({
