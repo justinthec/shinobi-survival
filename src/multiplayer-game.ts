@@ -22,6 +22,7 @@ import { registerNaruto } from "./characters/naruto";
 import { registerSasuke } from "./characters/sasuke";
 import { registerRockLee } from "./characters/rocklee";
 import { SeededRNG } from "./core/utils";
+import { isKeyPressed } from "./core/input";
 import { ROCK_LEE_CONSTANTS } from "./characters/rocklee/constants";
 
 // Register Characters
@@ -114,12 +115,12 @@ export class ShinobiClashGame extends Game {
 
             // Spectator Controls
             if (p) {
-                if (input.keysPressed['ArrowLeft']) CombatManager.cycleSpectator(this, p, -1);
-                if (input.keysPressed['ArrowRight']) CombatManager.cycleSpectator(this, p, 1);
+                if (isKeyPressed(input, 'ArrowLeft')) CombatManager.cycleSpectator(this, p, -1);
+                if (isKeyPressed(input, 'ArrowRight')) CombatManager.cycleSpectator(this, p, 1);
             }
 
             // Restart on Enter
-            if (input.keysPressed['Enter']) {
+            if (isKeyPressed(input, 'Enter')) {
                 this.gamePhase = 'charSelect';
                 for (let id in this.players) {
                     const p = this.players[id];
@@ -161,13 +162,13 @@ export class ShinobiClashGame extends Game {
             for (let i = 0; i < availableChars.length; i++) {
                 // '1' corresponds to index 0
                 const key = (i + 1).toString();
-                if (input.keysPressed[key]) {
+                if (isKeyPressed(input, key)) {
                     p.character = availableChars[i] as any;
                 }
             }
 
             // Confirm
-            if (input.keysPressed[' ']) {
+            if (isKeyPressed(input, ' ')) {
                 if (p.character) p.ready = true;
             }
 

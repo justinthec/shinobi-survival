@@ -5,13 +5,14 @@ import { SkillRegistry } from "../skills/SkillRegistry";
 import { ProjectileRegistry } from "../core/registries";
 import { RasenshurikenSkill } from "../characters/naruto/skills/RasenshurikenSkill";
 import { SeededRNG } from "../core/utils";
+import { isKeyPressed, isKeyHeld } from "../core/input";
 
 export class CombatManager {
 
     static processInput(game: ShinobiClashGame, p: PlayerState, input: DefaultInput) {
         if (p.dead) {
-            if (input.keysPressed['ArrowLeft']) this.cycleSpectator(game, p, -1);
-            if (input.keysPressed['ArrowRight']) this.cycleSpectator(game, p, 1);
+            if (isKeyPressed(input, 'ArrowLeft')) this.cycleSpectator(game, p, -1);
+            if (isKeyPressed(input, 'ArrowRight')) this.cycleSpectator(game, p, 1);
             return;
         }
 
@@ -55,7 +56,7 @@ export class CombatManager {
         const skillQ = SkillRegistry.getSkill(p.character, 'q');
         if (skillQ) {
             if (skillQ.handleInput) skillQ.handleInput(game, p, input, targetPos);
-            if (input.keysPressed['q']) skillQ.cast(game, p, input, targetPos);
+            if (isKeyPressed(input, 'q')) skillQ.cast(game, p, input, targetPos);
         }
 
         // E
@@ -63,7 +64,7 @@ export class CombatManager {
         if (skillE) {
             if (skillE.handleInput) {
                 skillE.handleInput(game, p, input, targetPos);
-            } else if (input.keysPressed['e']) {
+            } else if (isKeyPressed(input, 'e')) {
                 skillE.cast(game, p, input, targetPos);
             }
         }
@@ -72,7 +73,7 @@ export class CombatManager {
         const skillSp = SkillRegistry.getSkill(p.character, ' ');
         if (skillSp) {
             if (skillSp.handleInput) skillSp.handleInput(game, p, input, targetPos);
-            if (input.keysPressed[' ']) skillSp.cast(game, p, input, targetPos);
+            if (isKeyPressed(input, ' ')) skillSp.cast(game, p, input, targetPos);
         }
     }
 
@@ -104,10 +105,10 @@ export class CombatManager {
         }
 
         let dx = 0; let dy = 0;
-        if (input.keysHeld['a']) dx -= 1;
-        if (input.keysHeld['d']) dx += 1;
-        if (input.keysHeld['w']) dy -= 1;
-        if (input.keysHeld['s']) dy += 1;
+        if (isKeyHeld(input, 'a')) dx -= 1;
+        if (isKeyHeld(input, 'd')) dx += 1;
+        if (isKeyHeld(input, 'w')) dy -= 1;
+        if (isKeyHeld(input, 's')) dy += 1;
 
         if (dx !== 0 || dy !== 0) {
             const len = Math.sqrt(dx * dx + dy * dy);
