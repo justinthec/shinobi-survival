@@ -5,7 +5,7 @@ import { Skill } from "../../../skills/Skill";
 
 export class CloneStrikeSkill implements Skill {
     readonly name = "Clone Strike";
-    readonly description = "Dash forward. If you hit an enemy, spawn clones to strike them.";
+    readonly description = "Summon a Shadow Clone that chases and strikes the nearest enemy.";
 
     static readonly DAMAGE = 15;
     static readonly LIFE = 600;

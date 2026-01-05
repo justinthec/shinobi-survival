@@ -4,7 +4,7 @@ import { PlayerState, ProjectileState } from "../../../types";
 import { Skill } from "../../../skills/Skill";
 
 export class LightningSlashSkill implements Skill {
-    readonly name = "Lightning Slash";
+    readonly name = "Chidori Stream";
     readonly description = "Slash enemies in a cone with lightning speed.";
 
     static readonly DAMAGE = 50;
