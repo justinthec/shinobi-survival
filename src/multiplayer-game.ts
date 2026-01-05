@@ -85,6 +85,7 @@ export class ShinobiClashGame extends Game {
                 maxHp: 100,
                 dead: false,
                 ready: false,
+                lastDamageTime: -9999,
                 stats: { speed: 3, damageMult: 1, cooldownMult: 1 },
                 cooldowns: { q: 0, e: 0, sp: 0 },
                 casting: 0,
@@ -128,6 +129,7 @@ export class ShinobiClashGame extends Game {
                     p.character = null;
                     p.dead = false;
                     p.hp = 100; // Reset temp
+                    p.lastDamageTime = -9999;
                     p.spectatorTargetId = undefined;
                         p.cooldowns = { q: 0, e: 0, sp: 0 };
                         p.casting = 0;
@@ -256,7 +258,10 @@ export class ShinobiClashGame extends Game {
         // 5. Respawn Logic
         this.tickRespawnLogic();
 
-        // 6. Check Win Condition
+        // 6. Regen Logic
+        CombatManager.tickRegen(this);
+
+        // 7. Check Win Condition
         for (const id in this.players) {
             if (this.players[id].victoryProgress >= 100) {
                 this.gamePhase = 'gameOver';

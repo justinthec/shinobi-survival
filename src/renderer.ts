@@ -121,6 +121,17 @@ export class Renderer {
                  }
                  ctx.stroke();
 
+             } else if (p.type === 'heal') {
+                 // Draw Heal Plus
+                 ctx.strokeStyle = p.color;
+                 ctx.lineWidth = 3;
+                 ctx.lineCap = 'round';
+                 ctx.beginPath();
+                 ctx.moveTo(0, -p.size);
+                 ctx.lineTo(0, p.size);
+                 ctx.moveTo(-p.size, 0);
+                 ctx.lineTo(p.size, 0);
+                 ctx.stroke();
              } else {
                  ctx.fillStyle = p.color;
                  ctx.beginPath();
