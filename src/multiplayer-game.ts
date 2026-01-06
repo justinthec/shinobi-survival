@@ -21,7 +21,7 @@ import { CharacterRegistry } from "./core/registries";
 import { registerNaruto } from "./characters/naruto";
 import { registerSasuke } from "./characters/sasuke";
 import { registerRockLee } from "./characters/rocklee";
-import { SeededRNG } from "./core/utils";
+import { SeededRNG, isInsideKothCircle } from "./core/utils";
 import { isKeyPressed } from "./core/input";
 import { ROCK_LEE_CONSTANTS } from "./characters/rocklee/constants";
 
@@ -271,14 +271,12 @@ export class ShinobiClashGame extends Game {
     }
 
     tickKothLogic() {
-        const center = new Vec2(MAP_SIZE / 2, MAP_SIZE / 2);
         const playersInCircle: number[] = [];
 
         for (const id in this.players) {
             const p = this.players[id];
             if (!p.dead) {
-                const dist = Math.sqrt(Math.pow(p.pos.x - center.x, 2) + Math.pow(p.pos.y - center.y, 2));
-                if (dist <= KOTH_SETTINGS.CIRCLE_RADIUS) {
+                if (isInsideKothCircle(p.pos)) {
                     playersInCircle.push(p.id);
                 }
             }

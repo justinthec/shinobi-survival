@@ -15,7 +15,7 @@ export const KOTH_SETTINGS = {
 };
 
 export const REGEN_CONSTANTS = {
-    HP_PER_SECOND: 0.5,
+    HP_PER_SECOND: 5,
     DELAY_SECONDS: 4,
 };
 

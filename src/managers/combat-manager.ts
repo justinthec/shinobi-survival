@@ -4,7 +4,7 @@ import { PlayerState, ProjectileState, PLAYER_RADIUS, KOTH_SETTINGS, MAP_SIZE, R
 import { SkillRegistry } from "../skills/SkillRegistry";
 import { ProjectileRegistry } from "../core/registries";
 import { RasenshurikenSkill } from "../characters/naruto/skills/RasenshurikenSkill";
-import { SeededRNG } from "../core/utils";
+import { SeededRNG, isInsideKothCircle } from "../core/utils";
 import { isKeyPressed, isKeyHeld } from "../core/input";
 
 export class CombatManager {
@@ -269,8 +269,6 @@ export class CombatManager {
     }
 
     static tickRegen(game: ShinobiClashGame) {
-        const center = new Vec2(MAP_SIZE / 2, MAP_SIZE / 2);
-
         for (const id in game.players) {
             const p = game.players[id];
 
@@ -278,8 +276,7 @@ export class CombatManager {
             if (p.hp >= p.maxHp) continue;
 
             const timeSinceDamage = (game.gameTime - p.lastDamageTime) / 60;
-            const dist = Math.sqrt(Math.pow(p.pos.x - center.x, 2) + Math.pow(p.pos.y - center.y, 2));
-            const inCircle = dist <= KOTH_SETTINGS.CIRCLE_RADIUS;
+            const inCircle = isInsideKothCircle(p.pos);
 
             if (timeSinceDamage >= REGEN_CONSTANTS.DELAY_SECONDS && !inCircle) {
                 // Apply Regen

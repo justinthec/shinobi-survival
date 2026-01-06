@@ -485,7 +485,7 @@ export class Renderer {
                 character: key as CharacterType, ready: false, dead: false, respawnTimer: 0,
                 victoryProgress: 0, spawnCornerIndex: 0, cooldowns: { q: 0, e: 0, sp: 0 },
                 skillStates: {}, dash: { active: false, vx: 0, vy: 0, life: 0 },
-                stats: { speed: 1, damageMult: 1, cooldownMult: 1 }, casting: 0
+                stats: { speed: 1, damageMult: 1, cooldownMult: 1 }, casting: 0, lastDamageTime: 0
             };
             ctx.translate(iconX, iconY);
             ctx.scale(0.5, 0.5); // Mini scale
@@ -519,7 +519,7 @@ export class Renderer {
                 character: selectedChar as CharacterType, ready: false, dead: false, respawnTimer: 0,
                 victoryProgress: 0, spawnCornerIndex: 0, cooldowns: { q: 0, e: 0, sp: 0 },
                 skillStates: {}, dash: { active: false, vx: 0, vy: 0, life: 0 },
-                stats: { speed: 1, damageMult: 1, cooldownMult: 1 }, casting: 0
+                stats: { speed: 1, damageMult: 1, cooldownMult: 1 }, casting: 0, lastDamageTime: 0
             };
 
             // Scale up for detail view

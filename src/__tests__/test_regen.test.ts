@@ -107,13 +107,18 @@ describe("Regeneration System", () => {
 
     test("Regen caps at MaxHP", () => {
         const p = game.players[0];
-        p.hp = 99.999; // Very close to max
+        p.hp = 99; // Close to max
         p.maxHp = 100;
         p.lastDamageTime = 0;
         game.gameTime = 5000;
 
-        // One tick adds ~0.008 (0.5/60)
-        // 99.999 + 0.008 = 100.007 -> capped to 100
+        // One tick adds ~0.083 (5/60)
+        // 99 + 0.083... < 100
+        CombatManager.tickRegen(game);
+        expect(p.hp).toBeCloseTo(99 + (5/60));
+
+        // Now set very close
+        p.hp = 99.99;
         CombatManager.tickRegen(game);
         expect(p.hp).toBe(100);
 
