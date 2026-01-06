@@ -14,6 +14,11 @@ export const KOTH_SETTINGS = {
     RESPAWN_TIME_SECONDS: 5,
 };
 
+export const REGEN_CONSTANTS = {
+    HP_PER_SECOND: 5,
+    DELAY_SECONDS: 4,
+};
+
 export interface SkillState {
     charging?: boolean;
     target?: Vec2;
@@ -30,6 +35,9 @@ export interface PlayerState {
     maxHp: number;
     dead: boolean;
     ready: boolean;
+
+    // Regen State
+    lastDamageTime: number; // gameTime frame
 
     // KOTH State
     victoryProgress: number; // 0 to 100

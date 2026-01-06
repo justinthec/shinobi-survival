@@ -1,10 +1,10 @@
 import { DefaultInput, Vec2 } from "netplayjs";
 import { ShinobiClashGame } from "../multiplayer-game";
-import { PlayerState, ProjectileState, PLAYER_RADIUS, KOTH_SETTINGS } from "../types";
+import { PlayerState, ProjectileState, PLAYER_RADIUS, KOTH_SETTINGS, MAP_SIZE, REGEN_CONSTANTS } from "../types";
 import { SkillRegistry } from "../skills/SkillRegistry";
 import { ProjectileRegistry } from "../core/registries";
 import { RasenshurikenSkill } from "../characters/naruto/skills/RasenshurikenSkill";
-import { SeededRNG } from "../core/utils";
+import { SeededRNG, isInsideKothCircle } from "../core/utils";
 import { isKeyPressed, isKeyHeld } from "../core/input";
 
 export class CombatManager {
@@ -184,7 +184,7 @@ export class CombatManager {
         return hit;
     }
 
-    static applyDamage(game: ShinobiClashGame, target: { hp?: number, dead?: boolean, pos: Vec2, respawnTimer?: number, spawnCornerIndex?: number, id?: number }, proj: ProjectileState) {
+    static applyDamage(game: ShinobiClashGame, target: { hp?: number, dead?: boolean, pos: Vec2, respawnTimer?: number, spawnCornerIndex?: number, id?: number, lastDamageTime?: number }, proj: ProjectileState) {
         let dmg = 0;
         const def = ProjectileRegistry.get(proj.type);
         if (def && def.calculateDamage) {
@@ -195,6 +195,12 @@ export class CombatManager {
 
         if (dmg > 0 && target.hp !== undefined) {
             target.hp -= dmg;
+
+            // Update lastDamageTime if applicable
+            if (target.lastDamageTime !== undefined) {
+                target.lastDamageTime = game.gameTime;
+            }
+
             game.floatingTexts.push({
                 id: game.nextEntityId++,
                 pos: new Vec2(target.pos.x, target.pos.y - 40),
@@ -260,5 +266,41 @@ export class CombatManager {
         let idx = aliveIds.indexOf(currentTarget);
         idx = (idx + dir + aliveIds.length) % aliveIds.length;
         p.spectatorTargetId = aliveIds[idx];
+    }
+
+    static tickRegen(game: ShinobiClashGame) {
+        for (const id in game.players) {
+            const p = game.players[id];
+
+            if (p.dead) continue;
+            if (p.hp >= p.maxHp) continue;
+
+            const timeSinceDamage = (game.gameTime - p.lastDamageTime) / 60;
+            const inCircle = isInsideKothCircle(p.pos);
+
+            if (timeSinceDamage >= REGEN_CONSTANTS.DELAY_SECONDS && !inCircle) {
+                // Apply Regen
+                const hpPerFrame = REGEN_CONSTANTS.HP_PER_SECOND / 60;
+                p.hp = Math.min(p.maxHp, p.hp + hpPerFrame);
+
+                // Visuals (every ~0.5s or 30 frames)
+                if (game.gameTime % 30 === 0) {
+                    const rng = new SeededRNG(game.gameTime + p.id);
+                    const offsetX = (rng.next() - 0.5) * 40; // +/- 20
+                    const offsetY = (rng.next() - 0.5) * 40;
+
+                    game.particles.push({
+                        id: game.nextEntityId++,
+                        type: 'heal',
+                        pos: new Vec2(p.pos.x + offsetX, p.pos.y + offsetY - 20),
+                        vel: new Vec2(0, -1),
+                        life: 45,
+                        maxLife: 45,
+                        color: '#48bb78',
+                        size: 8
+                    });
+                }
+            }
+        }
     }
 }

@@ -1,3 +1,6 @@
+import { Vec2 } from "netplayjs";
+import { MAP_SIZE, KOTH_SETTINGS } from "../types";
+
 export class SeededRNG {
     private seed: number;
 
@@ -68,4 +71,10 @@ export function wrapText(ctx: CanvasRenderingContext2D, text: string, x: number,
 
     ctx.textAlign = originalAlign; // Restore
     return y - startY + lineHeight; // Return total height used
+}
+
+export function isInsideKothCircle(pos: Vec2): boolean {
+    const center = new Vec2(MAP_SIZE / 2, MAP_SIZE / 2);
+    const dist = Math.sqrt(Math.pow(pos.x - center.x, 2) + Math.pow(pos.y - center.y, 2));
+    return dist <= KOTH_SETTINGS.CIRCLE_RADIUS;
 }

@@ -121,6 +121,17 @@ export class Renderer {
                  }
                  ctx.stroke();
 
+             } else if (p.type === 'heal') {
+                 // Draw Heal Plus
+                 ctx.strokeStyle = p.color;
+                 ctx.lineWidth = 3;
+                 ctx.lineCap = 'round';
+                 ctx.beginPath();
+                 ctx.moveTo(0, -p.size);
+                 ctx.lineTo(0, p.size);
+                 ctx.moveTo(-p.size, 0);
+                 ctx.lineTo(p.size, 0);
+                 ctx.stroke();
              } else {
                  ctx.fillStyle = p.color;
                  ctx.beginPath();
@@ -474,7 +485,7 @@ export class Renderer {
                 character: key as CharacterType, ready: false, dead: false, respawnTimer: 0,
                 victoryProgress: 0, spawnCornerIndex: 0, cooldowns: { q: 0, e: 0, sp: 0 },
                 skillStates: {}, dash: { active: false, vx: 0, vy: 0, life: 0 },
-                stats: { speed: 1, damageMult: 1, cooldownMult: 1 }, casting: 0
+                stats: { speed: 1, damageMult: 1, cooldownMult: 1 }, casting: 0, lastDamageTime: 0
             };
             ctx.translate(iconX, iconY);
             ctx.scale(0.5, 0.5); // Mini scale
@@ -508,7 +519,7 @@ export class Renderer {
                 character: selectedChar as CharacterType, ready: false, dead: false, respawnTimer: 0,
                 victoryProgress: 0, spawnCornerIndex: 0, cooldowns: { q: 0, e: 0, sp: 0 },
                 skillStates: {}, dash: { active: false, vx: 0, vy: 0, life: 0 },
-                stats: { speed: 1, damageMult: 1, cooldownMult: 1 }, casting: 0
+                stats: { speed: 1, damageMult: 1, cooldownMult: 1 }, casting: 0, lastDamageTime: 0
             };
 
             // Scale up for detail view
